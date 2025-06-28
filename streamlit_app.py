@@ -37,17 +37,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Professional CSS styling with enhanced colors
+# Professional CSS styling with corporate colors
 st.markdown("""
 <style>
     .main-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #34495e 100%);
-        padding: 1.5rem;
-        border-radius: 10px;
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+        padding: 2rem;
+        border-radius: 8px;
         color: white;
         text-align: center;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px rgba(30,60,114,0.15);
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 10px rgba(30,58,138,0.1);
         border: 1px solid rgba(255,255,255,0.1);
     }
     
@@ -57,272 +57,241 @@ st.markdown("""
         font-weight: 600;
     }
     
-    .ai-insight-card {
-        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .professional-card {
+        background: #ffffff;
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(52,73,94,0.2);
-        border-left: 3px solid #3498db;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #3b82f6;
+        border: 1px solid #e5e7eb;
     }
     
-    .ai-recommendation-card {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .insight-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(44,62,80,0.2);
-        border-left: 3px solid #e74c3c;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #3b82f6;
+        border: 1px solid #e5e7eb;
     }
     
-    .live-pricing-card {
-        background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .recommendation-card {
+        background: linear-gradient(135deg, #fefdf8 0%, #fefce8 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(41,128,185,0.2);
-        border-left: 3px solid #f39c12;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #f59e0b;
+        border: 1px solid #e5e7eb;
     }
     
-    .network-intelligence-card {
-        background: linear-gradient(135deg, #16a085 0%, #1abc9c 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .pricing-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(22,160,133,0.2);
-        border-left: 3px solid #27ae60;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #0ea5e9;
+        border: 1px solid #e5e7eb;
     }
     
-    .fsx-comparison-card {
-        background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .network-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(155,89,182,0.2);
-        border-left: 3px solid #e67e22;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #22c55e;
+        border: 1px solid #e5e7eb;
     }
     
-    .storage-destination-card {
-        background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .storage-card {
+        background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(230,126,34,0.2);
-        border-left: 3px solid #27ae60;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #a855f7;
+        border: 1px solid #e5e7eb;
     }
     
-    .performance-comparison-card {
-        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .performance-card {
+        background: linear-gradient(135deg, #fef7f0 0%, #fed7aa 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(39,174,96,0.2);
-        border-left: 3px solid #3498db;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #f97316;
+        border: 1px solid #e5e7eb;
     }
     
-    .os-performance-enhanced-card {
-        background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
+    .agent-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 1.5rem;
+        border-radius: 6px;
+        color: #374151;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(142,68,173,0.2);
-        border-left: 3px solid #e67e22;
-    }
-    
-    .physical-virtual-comparison-card {
-        background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: #2c3e50;
-        margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(189,195,199,0.3);
-        border-left: 3px solid #95a5a6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 3px solid #64748b;
+        border: 1px solid #e5e7eb;
     }
     
     .api-status-card {
         background: #ffffff;
-        padding: 0.8rem;
+        padding: 1rem;
         border-radius: 6px;
         margin: 0.5rem 0;
-        color: #2c3e50;
+        color: #374151;
         font-size: 0.9rem;
-        border: 1px solid #dee2e6;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-card {
         background: #ffffff;
-        padding: 1.2rem;
-        border-radius: 8px;
-        border-left: 3px solid #3498db;
+        padding: 1.5rem;
+        border-radius: 6px;
+        border-left: 3px solid #3b82f6;
         margin: 1rem 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        border: 1px solid #e9ecef;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     
     .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     
     .metric-card h4, .metric-card h5 {
         margin: 0 0 0.8rem 0;
-        color: #2c3e50;
+        color: #1f2937;
         font-weight: 600;
     }
     
     .metric-card p {
         margin: 0.4rem 0;
-        color: #5a6c7d;
+        color: #6b7280;
         line-height: 1.4;
     }
     
     .network-diagram-card {
         background: #ffffff;
-        padding: 1rem;
-        border-radius: 8px;
+        padding: 1.5rem;
+        border-radius: 6px;
         margin: 1rem 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        border: 1px solid #dee2e6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
     }
     
     .status-indicator {
         display: inline-block;
-        width: 10px;
-        height: 10px;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
-        margin-right: 6px;
+        margin-right: 8px;
         vertical-align: middle;
     }
     
-    .status-online { background-color: #27ae60; }
-    .status-offline { background-color: #e74c3c; }
-    .status-warning { background-color: #f39c12; }
+    .status-online { background-color: #22c55e; }
+    .status-offline { background-color: #ef4444; }
+    .status-warning { background-color: #f59e0b; }
     
     .enterprise-footer {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
         color: white;
-        padding: 1.5rem;
-        border-radius: 8px;
+        padding: 2rem;
+        border-radius: 6px;
         margin-top: 2rem;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(44,62,80,0.2);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
-    .detailed-analysis-section {
-        background: #f8f9fa;
-        padding: 1.2rem;
-        border-radius: 8px;
+    .analysis-section {
+        background: #ffffff;
+        padding: 1.5rem;
+        border-radius: 6px;
         margin: 1rem 0;
-        border: 1px solid #dee2e6;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
-    .detailed-analysis-section h4, .detailed-analysis-section h5 {
-        margin: 0 0 0.8rem 0;
-        color: #2c3e50;
+    .analysis-section h4, .analysis-section h5 {
+        margin: 0 0 1rem 0;
+        color: #1f2937;
         font-weight: 600;
     }
     
-    .detailed-analysis-section p {
+    .analysis-section p {
+        margin: 0.5rem 0;
+        color: #6b7280;
+        line-height: 1.5;
+    }
+    
+    .analysis-section ul {
+        margin: 0.8rem 0;
+        padding-left: 1.5rem;
+    }
+    
+    .analysis-section li {
         margin: 0.4rem 0;
-        color: #5a6c7d;
+        color: #6b7280;
         line-height: 1.4;
     }
     
-    .detailed-analysis-section ul {
-        margin: 0.5rem 0;
-        padding-left: 1.2rem;
-    }
-    
-    .detailed-analysis-section li {
-        margin: 0.3rem 0;
-        color: #5a6c7d;
-    }
-    
-    /* Compact metric cards for dashboard */
+    /* Compact metric cards */
     .compact-metric {
         background: #ffffff;
         padding: 1rem;
         border-radius: 6px;
-        border-left: 3px solid #3498db;
+        border-left: 3px solid #3b82f6;
         margin: 0.5rem 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        border: 1px solid #e9ecef;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
     }
     
     .compact-metric h5 {
         margin: 0 0 0.5rem 0;
-        color: #2c3e50;
+        color: #1f2937;
         font-size: 0.9rem;
         font-weight: 600;
     }
     
     .compact-metric p {
         margin: 0.2rem 0;
-        color: #5a6c7d;
+        color: #6b7280;
         font-size: 0.85rem;
         line-height: 1.3;
     }
     
-    /* AWS Sizing specific styles */
-    .aws-sizing-card {
-        background: linear-gradient(135deg, #ff7b7b 0%, #667eea 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
+    /* PDF download section */
+    .pdf-section {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        padding: 2rem;
+        border-radius: 6px;
         color: white;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(102,126,234,0.2);
-        border-left: 3px solid #667eea;
-    }
-    
-    .deployment-comparison-card {
-        background: #ffffff;
-        padding: 1.2rem;
-        border-radius: 8px;
-        border-left: 3px solid #667eea;
-        margin: 1rem 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        border: 1px solid #e9ecef;
-    }
-    
-    .pdf-download-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 8px;
-        color: white;
-        margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
         text-align: center;
-    }
-    
-    .agent-scaling-card {
-        background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
-        padding: 1.2rem;
-        border-radius: 8px;
-        color: white;
-        margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(232,67,147,0.2);
-        border-left: 3px solid #fd79a8;
     }
     
     /* Professional tables */
     .stDataFrame {
-        border-radius: 8px;
+        border-radius: 6px;
         overflow: hidden;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
-    /* Clean spacing */
+    /* Form controls */
     .stSelectbox > div > div {
         border-radius: 6px;
     }
@@ -331,11 +300,11 @@ st.markdown("""
         border-radius: 6px;
     }
     
-    /* Professional button styling */
+    /* Professional buttons */
     .stButton > button {
         border-radius: 6px;
         border: none;
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         color: white;
         font-weight: 600;
         padding: 0.6rem 1.2rem;
@@ -344,7 +313,7 @@ st.markdown("""
     
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(52,152,219,0.3);
+        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
     }
     
     /* Professional tabs */
@@ -358,11 +327,11 @@ st.markdown("""
         font-weight: 500;
     }
     
-    /* Clean sidebar */
+    /* Sidebar styling */
     .stSidebar .stSelectbox label,
     .stSidebar .stNumberInput label {
         font-weight: 500;
-        color: #2c3e50;
+        color: #1f2937;
         font-size: 0.9rem;
     }
     
@@ -372,7 +341,7 @@ st.markdown("""
             font-size: 1.8rem;
         }
         
-        .metric-card, .ai-insight-card, .ai-recommendation-card {
+        .professional-card, .insight-card, .recommendation-card {
             padding: 1rem;
         }
     }
