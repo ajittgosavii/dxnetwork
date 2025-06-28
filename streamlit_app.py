@@ -3328,7 +3328,7 @@ class PDFReportGenerator:
         ax.tick_params(axis='x', rotation=45)
         
         # Format y-axis for currency if needed
-        if ' in ylabel or 'Cost' in ylabel:
+        if '$' in ylabel or 'Cost' in ylabel:
             ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
     
     def _create_pie_chart(self, ax, data, title):
