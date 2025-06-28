@@ -5150,7 +5150,7 @@ def render_api_status_sidebar():
             st.sidebar.info("💡 Configure AWS credentials for real-time pricing data")
 
 def render_enhanced_sidebar_controls():
-    """Enhanced sidebar with AI-powered recommendations, agent scaling, and FSx destination selection - FIXED VERSION"""
+    """Enhanced sidebar with AI-powered recommendations, agent scaling, and FSx destination selection"""
     
     st.sidebar.header("🤖 AI-Powered Migration Configuration v3.0 with FSx Analysis")
     
@@ -7753,3 +7753,8 @@ if __name__ == "__main__":
 
 
 
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
