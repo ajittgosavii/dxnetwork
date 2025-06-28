@@ -2818,6 +2818,254 @@ class EnhancedMigrationAnalyzer:
             'timeline_recommendation': self._get_timeline_recommendation(migration_time, ai_complexity)
         }
     
+    def render_aws_sizing_configuration_tab(analysis: Dict, config: Dict):
+    """Render AWS sizing and configuration recommendations"""
+    st.subheader("🎯 AWS Sizing & Configuration Recommendations")
+    
+    aws_sizing = analysis.get('aws_sizing_recommendations', {})
+    deployment_rec = aws_sizing.get('deployment_recommendation', {})
+    rds_rec = aws_sizing.get('rds_recommendations', {})
+    ec2_rec = aws_sizing.get('ec2_recommendations', {})
+    reader_writer_config = aws_sizing.get('reader_writer_config', {})
+    
+    # Deployment Recommendation Overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        recommended_deployment = deployment_rec.get('recommendation', 'unknown')
+        confidence = deployment_rec.get('confidence', 0)
+        st.metric(
+            "☁️ Recommended Deployment",
+            recommended_deployment.upper(),
+            delta=f"Confidence: {confidence*100:.1f}%"
+        )
+    
+    with col2:
+        if recommended_deployment == 'rds':
+            primary_instance = rds_rec.get('primary_instance', 'Unknown')
+            monthly_cost = rds_rec.get('total_monthly_cost', 0)
+        else:
+            primary_instance = ec2_rec.get('primary_instance', 'Unknown')
+            monthly_cost = ec2_rec.get('total_monthly_cost', 0)
+        
+        st.metric(
+            "🖥️ Primary Instance",
+            primary_instance,
+            delta=f"${monthly_cost:.0f}/month"
+        )
+    
+    with col3:
+        total_instances = reader_writer_config.get('total_instances', 1)
+        writers = reader_writer_config.get('writers', 1)
+        readers = reader_writer_config.get('readers', 0)
+        st.metric(
+            "📊 Instance Configuration",
+            f"{total_instances} Total",
+            delta=f"{writers}W + {readers}R"
+        )
+    
+    with col4:
+        if recommended_deployment == 'rds':
+            storage_size = rds_rec.get('storage_size_gb', 0)
+            storage_type = rds_rec.get('storage_type', 'gp3')
+        else:
+            storage_size = ec2_rec.get('storage_size_gb', 0)
+            storage_type = ec2_rec.get('storage_type', 'gp3')
+        
+        st.metric(
+            "💾 Storage Configuration",
+            f"{storage_size:,.0f} GB",
+            delta=storage_type.upper()
+        )
+    
+    # Detailed Deployment Comparison
+    st.markdown("**🔄 RDS vs EC2 Deployment Analysis:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card" style="border-left-color: {'#27ae60' if recommended_deployment == 'rds' else '#95a5a6'};">
+            <h4>🗄️ Amazon RDS Managed Service</h4>
+            <p><strong>Recommendation Score:</strong> {deployment_rec.get('rds_score', 0)}/100</p>
+            <p><strong>Instance Type:</strong> {rds_rec.get('primary_instance', 'N/A')}</p>
+            <p><strong>vCPU:</strong> {rds_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
+            <p><strong>Memory:</strong> {rds_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
+            <p><strong>Storage:</strong> {rds_rec.get('storage_size_gb', 0):,.0f} GB ({rds_rec.get('storage_type', 'gp3').upper()})</p>
+            <p><strong>Multi-AZ:</strong> {'Yes' if rds_rec.get('multi_az', False) else 'No'}</p>
+            <p><strong>Monthly Cost:</strong> ${rds_rec.get('total_monthly_cost', 0):.0f}</p>
+            <p><strong>Backup Retention:</strong> {rds_rec.get('backup_retention_days', 7)} days</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card" style="border-left-color: {'#27ae60' if recommended_deployment == 'ec2' else '#95a5a6'};">
+            <h4>🖥️ Amazon EC2 Self-Managed</h4>
+            <p><strong>Recommendation Score:</strong> {deployment_rec.get('ec2_score', 0)}/100</p>
+            <p><strong>Instance Type:</strong> {ec2_rec.get('primary_instance', 'N/A')}</p>
+            <p><strong>vCPU:</strong> {ec2_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
+            <p><strong>Memory:</strong> {ec2_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
+            <p><strong>Storage:</strong> {ec2_rec.get('storage_size_gb', 0):,.0f} GB ({ec2_rec.get('storage_type', 'gp3').upper()})</p>
+            <p><strong>EBS Optimized:</strong> {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}</p>
+            <p><strong>Monthly Cost:</strong> ${ec2_rec.get('total_monthly_cost', 0):.0f}</p>
+            <p><strong>Enhanced Networking:</strong> {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Deployment Decision Factors
+    st.markdown("**🎯 Decision Factors & Reasoning:**")
+    
+    primary_reasons = deployment_rec.get('primary_reasons', [])
+    ai_insights = deployment_rec.get('ai_insights', {})
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>💡 Primary Recommendation Factors</h4>
+            <ul>
+                {"".join([f"<li>{reason}</li>" for reason in primary_reasons[:4]])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🤖 AI Complexity Analysis</h4>
+            <p><strong>AI Complexity Factor:</strong> {deployment_rec.get('ai_complexity_factor', 6)}/10</p>
+            <p><strong>Impact:</strong> {ai_insights.get('complexity_impact', 'Standard impact on deployment choice')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        cost_factors = ai_insights.get('cost_factors', {})
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>💰 Cost Comparison</h4>
+            <p><strong>RDS Monthly:</strong> ${cost_factors.get('rds_monthly', 0):.0f}</p>
+            <p><strong>EC2 Monthly:</strong> ${cost_factors.get('ec2_monthly', 0):.0f}</p>
+            <p><strong>Cost Difference:</strong> {cost_factors.get('cost_difference_percent', 0):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Reader/Writer Configuration Details
+    st.markdown("**📊 Database Instance Configuration & Scaling:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h4>🔄 Reader/Writer Configuration</h4>
+            <p><strong>Writer Instances:</strong> {reader_writer_config.get('writers', 1)}</p>
+            <p><strong>Reader Instances:</strong> {reader_writer_config.get('readers', 0)}</p>
+            <p><strong>Total Instances:</strong> {reader_writer_config.get('total_instances', 1)}</p>
+            <p><strong>Write Capacity:</strong> {reader_writer_config.get('write_capacity_percent', 100):.1f}%</p>
+            <p><strong>Read Capacity:</strong> {reader_writer_config.get('read_capacity_percent', 0):.1f}%</p>
+            <p><strong>Recommended Read Split:</strong> {reader_writer_config.get('recommended_read_split', 0):.0f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        ai_scaling_insights = reader_writer_config.get('ai_insights', {})
+        st.markdown(f"""
+        <div class="metric-card">
+            <h4>🤖 AI Scaling Insights</h4>
+            <p><strong>Complexity Impact:</strong> {ai_scaling_insights.get('complexity_impact', 'N/A')}/10</p>
+            <p><strong>Optimization Potential:</strong> {ai_scaling_insights.get('optimization_potential', 'N/A')}</p>
+            <p><strong>Reasoning:</strong> {reader_writer_config.get('reasoning', 'Standard configuration')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # AI Sizing Factors
+    ai_sizing_factors = rds_rec.get('ai_sizing_factors', {}) if recommended_deployment == 'rds' else ec2_rec.get('ai_sizing_factors', {})
+    if ai_sizing_factors:
+        st.markdown("**🧠 AI Sizing Analysis:**")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h4>🎯 Complexity Multipliers</h4>
+                <p><strong>Base Multiplier:</strong> {ai_sizing_factors.get('complexity_multiplier', 1.0):.2f}x</p>
+                <p><strong>AI Complexity Score:</strong> {ai_sizing_factors.get('ai_complexity_score', 6)}/10</p>
+                <p><strong>Storage Multiplier:</strong> {ai_sizing_factors.get('storage_multiplier', 1.5):.2f}x</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            ai_recommendations = rds_rec.get('ai_recommendations', []) if recommended_deployment == 'rds' else ec2_rec.get('ai_recommendations', [])
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h4>💡 AI Recommendations</h4>
+                <ul>
+                    {"".join([f"<li>{rec}</li>" for rec in ai_recommendations[:3]])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            scaling_factors = ai_scaling_insights.get('scaling_factors', [])
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h4>📈 Scaling Considerations</h4>
+                <ul>
+                    {"".join([f"<li>{factor}</li>" for factor in scaling_factors[:3]])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
+    """Render enhanced migration performance dashboard"""
+    st.subheader("📊 Enhanced Migration Performance Dashboard")
+    
+    # Migration Overview Metrics - Compact Design
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric(
+            "🚀 Migration Throughput", 
+            f"{analysis.get('migration_throughput_mbps', 0):.0f} Mbps",
+            delta=f"{analysis.get('primary_tool', '').upper()} optimized"
+        )
+    
+    with col2:
+        st.metric(
+            "⏱️ Estimated Time", 
+            f"{analysis.get('estimated_migration_time_hours', 0):.1f} hours",
+            delta=f"{config['database_size_gb']} GB database"
+        )
+    
+    with col3:
+        deployment = analysis.get('aws_sizing_recommendations', {}).get('deployment_recommendation', {}).get('recommendation', 'unknown')
+        st.metric(
+            "☁️ AWS Deployment", 
+            deployment.upper(),
+            delta=f"{analysis.get('aws_sizing_recommendations', {}).get('reader_writer_config', {}).get('total_instances', 0)} instances"
+        )
+    
+    with col4:
+        st.metric(
+            "💰 Monthly Cost", 
+            f"${analysis.get('cost_analysis', {}).get('total_monthly_cost', 0):.0f}",
+            delta=f"${analysis.get('cost_analysis', {}).get('estimated_monthly_savings', 0):.0f} potential savings"
+        )
+    
+    with col5:
+        ai_readiness = analysis.get('ai_overall_assessment', {}).get('migration_readiness_score', 0)
+        st.metric(
+            "🎯 AI Readiness", 
+            f"{ai_readiness:.0f}/100",
+            delta=analysis.get('ai_overall_assessment', {}).get('risk_level', 'Unknown')
+        )
+    
+    
+    
+    
     def _get_next_steps(self, readiness_score: float, ai_complexity: int) -> List[str]:
         """Get recommended next steps based on AI assessment"""
         
@@ -4375,27 +4623,9 @@ async def main():
         st.subheader("🎯 AWS Sizing & Configuration Recommendations")
         # Add enhanced AWS sizing display here
         
-    # Professional footer
-    st.markdown("---")
+
     
-    migration_time = analysis.get('estimated_migration_time_hours', 0)
-    monthly_cost = analysis.get('cost_analysis', {}).get('total_monthly_cost', 0)
-    readiness_score = analysis.get('ai_overall_assessment', {}).get('migration_readiness_score', 0)
-    
-    st.markdown(f"""
-    <div class="enterprise-footer">
-        <h3>📊 Executive Migration Summary</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
-            <div><strong>Readiness Score:</strong> {readiness_score:.0f}/100</div>
-            <div><strong>Estimated Duration:</strong> {migration_time:.1f} hours</div>
-            <div><strong>Monthly AWS Cost:</strong> ${monthly_cost:.0f}</div>
-            <div><strong>Migration Type:</strong> {analysis.get('migration_type', 'unknown').title()}</div>
-        </div>
-        <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
-            Professional-grade migration analysis powered by AI • Real-time AWS pricing • Enterprise network optimization
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+  
 
 if __name__ == "__main__":
     import asyncio
