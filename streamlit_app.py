@@ -1098,6 +1098,324 @@ def render_destination_configuration(selected_scenario: Dict):
             'backup_retention_days': st.sidebar.number_input("Backup Retention (days)", min_value=0, max_value=90, value=7)
         }
 
+def render_scenario_comparison_interface():
+    """Render scenario comparison and selection interface"""
+    st.subheader("🔍 Migration Scenario Comparison & Selection Tool")
+    
+    network_manager = Enhanced16ScenarioNetworkManager()
+    
+    # Selection criteria for filtering
+    st.markdown("### 🎯 Filter Scenarios by Your Requirements")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        env_filter = st.selectbox(
+            "Environment Priority",
+            ["any", "non-production", "production"],
+            format_func=lambda x: {"any": "🌐 Any Environment", "non-production": "🧪 Non-Production", "production": "🏭 Production"}[x]
+        )
+    
+    with col2:
+        tool_filter = st.selectbox(
+            "Migration Tool Preference", 
+            ["any", "datasync", "dms"],
+            format_func=lambda x: {"any": "🔄 Any Tool", "datasync": "📦 DataSync (File-based)", "dms": "🔄 DMS (Database)"}[x]
+        )
+    
+    with col3:
+        os_filter = st.selectbox(
+            "Source OS",
+            ["any", "linux", "windows"],
+            format_func=lambda x: {"any": "🖥️ Any OS", "linux": "🐧 Linux", "windows": "🪟 Windows"}[x]
+        )
+    
+    with col4:
+        dest_filter = st.selectbox(
+            "Destination Preference",
+            ["any", "s3", "fsx_lustre", "fsx_windows"],
+            format_func=lambda x: {"any": "☁️ Any Destination", "s3": "📦 S3", "fsx_lustre": "⚡ FSx Lustre", "fsx_windows": "🪟 FSx Windows"}[x]
+        )
+    
+    # Priority weighting for recommendation engine
+    st.markdown("### ⚖️ Set Your Priorities (These weights will determine the best scenarios for you)")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        cost_weight = st.slider("💰 Cost Importance", 0, 100, 25, help="How important is minimizing cost?")
+    with col2:
+        performance_weight = st.slider("⚡ Performance Importance", 0, 100, 30, help="How important is maximum performance?")
+    with col3:
+        simplicity_weight = st.slider("🎯 Simplicity Importance", 0, 100, 20, help="How important is keeping it simple?")
+    with col4:
+        reliability_weight = st.slider("🛡️ Reliability Importance", 0, 100, 15, help="How important is maximum reliability?")
+    with col5:
+        speed_weight = st.slider("⏱️ Migration Speed Importance", 0, 100, 10, help="How important is fast migration?")
+    
+    # Filter scenarios based on criteria
+    filtered_scenarios = []
+    for key, scenario in network_manager.migration_scenarios.items():
+        include = True
+        if env_filter != "any" and scenario['environment'] != env_filter:
+            include = False
+        if tool_filter != "any" and scenario['migration_tool'] != tool_filter:
+            include = False
+        if os_filter != "any" and scenario['source_os'] != os_filter:
+            include = False
+        if dest_filter != "any" and scenario['destination'] != dest_filter:
+            include = False
+        
+        if include:
+            # Calculate weighted score for this scenario
+            score = calculate_scenario_score(scenario, cost_weight, performance_weight, simplicity_weight, reliability_weight, speed_weight)
+            filtered_scenarios.append({
+                **scenario,
+                'key': key,
+                'weighted_score': score['total_score'],
+                'score_breakdown': score
+            })
+    
+    # Sort by weighted score
+    filtered_scenarios.sort(key=lambda x: x['weighted_score'], reverse=True)
+    
+    st.markdown(f"### 📊 Recommended Scenarios ({len(filtered_scenarios)} matches)")
+    
+    if len(filtered_scenarios) == 0:
+        st.warning("No scenarios match your current filter criteria. Try adjusting the filters above.")
+        return None, None
+    
+    # Show top 5 recommendations
+    st.markdown("#### 🏆 Top 5 Recommended Scenarios for Your Requirements")
+    
+    for i, scenario in enumerate(filtered_scenarios[:5]):
+        score_breakdown = scenario['score_breakdown']
+        
+        # Color coding based on rank
+        rank_colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
+        rank_color = rank_colors[i] if i < 5 else "#7f7f7f"
+        
+        st.markdown(f"""
+        <div style="border-left: 4px solid {rank_color}; padding: 1rem; margin: 0.5rem 0; background: #f8f9fa; border-radius: 0 8px 8px 0;">
+            <div style="display: flex; justify-content: between; align-items: center;">
+                <div style="flex-grow: 1;">
+                    <h4 style="margin: 0; color: {rank_color};">#{i+1} - Scenario {scenario['id']}: {scenario['name']}</h4>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">
+                        <strong>Overall Score:</strong> {scenario['weighted_score']:.1f}/100 | 
+                        <strong>Complexity:</strong> {scenario['complexity_score']}/10 | 
+                        <strong>Agents:</strong> {scenario['recommended_agents']}
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.8rem; color: #666;">
+                        💰Cost: {score_breakdown['cost_score']:.0f} | ⚡Perf: {score_breakdown['performance_score']:.0f} | 
+                        🎯Simple: {score_breakdown['simplicity_score']:.0f} | 🛡️Reliable: {score_breakdown['reliability_score']:.0f} | ⏱️Speed: {score_breakdown['speed_score']:.0f}
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Scenario selection for detailed analysis
+    st.markdown("#### 🔍 Select Scenario for Detailed Analysis")
+    
+    selected_scenario_id = st.selectbox(
+        "Choose a scenario to analyze in detail:",
+        [scenario['id'] for scenario in filtered_scenarios],
+        format_func=lambda x: f"Scenario {x}: {next(s['name'] for s in filtered_scenarios if s['id'] == x)}"
+    )
+    
+    selected_scenario = next(s for s in filtered_scenarios if s['id'] == selected_scenario_id)
+    
+    # Multi-scenario comparison
+    st.markdown("#### ⚖️ Compare Multiple Scenarios")
+    
+    comparison_scenarios = st.multiselect(
+        "Select scenarios to compare (max 4):",
+        [scenario['id'] for scenario in filtered_scenarios],
+        default=[filtered_scenarios[0]['id']] if filtered_scenarios else [],
+        max_selections=4,
+        format_func=lambda x: f"Scenario {x}: {next(s['name'] for s in filtered_scenarios if s['id'] == x)}"
+    )
+    
+    if len(comparison_scenarios) > 1:
+        render_scenario_comparison_table(filtered_scenarios, comparison_scenarios)
+    
+    return selected_scenario['key'], selected_scenario
+
+def calculate_scenario_score(scenario: Dict, cost_w: float, perf_w: float, simple_w: float, reliable_w: float, speed_w: float) -> Dict:
+    """Calculate weighted score for a scenario based on user priorities"""
+    
+    # Normalize weights
+    total_weight = cost_w + perf_w + simple_w + reliable_w + speed_w
+    if total_weight == 0:
+        total_weight = 1
+    
+    cost_w = cost_w / total_weight
+    perf_w = perf_w / total_weight
+    simple_w = simple_w / total_weight
+    reliable_w = reliable_w / total_weight
+    speed_w = speed_w / total_weight
+    
+    # Calculate individual scores (0-100)
+    
+    # Cost Score (lower complexity = lower cost = higher score)
+    cost_score = max(0, 100 - (scenario['complexity_score'] * 8))
+    if scenario['environment'] == 'production':
+        cost_score -= 15  # Production costs more
+    if scenario['migration_tool'] == 'dms':
+        cost_score -= 10  # DMS costs more than DataSync
+    
+    # Performance Score (higher bandwidth environments = higher score)
+    performance_score = 60  # Base score
+    if scenario['environment'] == 'production':
+        performance_score += 25  # 10Gbps vs 2Gbps
+    if scenario['source_location'] == 'San Jose':
+        performance_score += 10  # Direct path vs multi-hop
+    if scenario['migration_tool'] == 'datasync':
+        performance_score += 5   # DataSync generally faster for files
+    
+    # Simplicity Score (lower complexity = higher score)
+    simplicity_score = max(0, 100 - (scenario['complexity_score'] * 9))
+    if scenario['migration_tool'] == 'dms':
+        simplicity_score -= 20  # DMS more complex
+    if scenario['source_os'] == 'windows':
+        simplicity_score -= 10  # Windows SMB complexity
+    
+    # Reliability Score
+    reliability_score = 70  # Base score
+    if scenario['environment'] == 'production':
+        reliability_score += 20  # Production has better SLAs
+    if scenario['source_location'] == 'San Jose':
+        reliability_score += 10  # Fewer hops = more reliable
+    
+    # Speed Score (inverse of complexity + tool efficiency)
+    speed_score = max(0, 100 - (scenario['complexity_score'] * 7))
+    if scenario['migration_tool'] == 'datasync':
+        speed_score += 15  # DataSync generally faster
+    if scenario['environment'] == 'production':
+        speed_score += 10  # Higher bandwidth
+    
+    # Calculate weighted total
+    total_score = (
+        cost_score * cost_w * 100 +
+        performance_score * perf_w * 100 +
+        simplicity_score * simple_w * 100 +
+        reliability_score * reliable_w * 100 +
+        speed_score * speed_w * 100
+    )
+    
+    return {
+        'cost_score': cost_score,
+        'performance_score': performance_score,
+        'simplicity_score': simplicity_score,
+        'reliability_score': reliability_score,
+        'speed_score': speed_score,
+        'total_score': total_score
+    }
+
+def render_scenario_comparison_table(scenarios: List[Dict], comparison_ids: List[int]):
+    """Render side-by-side comparison table"""
+    
+    st.markdown("#### 📊 Side-by-Side Scenario Comparison")
+    
+    comparison_scenarios = [s for s in scenarios if s['id'] in comparison_ids]
+    
+    # Create comparison data
+    comparison_data = {
+        'Metric': [
+            'Scenario ID',
+            'Environment', 
+            'Migration Tool',
+            'Source OS',
+            'Source Location',
+            'Destination',
+            'Complexity Score',
+            'Recommended Agents',
+            'Overall Score',
+            'Cost Score',
+            'Performance Score',
+            'Simplicity Score',
+            'Reliability Score',
+            'Speed Score'
+        ]
+    }
+    
+    for scenario in comparison_scenarios:
+        score_breakdown = scenario['score_breakdown']
+        comparison_data[f"Scenario {scenario['id']}"] = [
+            scenario['id'],
+            scenario['environment'].title(),
+            scenario['migration_tool'].upper(),
+            scenario['source_os'].title(),
+            scenario['source_location'],
+            scenario['destination'].replace('_', ' ').title(),
+            f"{scenario['complexity_score']}/10",
+            scenario['recommended_agents'],
+            f"{scenario['weighted_score']:.1f}/100",
+            f"{score_breakdown['cost_score']:.0f}/100",
+            f"{score_breakdown['performance_score']:.0f}/100",
+            f"{score_breakdown['simplicity_score']:.0f}/100",
+            f"{score_breakdown['reliability_score']:.0f}/100",
+            f"{score_breakdown['speed_score']:.0f}/100"
+        ]
+    
+    comparison_df = pd.DataFrame(comparison_data)
+    
+    # Style the dataframe
+    st.dataframe(
+        comparison_df,
+        column_config={
+            'Metric': st.column_config.TextColumn('Metric', width='medium'),
+            **{f"Scenario {scenario['id']}": st.column_config.TextColumn(f"Scenario {scenario['id']}", width='medium') 
+               for scenario in comparison_scenarios}
+        },
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    # Visualization of comparison scores
+    st.markdown("#### 📈 Score Comparison Visualization")
+    
+    # Create radar chart data
+    categories = ['Cost', 'Performance', 'Simplicity', 'Reliability', 'Speed']
+    
+    fig = go.Figure()
+    
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+    
+    for i, scenario in enumerate(comparison_scenarios):
+        score_breakdown = scenario['score_breakdown']
+        values = [
+            score_breakdown['cost_score'],
+            score_breakdown['performance_score'], 
+            score_breakdown['simplicity_score'],
+            score_breakdown['reliability_score'],
+            score_breakdown['speed_score']
+        ]
+        values += values[:1]  # Complete the circle
+        
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=categories + [categories[0]],
+            fill='toself',
+            name=f"Scenario {scenario['id']}",
+            line_color=colors[i % len(colors)]
+        ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100]
+            )),
+        showlegend=True,
+        title="Scenario Comparison Radar Chart",
+        height=500
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
 def render_16_scenario_analysis_results(analysis: Dict, scenario_key: str, config: Dict):
     """Render comprehensive analysis results for selected scenario"""
     
@@ -1271,129 +1589,380 @@ def render_16_scenario_analysis_results(analysis: Dict, scenario_key: str, confi
         """, unsafe_allow_html=True)
 
 async def main():
-    """Enhanced main function supporting all 16 scenarios"""
+    """Enhanced main function supporting all 16 scenarios with intelligent comparison"""
     render_enhanced_header_16_scenarios()
     
-    # Enhanced sidebar with scenario selection
-    scenario_key, selected_scenario = render_scenario_selector_sidebar()
+    # Main application tabs
+    tab1, tab2, tab3 = st.tabs([
+        "🎯 Smart Scenario Selection", 
+        "🔧 Manual Configuration", 
+        "📊 Detailed Analysis Results"
+    ])
     
-    st.sidebar.markdown("---")
+    with tab1:
+        # Smart scenario selection and comparison
+        scenario_key, selected_scenario = render_scenario_comparison_interface()
+        
+        if scenario_key and selected_scenario:
+            st.session_state['selected_scenario_key'] = scenario_key
+            st.session_state['selected_scenario'] = selected_scenario
+            
+            # Quick analysis button
+            if st.button("🚀 Quick Analysis of Selected Scenario", type="primary"):
+                # Use default configuration for quick analysis
+                default_config = {
+                    'server_type': 'vmware_vsphere7',
+                    'cpu_cores': 16,
+                    'ram_gb': 64,
+                    'cpu_ghz': 2.8,
+                    'storage_gb': 2000,
+                    'max_iops': 50000,
+                    'max_memory_usage_gb': 48,
+                    'database_size_gb': 5000,
+                    'migration_tool': selected_scenario['migration_tool'],
+                    'number_of_agents': selected_scenario['recommended_agents'],
+                    'scenario_key': scenario_key,
+                    'selected_scenario': selected_scenario
+                }
+                
+                # Add tool-specific defaults
+                if selected_scenario['migration_tool'] == 'datasync':
+                    default_config.update({
+                        'agent_size': 'medium',
+                        'parallel_transfers': True,
+                        'bandwidth_throttling': True
+                    })
+                else:
+                    default_config.update({
+                        'instance_size': 'large',
+                        'number_of_instances': min(selected_scenario['recommended_agents'], 3),
+                        'cdc_enabled': True,
+                        'schema_conversion': True
+                    })
+                
+                # Add destination defaults
+                if selected_scenario['destination'] == 's3':
+                    default_config.update({
+                        'destination_type': 's3',
+                        'storage_class': 'standard',
+                        'encryption': True,
+                        'versioning': True
+                    })
+                elif selected_scenario['destination'] == 'fsx_lustre':
+                    default_config.update({
+                        'destination_type': 'fsx_lustre',
+                        'deployment_type': 'persistent_1',
+                        'storage_capacity_gb': 7200
+                    })
+                else:
+                    default_config.update({
+                        'destination_type': 'fsx_windows',
+                        'throughput_capacity': 64,
+                        'storage_capacity_gb': 1024,
+                        'backup_retention_days': 7
+                    })
+                
+                # Run quick analysis
+                analyzer = Enhanced16ScenarioAnalyzer()
+                with st.spinner(f"🧠 Quick analyzing Scenario {selected_scenario['id']}..."):
+                    try:
+                        analysis = await analyzer.analyze_migration_scenario(scenario_key, default_config)
+                        st.session_state['analysis'] = analysis
+                        st.session_state['config'] = default_config
+                        st.session_state['scenario_key'] = scenario_key
+                        st.success("✅ Quick analysis complete! Check the 'Detailed Analysis Results' tab.")
+                    except Exception as e:
+                        st.error(f"Analysis error: {str(e)}")
     
-    # Enhanced server configuration
-    server_config = render_enhanced_server_configuration()
+    with tab2:
+        # Manual configuration (original sidebar functionality)
+        st.markdown("### 🔧 Manual Scenario Configuration")
+        st.info("💡 For advanced users who want full control over all configuration parameters.")
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            # Enhanced sidebar-style configuration in the main area
+            st.subheader("📋 Scenario Selection")
+            
+            network_manager = Enhanced16ScenarioNetworkManager()
+            
+            scenario_id = st.selectbox(
+                "Select Scenario ID (1-16)",
+                list(range(1, 17)),
+                help="Choose the specific scenario number from the 16 available scenarios"
+            )
+            
+            # Find scenario by ID
+            selected_scenario = network_manager.get_scenario_by_id(scenario_id)
+            if selected_scenario:
+                # Find the key for this scenario
+                for key, scenario in network_manager.migration_scenarios.items():
+                    if scenario['id'] == scenario_id:
+                        scenario_key = key
+                        break
+            
+            st.markdown(f"""
+            <div class="scenario-selector-card">
+                <h4>📊 Scenario {selected_scenario['id']} Details</h4>
+                <p><strong>Name:</strong> {selected_scenario['name']}</p>
+                <p><strong>Environment:</strong> {selected_scenario['environment'].title()}</p>
+                <p><strong>Tool:</strong> {selected_scenario['migration_tool'].upper()}</p>
+                <p><strong>Complexity:</strong> {selected_scenario['complexity_score']}/10</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Server configuration
+            st.subheader("🖥️ Server Configuration")
+            server_config = render_enhanced_server_configuration_inline()
+            
+            # Migration tool configuration
+            st.subheader("🔄 Migration Tool Setup")
+            tool_config = render_migration_tool_configuration_inline(selected_scenario)
+            
+            # Destination configuration
+            st.subheader("🎯 Destination Setup")
+            dest_config = render_destination_configuration_inline(selected_scenario)
+        
+        with col2:
+            # Configuration preview and analysis
+            st.subheader("📊 Configuration Preview")
+            
+            # Combine all configuration
+            manual_config = {
+                **server_config,
+                **tool_config,
+                **dest_config,
+                'scenario_key': scenario_key,
+                'selected_scenario': selected_scenario
+            }
+            
+            # Show configuration summary
+            render_configuration_preview(manual_config, selected_scenario)
+            
+            # Analysis button
+            if st.button("🚀 Analyze with Manual Configuration", type="primary", use_container_width=True):
+                analyzer = Enhanced16ScenarioAnalyzer()
+                with st.spinner(f"🧠 Analyzing Scenario {selected_scenario['id']} with custom configuration..."):
+                    try:
+                        analysis = await analyzer.analyze_migration_scenario(scenario_key, manual_config)
+                        st.session_state['analysis'] = analysis
+                        st.session_state['config'] = manual_config
+                        st.session_state['scenario_key'] = scenario_key
+                        st.success("✅ Analysis complete! Check the 'Detailed Analysis Results' tab.")
+                    except Exception as e:
+                        st.error(f"Analysis error: {str(e)}")
     
-    st.sidebar.markdown("---")
+    with tab3:
+        # Detailed analysis results
+        if 'analysis' in st.session_state:
+            render_16_scenario_analysis_results(
+                st.session_state['analysis'], 
+                st.session_state['scenario_key'], 
+                st.session_state['config']
+            )
+        else:
+            st.info("📊 Run an analysis from the 'Smart Scenario Selection' or 'Manual Configuration' tab to see detailed results here.")
+            
+            # Show overview table
+            st.markdown("### 📋 All 16 Migration Scenarios Overview")
+            
+            network_manager = Enhanced16ScenarioNetworkManager()
+            
+            scenarios_data = []
+            for key, scenario in network_manager.migration_scenarios.items():
+                scenarios_data.append({
+                    'ID': scenario['id'],
+                    'Name': scenario['name'],
+                    'Environment': scenario['environment'].title(),
+                    'Tool': scenario['migration_tool'].upper(),
+                    'Source': f"{scenario['source_location']} ({scenario['source_os'].title()})",
+                    'Destination': scenario['destination'].replace('_', ' ').title(),
+                    'Complexity': f"{scenario['complexity_score']}/10",
+                    'Recommended Agents': scenario['recommended_agents']
+                })
+            
+            scenarios_df = pd.DataFrame(scenarios_data)
+            st.dataframe(
+                scenarios_df,
+                column_config={
+                    'ID': st.column_config.NumberColumn('Scenario ID', width='small'),
+                    'Name': st.column_config.TextColumn('Scenario Name', width='large'),
+                    'Environment': st.column_config.TextColumn('Environment', width='medium'),
+                    'Tool': st.column_config.TextColumn('Migration Tool', width='small'),
+                    'Source': st.column_config.TextColumn('Source', width='medium'),
+                    'Destination': st.column_config.TextColumn('Destination', width='medium'),
+                    'Complexity': st.column_config.TextColumn('Complexity', width='small'),
+                    'Recommended Agents': st.column_config.NumberColumn('Agents', width='small')
+                },
+                hide_index=True,
+                use_container_width=True
+            )
     
-    # Migration tool configuration
-    tool_config = render_migration_tool_configuration(selected_scenario)
+    # Professional footer
+    st.markdown("""
+    <div style="margin-top: 3rem; padding: 2rem; background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); border-radius: 8px; text-align: center; color: white;">
+        <h4>🚀 AWS Enterprise Database Migration Analyzer AI v4.0 - Complete 16-Scenario Platform</h4>
+        <p>Powered by Advanced AI • Complete Scenario Coverage • Professional Migration Analysis • Enterprise-Ready Architecture</p>
+        <p style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.9;">
+            🎯 All 16 Migration Scenarios • 🤖 Multi-Agent Optimization • 🔬 Advanced Performance Analysis • 📊 Executive Reporting
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_enhanced_server_configuration_inline():
+    """Inline server configuration for manual config tab"""
+    server_manager = EnhancedServerConfigurationManager()
     
-    st.sidebar.markdown("---")
+    server_type = st.selectbox(
+        "Server Platform",
+        list(server_manager.server_types.keys()),
+        index=2,
+        format_func=lambda x: server_manager.server_types[x]['name']
+    )
     
-    # Destination configuration  
-    dest_config = render_destination_configuration(selected_scenario)
+    col1, col2 = st.columns(2)
+    with col1:
+        cpu_cores = st.number_input("CPU Cores", min_value=1, max_value=128, value=16, step=2)
+        ram_gb = st.number_input("RAM (GB)", min_value=4, max_value=1024, value=64, step=8)
+        cpu_ghz = st.number_input("CPU GHz", min_value=1.0, max_value=5.0, value=2.8, step=0.2)
     
-    # Combine all configuration
-    config = {
-        **server_config,
-        **tool_config,
-        **dest_config,
-        'scenario_key': scenario_key,
-        'selected_scenario': selected_scenario
+    with col2:
+        storage_gb = st.number_input("Storage (GB)", min_value=100, max_value=100000, value=2000, step=100)
+        max_iops = st.number_input("Max IOPS", min_value=100, max_value=1000000, value=50000, step=1000)
+        database_size_gb = st.number_input("Database Size (GB)", min_value=100, max_value=100000, value=5000, step=100)
+    
+    return {
+        'server_type': server_type,
+        'cpu_cores': cpu_cores,
+        'ram_gb': ram_gb,
+        'cpu_ghz': cpu_ghz,
+        'storage_gb': storage_gb,
+        'max_iops': max_iops,
+        'database_size_gb': database_size_gb
     }
+
+def render_migration_tool_configuration_inline(selected_scenario: Dict):
+    """Inline migration tool configuration"""
+    migration_tool = selected_scenario['migration_tool']
     
-    # Initialize enhanced analyzer
-    analyzer = Enhanced16ScenarioAnalyzer()
-    
-    # Run analysis button
-    if st.sidebar.button("🚀 Analyze Migration Scenario", type="primary", use_container_width=True):
-        analysis_placeholder = st.empty()
+    if migration_tool == 'datasync':
+        col1, col2 = st.columns(2)
+        with col1:
+            agent_size = st.selectbox(
+                "DataSync Agent Size",
+                ["small", "medium", "large", "xlarge"],
+                index=1,
+                format_func=lambda x: x.title()
+            )
+        with col2:
+            number_of_agents = st.number_input(
+                "Number of Agents",
+                min_value=1,
+                max_value=8,
+                value=selected_scenario['recommended_agents']
+            )
         
-        with analysis_placeholder.container():
-            with st.spinner(f"🧠 Analyzing Scenario {selected_scenario['id']}: {selected_scenario['name']}..."):
-                try:
-                    analysis = await analyzer.analyze_migration_scenario(scenario_key, config)
-                    
-                    # Store in session state
-                    st.session_state['analysis'] = analysis
-                    st.session_state['config'] = config
-                    st.session_state['scenario_key'] = scenario_key
-                    
-                except Exception as e:
-                    st.error(f"Analysis error: {str(e)}")
-                    analysis = None
-        
-        analysis_placeholder.empty()
-    
-    # Display results if available
-    if 'analysis' in st.session_state:
-        render_16_scenario_analysis_results(
-            st.session_state['analysis'], 
-            st.session_state['scenario_key'], 
-            st.session_state['config']
-        )
-        
-        # Scenario Comparison
-        st.markdown("---")
-        st.subheader("🔍 Scenario Comparison & Alternative Analysis")
-        
-        if st.button("🔄 Compare with Other Scenarios"):
-            st.info("🚧 Scenario comparison feature coming soon! This will allow you to compare multiple scenarios side-by-side.")
-    
+        return {
+            'migration_tool': 'datasync',
+            'agent_size': agent_size,
+            'number_of_agents': number_of_agents,
+            'parallel_transfers': st.checkbox("Parallel Transfers", value=True),
+            'bandwidth_throttling': st.checkbox("Bandwidth Throttling", value=True)
+        }
     else:
-        # Welcome screen
-        st.markdown("## 🎯 Welcome to the 16-Scenario Migration Analyzer")
+        col1, col2 = st.columns(2)
+        with col1:
+            instance_size = st.selectbox(
+                "DMS Instance Size",
+                ["small", "medium", "large", "xlarge", "xxlarge"],
+                index=2,
+                format_func=lambda x: x.title()
+            )
+        with col2:
+            number_of_instances = st.number_input(
+                "Number of Instances",
+                min_value=1,
+                max_value=5,
+                value=min(selected_scenario['recommended_agents'], 3)
+            )
         
-        st.markdown("""
-        This enhanced migration analyzer supports **all 16 migration scenarios** across:
-        
-        - **🌍 Environments:** Non-Production & Production
-        - **🔧 Tools:** AWS DataSync & AWS DMS  
-        - **🖥️ Source Systems:** Linux NAS & Windows Shares
-        - **🎯 Destinations:** S3, FSx for Lustre, FSx for Windows
-        - **📍 Network Paths:** San Jose direct & San Antonio via San Jose
-        
-        **🚀 To get started:**
-        1. Choose your migration scenario using the sidebar
-        2. Configure your server specifications
-        3. Set up migration tool parameters
-        4. Configure destination settings
-        5. Click "Analyze Migration Scenario"
-        """)
-        
-        # Display all 16 scenarios overview
-        st.markdown("### 📋 All 16 Migration Scenarios Overview")
-        
-        network_manager = Enhanced16ScenarioNetworkManager()
-        
-        scenarios_data = []
-        for key, scenario in network_manager.migration_scenarios.items():
-            scenarios_data.append({
-                'ID': scenario['id'],
-                'Name': scenario['name'],
-                'Environment': scenario['environment'].title(),
-                'Tool': scenario['migration_tool'].upper(),
-                'Source': f"{scenario['source_location']} ({scenario['source_os'].title()})",
-                'Destination': scenario['destination'].replace('_', ' ').title(),
-                'Complexity': f"{scenario['complexity_score']}/10",
-                'Recommended Agents': scenario['recommended_agents']
-            })
-        
-        scenarios_df = pd.DataFrame(scenarios_data)
-        st.dataframe(
-            scenarios_df,
-            column_config={
-                'ID': st.column_config.NumberColumn('Scenario ID', width='small'),
-                'Name': st.column_config.TextColumn('Scenario Name', width='large'),
-                'Environment': st.column_config.TextColumn('Environment', width='medium'),
-                'Tool': st.column_config.TextColumn('Migration Tool', width='small'),
-                'Source': st.column_config.TextColumn('Source', width='medium'),
-                'Destination': st.column_config.TextColumn('Destination', width='medium'),
-                'Complexity': st.column_config.TextColumn('Complexity', width='small'),
-                'Recommended Agents': st.column_config.NumberColumn('Agents', width='small')
-            },
-            hide_index=True,
-            use_container_width=True
+        return {
+            'migration_tool': 'dms',
+            'instance_size': instance_size,
+            'number_of_instances': number_of_instances,
+            'cdc_enabled': st.checkbox("Change Data Capture", value=True),
+            'schema_conversion': st.checkbox("Schema Conversion", value=True)
+        }
+
+def render_destination_configuration_inline(selected_scenario: Dict):
+    """Inline destination configuration"""
+    destination = selected_scenario['destination']
+    
+    if destination == 's3':
+        storage_class = st.selectbox(
+            "S3 Storage Class",
+            ["standard", "intelligent_tiering", "standard_ia"],
+            format_func=lambda x: x.replace('_', ' ').title()
         )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            encryption = st.checkbox("S3 Encryption", value=True)
+        with col2:
+            versioning = st.checkbox("Versioning", value=True)
+        
+        return {
+            'destination_type': 's3',
+            'storage_class': storage_class,
+            'encryption': encryption,
+            'versioning': versioning
+        }
+    
+    elif destination == 'fsx_lustre':
+        deployment_type = st.selectbox(
+            "FSx Deployment Type",
+            ["scratch_1", "scratch_2", "persistent_1", "persistent_2"],
+            index=2,
+            format_func=lambda x: x.replace('_', ' ').title()
+        )
+        
+        storage_capacity = st.number_input("Storage Capacity (GB)", min_value=1200, max_value=100800, value=7200, step=1200)
+        
+        return {
+            'destination_type': 'fsx_lustre',
+            'deployment_type': deployment_type,
+            'storage_capacity_gb': storage_capacity
+        }
+    
+    else:  # fsx_windows
+        col1, col2 = st.columns(2)
+        with col1:
+            throughput_capacity = st.selectbox("Throughput (MB/s)", [8, 16, 32, 64, 128, 256, 512, 1024], index=3)
+            storage_capacity = st.number_input("Storage (GB)", min_value=32, max_value=65536, value=1024, step=32)
+        with col2:
+            backup_retention = st.number_input("Backup Retention (days)", min_value=0, max_value=90, value=7)
+        
+        return {
+            'destination_type': 'fsx_windows',
+            'throughput_capacity': throughput_capacity,
+            'storage_capacity_gb': storage_capacity,
+            'backup_retention_days': backup_retention
+        }
+
+def render_configuration_preview(config: Dict, scenario: Dict):
+    """Render configuration preview"""
+    st.markdown(f"""
+    <div class="detailed-analysis-section">
+        <h4>🔍 Configuration Summary</h4>
+        <p><strong>Scenario:</strong> {scenario['name']}</p>
+        <p><strong>Server:</strong> {config['server_type']} ({config['cpu_cores']} cores, {config['ram_gb']} GB RAM)</p>
+        <p><strong>Database:</strong> {config['database_size_gb']} GB</p>
+        <p><strong>Migration Tool:</strong> {config['migration_tool'].upper()}</p>
+        <p><strong>Agents/Instances:</strong> {config.get('number_of_agents', config.get('number_of_instances', 1))}</p>
+        <p><strong>Destination:</strong> {config['destination_type'].upper()}</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Professional footer
     st.markdown("""
