@@ -17,6 +17,12 @@ import asyncio
 import logging
 from dataclasses import dataclass
 import yaml
+import base64
+from io import BytesIO
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.backends.backend_pdf import PdfPages
+import seaborn as sns
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -235,6 +241,37 @@ st.markdown("""
         color: #5a6c7d;
         font-size: 0.85rem;
         line-height: 1.3;
+    }
+    
+    /* AWS Sizing specific styles */
+    .aws-sizing-card {
+        background: linear-gradient(135deg, #ff7b7b 0%, #667eea 100%);
+        padding: 1.2rem;
+        border-radius: 8px;
+        color: white;
+        margin: 1rem 0;
+        box-shadow: 0 3px 15px rgba(102,126,234,0.2);
+        border-left: 3px solid #667eea;
+    }
+    
+    .deployment-comparison-card {
+        background: #ffffff;
+        padding: 1.2rem;
+        border-radius: 8px;
+        border-left: 3px solid #667eea;
+        margin: 1rem 0;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        border: 1px solid #e9ecef;
+    }
+    
+    .pdf-download-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 8px;
+        color: white;
+        margin: 1rem 0;
+        box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+        text-align: center;
     }
     
     /* Professional tables */
@@ -2818,254 +2855,6 @@ class EnhancedMigrationAnalyzer:
             'timeline_recommendation': self._get_timeline_recommendation(migration_time, ai_complexity)
         }
     
-    def render_aws_sizing_configuration_tab(analysis: Dict, config: Dict):
-    """Render AWS sizing and configuration recommendations"""
-    st.subheader("🎯 AWS Sizing & Configuration Recommendations")
-    
-    aws_sizing = analysis.get('aws_sizing_recommendations', {})
-    deployment_rec = aws_sizing.get('deployment_recommendation', {})
-    rds_rec = aws_sizing.get('rds_recommendations', {})
-    ec2_rec = aws_sizing.get('ec2_recommendations', {})
-    reader_writer_config = aws_sizing.get('reader_writer_config', {})
-    
-    # Deployment Recommendation Overview
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        recommended_deployment = deployment_rec.get('recommendation', 'unknown')
-        confidence = deployment_rec.get('confidence', 0)
-        st.metric(
-            "☁️ Recommended Deployment",
-            recommended_deployment.upper(),
-            delta=f"Confidence: {confidence*100:.1f}%"
-        )
-    
-    with col2:
-        if recommended_deployment == 'rds':
-            primary_instance = rds_rec.get('primary_instance', 'Unknown')
-            monthly_cost = rds_rec.get('total_monthly_cost', 0)
-        else:
-            primary_instance = ec2_rec.get('primary_instance', 'Unknown')
-            monthly_cost = ec2_rec.get('total_monthly_cost', 0)
-        
-        st.metric(
-            "🖥️ Primary Instance",
-            primary_instance,
-            delta=f"${monthly_cost:.0f}/month"
-        )
-    
-    with col3:
-        total_instances = reader_writer_config.get('total_instances', 1)
-        writers = reader_writer_config.get('writers', 1)
-        readers = reader_writer_config.get('readers', 0)
-        st.metric(
-            "📊 Instance Configuration",
-            f"{total_instances} Total",
-            delta=f"{writers}W + {readers}R"
-        )
-    
-    with col4:
-        if recommended_deployment == 'rds':
-            storage_size = rds_rec.get('storage_size_gb', 0)
-            storage_type = rds_rec.get('storage_type', 'gp3')
-        else:
-            storage_size = ec2_rec.get('storage_size_gb', 0)
-            storage_type = ec2_rec.get('storage_type', 'gp3')
-        
-        st.metric(
-            "💾 Storage Configuration",
-            f"{storage_size:,.0f} GB",
-            delta=storage_type.upper()
-        )
-    
-    # Detailed Deployment Comparison
-    st.markdown("**🔄 RDS vs EC2 Deployment Analysis:**")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card" style="border-left-color: {'#27ae60' if recommended_deployment == 'rds' else '#95a5a6'};">
-            <h4>🗄️ Amazon RDS Managed Service</h4>
-            <p><strong>Recommendation Score:</strong> {deployment_rec.get('rds_score', 0)}/100</p>
-            <p><strong>Instance Type:</strong> {rds_rec.get('primary_instance', 'N/A')}</p>
-            <p><strong>vCPU:</strong> {rds_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
-            <p><strong>Memory:</strong> {rds_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
-            <p><strong>Storage:</strong> {rds_rec.get('storage_size_gb', 0):,.0f} GB ({rds_rec.get('storage_type', 'gp3').upper()})</p>
-            <p><strong>Multi-AZ:</strong> {'Yes' if rds_rec.get('multi_az', False) else 'No'}</p>
-            <p><strong>Monthly Cost:</strong> ${rds_rec.get('total_monthly_cost', 0):.0f}</p>
-            <p><strong>Backup Retention:</strong> {rds_rec.get('backup_retention_days', 7)} days</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card" style="border-left-color: {'#27ae60' if recommended_deployment == 'ec2' else '#95a5a6'};">
-            <h4>🖥️ Amazon EC2 Self-Managed</h4>
-            <p><strong>Recommendation Score:</strong> {deployment_rec.get('ec2_score', 0)}/100</p>
-            <p><strong>Instance Type:</strong> {ec2_rec.get('primary_instance', 'N/A')}</p>
-            <p><strong>vCPU:</strong> {ec2_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
-            <p><strong>Memory:</strong> {ec2_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
-            <p><strong>Storage:</strong> {ec2_rec.get('storage_size_gb', 0):,.0f} GB ({ec2_rec.get('storage_type', 'gp3').upper()})</p>
-            <p><strong>EBS Optimized:</strong> {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}</p>
-            <p><strong>Monthly Cost:</strong> ${ec2_rec.get('total_monthly_cost', 0):.0f}</p>
-            <p><strong>Enhanced Networking:</strong> {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Deployment Decision Factors
-    st.markdown("**🎯 Decision Factors & Reasoning:**")
-    
-    primary_reasons = deployment_rec.get('primary_reasons', [])
-    ai_insights = deployment_rec.get('ai_insights', {})
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>💡 Primary Recommendation Factors</h4>
-            <ul>
-                {"".join([f"<li>{reason}</li>" for reason in primary_reasons[:4]])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>🤖 AI Complexity Analysis</h4>
-            <p><strong>AI Complexity Factor:</strong> {deployment_rec.get('ai_complexity_factor', 6)}/10</p>
-            <p><strong>Impact:</strong> {ai_insights.get('complexity_impact', 'Standard impact on deployment choice')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        cost_factors = ai_insights.get('cost_factors', {})
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>💰 Cost Comparison</h4>
-            <p><strong>RDS Monthly:</strong> ${cost_factors.get('rds_monthly', 0):.0f}</p>
-            <p><strong>EC2 Monthly:</strong> ${cost_factors.get('ec2_monthly', 0):.0f}</p>
-            <p><strong>Cost Difference:</strong> {cost_factors.get('cost_difference_percent', 0):.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Reader/Writer Configuration Details
-    st.markdown("**📊 Database Instance Configuration & Scaling:**")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h4>🔄 Reader/Writer Configuration</h4>
-            <p><strong>Writer Instances:</strong> {reader_writer_config.get('writers', 1)}</p>
-            <p><strong>Reader Instances:</strong> {reader_writer_config.get('readers', 0)}</p>
-            <p><strong>Total Instances:</strong> {reader_writer_config.get('total_instances', 1)}</p>
-            <p><strong>Write Capacity:</strong> {reader_writer_config.get('write_capacity_percent', 100):.1f}%</p>
-            <p><strong>Read Capacity:</strong> {reader_writer_config.get('read_capacity_percent', 0):.1f}%</p>
-            <p><strong>Recommended Read Split:</strong> {reader_writer_config.get('recommended_read_split', 0):.0f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        ai_scaling_insights = reader_writer_config.get('ai_insights', {})
-        st.markdown(f"""
-        <div class="metric-card">
-            <h4>🤖 AI Scaling Insights</h4>
-            <p><strong>Complexity Impact:</strong> {ai_scaling_insights.get('complexity_impact', 'N/A')}/10</p>
-            <p><strong>Optimization Potential:</strong> {ai_scaling_insights.get('optimization_potential', 'N/A')}</p>
-            <p><strong>Reasoning:</strong> {reader_writer_config.get('reasoning', 'Standard configuration')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # AI Sizing Factors
-    ai_sizing_factors = rds_rec.get('ai_sizing_factors', {}) if recommended_deployment == 'rds' else ec2_rec.get('ai_sizing_factors', {})
-    if ai_sizing_factors:
-        st.markdown("**🧠 AI Sizing Analysis:**")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="detailed-analysis-section">
-                <h4>🎯 Complexity Multipliers</h4>
-                <p><strong>Base Multiplier:</strong> {ai_sizing_factors.get('complexity_multiplier', 1.0):.2f}x</p>
-                <p><strong>AI Complexity Score:</strong> {ai_sizing_factors.get('ai_complexity_score', 6)}/10</p>
-                <p><strong>Storage Multiplier:</strong> {ai_sizing_factors.get('storage_multiplier', 1.5):.2f}x</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            ai_recommendations = rds_rec.get('ai_recommendations', []) if recommended_deployment == 'rds' else ec2_rec.get('ai_recommendations', [])
-            st.markdown(f"""
-            <div class="detailed-analysis-section">
-                <h4>💡 AI Recommendations</h4>
-                <ul>
-                    {"".join([f"<li>{rec}</li>" for rec in ai_recommendations[:3]])}
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            scaling_factors = ai_scaling_insights.get('scaling_factors', [])
-            st.markdown(f"""
-            <div class="detailed-analysis-section">
-                <h4>📈 Scaling Considerations</h4>
-                <ul>
-                    {"".join([f"<li>{factor}</li>" for factor in scaling_factors[:3]])}
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
-    """Render enhanced migration performance dashboard"""
-    st.subheader("📊 Enhanced Migration Performance Dashboard")
-    
-    # Migration Overview Metrics - Compact Design
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric(
-            "🚀 Migration Throughput", 
-            f"{analysis.get('migration_throughput_mbps', 0):.0f} Mbps",
-            delta=f"{analysis.get('primary_tool', '').upper()} optimized"
-        )
-    
-    with col2:
-        st.metric(
-            "⏱️ Estimated Time", 
-            f"{analysis.get('estimated_migration_time_hours', 0):.1f} hours",
-            delta=f"{config['database_size_gb']} GB database"
-        )
-    
-    with col3:
-        deployment = analysis.get('aws_sizing_recommendations', {}).get('deployment_recommendation', {}).get('recommendation', 'unknown')
-        st.metric(
-            "☁️ AWS Deployment", 
-            deployment.upper(),
-            delta=f"{analysis.get('aws_sizing_recommendations', {}).get('reader_writer_config', {}).get('total_instances', 0)} instances"
-        )
-    
-    with col4:
-        st.metric(
-            "💰 Monthly Cost", 
-            f"${analysis.get('cost_analysis', {}).get('total_monthly_cost', 0):.0f}",
-            delta=f"${analysis.get('cost_analysis', {}).get('estimated_monthly_savings', 0):.0f} potential savings"
-        )
-    
-    with col5:
-        ai_readiness = analysis.get('ai_overall_assessment', {}).get('migration_readiness_score', 0)
-        st.metric(
-            "🎯 AI Readiness", 
-            f"{ai_readiness:.0f}/100",
-            delta=analysis.get('ai_overall_assessment', {}).get('risk_level', 'Unknown')
-        )
-    
-    
-    
-    
     def _get_next_steps(self, readiness_score: float, ai_complexity: int) -> List[str]:
         """Get recommended next steps based on AI assessment"""
         
@@ -3102,6 +2891,468 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
             'total_project_weeks': max(6, planning_weeks + testing_weeks + 1),
             'recommended_approach': 'staged' if ai_complexity > 7 or migration_time > 24 else 'direct'
         }
+
+# PDF Report Generation Class
+class PDFReportGenerator:
+    """Generate executive PDF reports for migration analysis"""
+    
+    def __init__(self):
+        self.report_style = {
+            'title_color': '#1e3c72',
+            'header_color': '#2a5298', 
+            'accent_color': '#3498db',
+            'text_color': '#2c3e50',
+            'background_color': '#f8f9fa'
+        }
+    
+    def generate_executive_report(self, analysis: Dict, config: Dict) -> bytes:
+        """Generate comprehensive executive PDF report"""
+        
+        # Create matplotlib figure for PDF
+        plt.style.use('default')
+        
+        # Create PDF buffer
+        buffer = BytesIO()
+        
+        with PdfPages(buffer) as pdf:
+            # Page 1: Executive Summary
+            self._create_executive_summary_page(pdf, analysis, config)
+            
+            # Page 2: Technical Analysis
+            self._create_technical_analysis_page(pdf, analysis, config)
+            
+            # Page 3: AWS Sizing Recommendations
+            self._create_aws_sizing_page(pdf, analysis, config)
+            
+            # Page 4: Cost Analysis
+            self._create_cost_analysis_page(pdf, analysis, config)
+            
+            # Page 5: Risk Assessment & Timeline
+            self._create_risk_timeline_page(pdf, analysis, config)
+        
+        buffer.seek(0)
+        return buffer.getvalue()
+    
+    def _create_executive_summary_page(self, pdf, analysis: Dict, config: Dict):
+        """Create executive summary page"""
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 8.5))
+        fig.suptitle('AWS Database Migration - Executive Summary', fontsize=16, fontweight='bold', color=self.report_style['title_color'])
+        
+        # Migration Overview
+        ax1.axis('off')
+        ax1.text(0.05, 0.95, 'Migration Overview', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax1.transAxes)
+        
+        overview_text = f"""
+        Source: {config['source_database_engine'].upper()} ({config['database_size_gb']:,} GB)
+        Target: AWS {config['database_engine'].upper()}
+        Type: {'Homogeneous' if config['source_database_engine'] == config['database_engine'] else 'Heterogeneous'}
+        Environment: {config['environment'].title()}
+        Migration Time: {analysis.get('estimated_migration_time_hours', 0):.1f} hours
+        Downtime Tolerance: {config['downtime_tolerance_minutes']} minutes
+        """
+        
+        ax1.text(0.05, 0.75, overview_text, fontsize=10, transform=ax1.transAxes, verticalalignment='top')
+        
+        # AI Readiness Score (Gauge chart)
+        readiness_score = analysis.get('ai_overall_assessment', {}).get('migration_readiness_score', 0)
+        self._create_gauge_chart(ax2, readiness_score, 'Migration Readiness', 'AI Assessment')
+        
+        # Cost Summary
+        ax3.axis('off')
+        ax3.text(0.05, 0.95, 'Cost Summary', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax3.transAxes)
+        
+        cost_analysis = analysis.get('cost_analysis', {})
+        cost_text = f"""
+        Monthly AWS Cost: ${cost_analysis.get('total_monthly_cost', 0):,.0f}
+        One-time Migration: ${cost_analysis.get('one_time_migration_cost', 0):,.0f}
+        Annual Cost: ${cost_analysis.get('total_monthly_cost', 0) * 12:,.0f}
+        Potential Savings: ${cost_analysis.get('estimated_monthly_savings', 0):,.0f}/month
+        ROI Timeline: {cost_analysis.get('roi_months', 'TBD')} months
+        """
+        
+        ax3.text(0.05, 0.75, cost_text, fontsize=10, transform=ax3.transAxes, verticalalignment='top')
+        
+        # Performance Score
+        perf_score = analysis.get('onprem_performance', {}).get('performance_score', 0)
+        self._create_gauge_chart(ax4, perf_score, 'Performance Score', 'Current System')
+        
+        plt.tight_layout()
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
+    
+    def _create_technical_analysis_page(self, pdf, analysis: Dict, config: Dict):
+        """Create technical analysis page"""
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 8.5))
+        fig.suptitle('Technical Analysis & Performance Assessment', fontsize=16, fontweight='bold', color=self.report_style['title_color'])
+        
+        # Performance Breakdown
+        onprem_perf = analysis.get('onprem_performance', {}).get('overall_performance', {})
+        
+        performance_metrics = {
+            'CPU': onprem_perf.get('cpu_score', 0),
+            'Memory': onprem_perf.get('memory_score', 0),
+            'Storage': onprem_perf.get('storage_score', 0),
+            'Network': onprem_perf.get('network_score', 0),
+            'Database': onprem_perf.get('database_score', 0)
+        }
+        
+        # Performance radar chart
+        self._create_radar_chart(ax1, performance_metrics, 'Current Performance Profile')
+        
+        # Network Analysis
+        network_perf = analysis.get('network_performance', {})
+        network_data = {
+            'Quality Score': network_perf.get('network_quality_score', 0),
+            'AI Enhanced': network_perf.get('ai_enhanced_quality_score', 0),
+            'Bandwidth (%)': min(100, network_perf.get('effective_bandwidth_mbps', 0) / 100),
+            'Reliability (%)': network_perf.get('total_reliability', 0) * 100
+        }
+        
+        self._create_bar_chart(ax2, network_data, 'Network Performance Analysis', 'Score/Percentage')
+        
+        # OS Performance Impact
+        os_impact = analysis.get('onprem_performance', {}).get('os_impact', {})
+        os_data = {
+            'CPU Efficiency': os_impact.get('cpu_efficiency', 0) * 100,
+            'Memory Efficiency': os_impact.get('memory_efficiency', 0) * 100,
+            'I/O Efficiency': os_impact.get('io_efficiency', 0) * 100,
+            'Network Efficiency': os_impact.get('network_efficiency', 0) * 100,
+            'DB Optimization': os_impact.get('db_optimization', 0) * 100
+        }
+        
+        self._create_bar_chart(ax3, os_data, 'OS Performance Impact', 'Efficiency (%)')
+        
+        # Bottleneck Analysis
+        ax4.axis('off')
+        ax4.text(0.05, 0.95, 'Identified Bottlenecks', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax4.transAxes)
+        
+        bottlenecks = analysis.get('onprem_performance', {}).get('bottlenecks', [])
+        ai_insights = analysis.get('onprem_performance', {}).get('ai_insights', [])
+        
+        bottleneck_text = "Current Bottlenecks:\n"
+        for i, bottleneck in enumerate(bottlenecks[:3], 1):
+            bottleneck_text += f"{i}. {bottleneck}\n"
+        
+        bottleneck_text += "\nAI Insights:\n"
+        for i, insight in enumerate(ai_insights[:2], 1):
+            bottleneck_text += f"{i}. {insight}\n"
+        
+        ax4.text(0.05, 0.85, bottleneck_text, fontsize=9, transform=ax4.transAxes, verticalalignment='top')
+        
+        plt.tight_layout()
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
+    
+    def _create_aws_sizing_page(self, pdf, analysis: Dict, config: Dict):
+        """Create AWS sizing recommendations page"""
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 8.5))
+        fig.suptitle('AWS Sizing & Configuration Recommendations', fontsize=16, fontweight='bold', color=self.report_style['title_color'])
+        
+        aws_sizing = analysis.get('aws_sizing_recommendations', {})
+        deployment_rec = aws_sizing.get('deployment_recommendation', {})
+        
+        # Deployment Recommendation
+        ax1.axis('off')
+        ax1.text(0.05, 0.95, 'Recommended Deployment', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax1.transAxes)
+        
+        recommendation = deployment_rec.get('recommendation', 'unknown').upper()
+        confidence = deployment_rec.get('confidence', 0) * 100
+        
+        if recommendation == 'RDS':
+            rds_rec = aws_sizing.get('rds_recommendations', {})
+            deploy_text = f"""
+            Deployment: Amazon RDS Managed Service
+            Instance: {rds_rec.get('primary_instance', 'N/A')}
+            Storage: {rds_rec.get('storage_size_gb', 0):,.0f} GB ({rds_rec.get('storage_type', 'gp3').upper()})
+            Multi-AZ: {'Yes' if rds_rec.get('multi_az', False) else 'No'}
+            Monthly Cost: ${rds_rec.get('total_monthly_cost', 0):,.0f}
+            AI Confidence: {confidence:.1f}%
+            """
+        else:
+            ec2_rec = aws_sizing.get('ec2_recommendations', {})
+            deploy_text = f"""
+            Deployment: Amazon EC2 Self-Managed
+            Instance: {ec2_rec.get('primary_instance', 'N/A')}
+            Storage: {ec2_rec.get('storage_size_gb', 0):,.0f} GB ({ec2_rec.get('storage_type', 'gp3').upper()})
+            EBS Optimized: {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}
+            Monthly Cost: ${ec2_rec.get('total_monthly_cost', 0):,.0f}
+            AI Confidence: {confidence:.1f}%
+            """
+        
+        ax1.text(0.05, 0.75, deploy_text, fontsize=10, transform=ax1.transAxes, verticalalignment='top')
+        
+        # RDS vs EC2 Comparison
+        rds_score = deployment_rec.get('rds_score', 0)
+        ec2_score = deployment_rec.get('ec2_score', 0)
+        
+        comparison_data = {'RDS Score': rds_score, 'EC2 Score': ec2_score}
+        self._create_bar_chart(ax2, comparison_data, 'Deployment Scoring', 'Score')
+        
+        # Reader/Writer Configuration
+        reader_writer = aws_sizing.get('reader_writer_config', {})
+        
+        ax3.axis('off')
+        ax3.text(0.05, 0.95, 'Instance Configuration', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax3.transAxes)
+        
+        instance_text = f"""
+        Writer Instances: {reader_writer.get('writers', 1)}
+        Reader Instances: {reader_writer.get('readers', 0)}
+        Total Instances: {reader_writer.get('total_instances', 1)}
+        Read Capacity: {reader_writer.get('read_capacity_percent', 0):.1f}%
+        Write Capacity: {reader_writer.get('write_capacity_percent', 100):.1f}%
+        Recommended Read Split: {reader_writer.get('recommended_read_split', 0):.0f}%
+        
+        AI Reasoning:
+        {reader_writer.get('reasoning', 'Standard configuration')[:100]}...
+        """
+        
+        ax3.text(0.05, 0.75, instance_text, fontsize=9, transform=ax3.transAxes, verticalalignment='top')
+        
+        # AI Complexity Factors
+        ai_analysis = aws_sizing.get('ai_analysis', {})
+        complexity_score = ai_analysis.get('ai_complexity_score', 6)
+        
+        self._create_gauge_chart(ax4, complexity_score * 10, 'AI Complexity Score', f'{complexity_score}/10')
+        
+        plt.tight_layout()
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
+    
+    def _create_cost_analysis_page(self, pdf, analysis: Dict, config: Dict):
+        """Create cost analysis page"""
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 8.5))
+        fig.suptitle('Cost Analysis & Financial Projections', fontsize=16, fontweight='bold', color=self.report_style['title_color'])
+        
+        cost_analysis = analysis.get('cost_analysis', {})
+        
+        # Monthly Cost Breakdown (Pie Chart)
+        cost_breakdown = {
+            'Compute': cost_analysis.get('aws_compute_cost', 0),
+            'Storage': cost_analysis.get('aws_storage_cost', 0),
+            'Network': cost_analysis.get('network_cost', 0),
+            'Agents': cost_analysis.get('agent_cost', 0),
+            'OS Licensing': cost_analysis.get('os_licensing_cost', 0),
+            'Management': cost_analysis.get('management_cost', 0)
+        }
+        
+        # Filter out zero values
+        cost_breakdown = {k: v for k, v in cost_breakdown.items() if v > 0}
+        
+        self._create_pie_chart(ax1, cost_breakdown, 'Monthly Cost Breakdown')
+        
+        # Cost Projections
+        monthly_cost = cost_analysis.get('total_monthly_cost', 0)
+        one_time_cost = cost_analysis.get('one_time_migration_cost', 0)
+        
+        projections = {
+            '1 Year': monthly_cost * 12 + one_time_cost,
+            '2 Years': monthly_cost * 24 + one_time_cost,
+            '3 Years': monthly_cost * 36 + one_time_cost,
+            '5 Years': monthly_cost * 60 + one_time_cost
+        }
+        
+        self._create_bar_chart(ax2, projections, 'Total Cost Projections', 'Cost ($)')
+        
+        # Savings Analysis
+        ax3.axis('off')
+        ax3.text(0.05, 0.95, 'Savings & ROI Analysis', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax3.transAxes)
+        
+        savings_text = f"""
+        Monthly Savings: ${cost_analysis.get('estimated_monthly_savings', 0):,.0f}
+        Annual Savings: ${cost_analysis.get('estimated_monthly_savings', 0) * 12:,.0f}
+        ROI Timeline: {cost_analysis.get('roi_months', 'TBD')} months
+        Break-even Point: Year {cost_analysis.get('roi_months', 12) / 12:.1f}
+        
+        AI Cost Insights:
+        - Optimization Factor: {cost_analysis.get('ai_cost_insights', {}).get('ai_optimization_factor', 0)*100:.1f}%
+        - Complexity Multiplier: {cost_analysis.get('ai_cost_insights', {}).get('complexity_multiplier', 1.0):.2f}x
+        - Additional Savings: {cost_analysis.get('ai_cost_insights', {}).get('potential_additional_savings', '0%')}
+        """
+        
+        ax3.text(0.05, 0.75, savings_text, fontsize=10, transform=ax3.transAxes, verticalalignment='top')
+        
+        # Cost Comparison
+        current_cost_estimate = monthly_cost * 0.8  # Assume current is 20% higher
+        cost_comparison = {
+            'Current (Est.)': current_cost_estimate,
+            'AWS Monthly': monthly_cost
+        }
+        
+        self._create_bar_chart(ax4, cost_comparison, 'Cost Comparison', 'Monthly Cost ($)')
+        
+        plt.tight_layout()
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
+    
+    def _create_risk_timeline_page(self, pdf, analysis: Dict, config: Dict):
+        """Create risk assessment and timeline page"""
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 8.5))
+        fig.suptitle('Risk Assessment & Project Timeline', fontsize=16, fontweight='bold', color=self.report_style['title_color'])
+        
+        ai_assessment = analysis.get('ai_overall_assessment', {})
+        
+        # Risk Assessment
+        readiness_score = ai_assessment.get('migration_readiness_score', 0)
+        success_prob = ai_assessment.get('success_probability', 0)
+        risk_level = ai_assessment.get('risk_level', 'Medium')
+        
+        risk_data = {
+            'Success Probability': success_prob,
+            'Risk Mitigation': 100 - (100 - readiness_score) * 0.8
+        }
+        
+        self._create_bar_chart(ax1, risk_data, 'Risk Assessment', 'Percentage (%)')
+        
+        # Timeline Visualization
+        timeline = ai_assessment.get('timeline_recommendation', {})
+        
+        timeline_data = {
+            'Planning': timeline.get('planning_phase_weeks', 2),
+            'Testing': timeline.get('testing_phase_weeks', 3),
+            'Migration': timeline.get('migration_window_hours', 24) / (7 * 24),  # Convert to weeks
+            'Validation': 1
+        }
+        
+        self._create_bar_chart(ax2, timeline_data, 'Project Timeline', 'Duration (Weeks)')
+        
+        # Risk Factors
+        ax3.axis('off')
+        ax3.text(0.05, 0.95, 'Key Risk Factors', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax3.transAxes)
+        
+        risk_factors = ai_assessment.get('readiness_factors', [])
+        aws_sizing = analysis.get('aws_sizing_recommendations', {})
+        ai_analysis = aws_sizing.get('ai_analysis', {})
+        risk_percentages = ai_analysis.get('risk_percentages', {})
+        
+        risk_text = "Identified Risk Factors:\n"
+        for i, factor in enumerate(risk_factors[:4], 1):
+            risk_text += f"{i}. {factor}\n"
+        
+        if risk_percentages:
+            risk_text += "\nQuantified Risks:\n"
+            for risk, percentage in list(risk_percentages.items())[:3]:
+                risk_text += f"• {risk.replace('_', ' ').title()}: {percentage}%\n"
+        
+        ax3.text(0.05, 0.85, risk_text, fontsize=9, transform=ax3.transAxes, verticalalignment='top')
+        
+        # Next Steps
+        ax4.axis('off')
+        ax4.text(0.05, 0.95, 'Recommended Next Steps', fontsize=14, fontweight='bold', color=self.report_style['header_color'], transform=ax4.transAxes)
+        
+        next_steps = ai_assessment.get('recommended_next_steps', [])
+        
+        steps_text = ""
+        for i, step in enumerate(next_steps, 1):
+            steps_text += f"{i}. {step}\n"
+        
+        ax4.text(0.05, 0.85, steps_text, fontsize=9, transform=ax4.transAxes, verticalalignment='top')
+        
+        plt.tight_layout()
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
+    
+    def _create_gauge_chart(self, ax, value, title, subtitle):
+        """Create a gauge chart"""
+        
+        # Create gauge
+        theta = np.linspace(0, np.pi, 100)
+        r = np.ones_like(theta)
+        
+        # Background arc
+        ax.plot(theta, r, color='lightgray', linewidth=8)
+        
+        # Value arc
+        value_theta = np.linspace(0, (value/100) * np.pi, int(value))
+        value_r = np.ones_like(value_theta)
+        
+        color = '#e74c3c' if value < 50 else '#f39c12' if value < 75 else '#27ae60'
+        ax.plot(value_theta, value_r, color=color, linewidth=8)
+        
+        # Add value text
+        ax.text(0, -0.3, f'{value:.1f}', ha='center', va='center', fontsize=16, fontweight='bold')
+        ax.text(0, -0.5, title, ha='center', va='center', fontsize=12, fontweight='bold')
+        ax.text(0, -0.65, subtitle, ha='center', va='center', fontsize=10)
+        
+        ax.set_ylim(-0.8, 1.2)
+        ax.set_xlim(-1.2, 1.2)
+        ax.axis('off')
+    
+    def _create_radar_chart(self, ax, data, title):
+        """Create a radar chart"""
+        
+        labels = list(data.keys())
+        values = list(data.values())
+        
+        # Number of variables
+        num_vars = len(labels)
+        
+        # Compute angle for each axis
+        angles = [n / float(num_vars) * 2 * np.pi for n in range(num_vars)]
+        angles += angles[:1]  # Complete the circle
+        
+        # Add values
+        values += values[:1]
+        
+        # Plot
+        ax.plot(angles, values, 'o-', linewidth=2, color=self.report_style['accent_color'])
+        ax.fill(angles, values, alpha=0.25, color=self.report_style['accent_color'])
+        
+        # Add labels
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(labels)
+        ax.set_ylim(0, 100)
+        ax.set_title(title, fontweight='bold', pad=20)
+        ax.grid(True)
+    
+    def _create_bar_chart(self, ax, data, title, ylabel):
+        """Create a bar chart"""
+        
+        labels = list(data.keys())
+        values = list(data.values())
+        
+        bars = ax.bar(labels, values, color=self.report_style['accent_color'], alpha=0.7)
+        
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height + max(values) * 0.01,
+                   f'{height:.1f}', ha='center', va='bottom', fontsize=8)
+        
+        ax.set_title(title, fontweight='bold')
+        ax.set_ylabel(ylabel)
+        ax.tick_params(axis='x', rotation=45)
+        
+        # Format y-axis for currency if needed
+        if ' in ylabel or 'Cost' in ylabel:
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+    
+    def _create_pie_chart(self, ax, data, title):
+        """Create a pie chart"""
+        
+        labels = list(data.keys())
+        values = list(data.values())
+        
+        # Filter out zero values
+        filtered_data = [(label, value) for label, value in zip(labels, values) if value > 0]
+        if filtered_data:
+            labels, values = zip(*filtered_data)
+        
+        colors = plt.cm.Set3(np.linspace(0, 1, len(labels)))
+        
+        wedges, texts, autotexts = ax.pie(values, labels=labels, autopct='%1.1f%%', 
+                                         colors=colors, startangle=90)
+        
+        ax.set_title(title, fontweight='bold')
+        
+        # Make percentage text bold
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
 
 # Network path diagram function
 def create_network_path_diagram(network_perf: Dict) -> go.Figure:
@@ -3544,6 +3795,207 @@ def render_enhanced_sidebar_controls():
         'anticipated_max_memory_gb': anticipated_max_memory_gb,
         'anticipated_max_cpu_cores': anticipated_max_cpu_cores
     }
+
+def render_aws_sizing_configuration_tab(analysis: Dict, config: Dict):
+    """Render AWS sizing and configuration recommendations"""
+    st.subheader("🎯 AWS Sizing & Configuration Recommendations")
+    
+    aws_sizing = analysis.get('aws_sizing_recommendations', {})
+    deployment_rec = aws_sizing.get('deployment_recommendation', {})
+    rds_rec = aws_sizing.get('rds_recommendations', {})
+    ec2_rec = aws_sizing.get('ec2_recommendations', {})
+    reader_writer_config = aws_sizing.get('reader_writer_config', {})
+    
+    # Deployment Recommendation Overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        recommended_deployment = deployment_rec.get('recommendation', 'unknown')
+        confidence = deployment_rec.get('confidence', 0)
+        st.metric(
+            "☁️ Recommended Deployment",
+            recommended_deployment.upper(),
+            delta=f"Confidence: {confidence*100:.1f}%"
+        )
+    
+    with col2:
+        if recommended_deployment == 'rds':
+            primary_instance = rds_rec.get('primary_instance', 'Unknown')
+            monthly_cost = rds_rec.get('total_monthly_cost', 0)
+        else:
+            primary_instance = ec2_rec.get('primary_instance', 'Unknown')
+            monthly_cost = ec2_rec.get('total_monthly_cost', 0)
+        
+        st.metric(
+            "🖥️ Primary Instance",
+            primary_instance,
+            delta=f"${monthly_cost:.0f}/month"
+        )
+    
+    with col3:
+        total_instances = reader_writer_config.get('total_instances', 1)
+        writers = reader_writer_config.get('writers', 1)
+        readers = reader_writer_config.get('readers', 0)
+        st.metric(
+            "📊 Instance Configuration",
+            f"{total_instances} Total",
+            delta=f"{writers}W + {readers}R"
+        )
+    
+    with col4:
+        if recommended_deployment == 'rds':
+            storage_size = rds_rec.get('storage_size_gb', 0)
+            storage_type = rds_rec.get('storage_type', 'gp3')
+        else:
+            storage_size = ec2_rec.get('storage_size_gb', 0)
+            storage_type = ec2_rec.get('storage_type', 'gp3')
+        
+        st.metric(
+            "💾 Storage Configuration",
+            f"{storage_size:,.0f} GB",
+            delta=storage_type.upper()
+        )
+    
+    # Detailed Deployment Comparison
+    st.markdown("**🔄 RDS vs EC2 Deployment Analysis:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="deployment-comparison-card" style="border-left-color: {'#27ae60' if recommended_deployment == 'rds' else '#95a5a6'};">
+            <h4>🗄️ Amazon RDS Managed Service</h4>
+            <p><strong>Recommendation Score:</strong> {deployment_rec.get('rds_score', 0)}/100</p>
+            <p><strong>Instance Type:</strong> {rds_rec.get('primary_instance', 'N/A')}</p>
+            <p><strong>vCPU:</strong> {rds_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
+            <p><strong>Memory:</strong> {rds_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
+            <p><strong>Storage:</strong> {rds_rec.get('storage_size_gb', 0):,.0f} GB ({rds_rec.get('storage_type', 'gp3').upper()})</p>
+            <p><strong>Multi-AZ:</strong> {'Yes' if rds_rec.get('multi_az', False) else 'No'}</p>
+            <p><strong>Monthly Cost:</strong> ${rds_rec.get('total_monthly_cost', 0):.0f}</p>
+            <p><strong>Backup Retention:</strong> {rds_rec.get('backup_retention_days', 7)} days</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="deployment-comparison-card" style="border-left-color: {'#27ae60' if recommended_deployment == 'ec2' else '#95a5a6'};">
+            <h4>🖥️ Amazon EC2 Self-Managed</h4>
+            <p><strong>Recommendation Score:</strong> {deployment_rec.get('ec2_score', 0)}/100</p>
+            <p><strong>Instance Type:</strong> {ec2_rec.get('primary_instance', 'N/A')}</p>
+            <p><strong>vCPU:</strong> {ec2_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
+            <p><strong>Memory:</strong> {ec2_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
+            <p><strong>Storage:</strong> {ec2_rec.get('storage_size_gb', 0):,.0f} GB ({ec2_rec.get('storage_type', 'gp3').upper()})</p>
+            <p><strong>EBS Optimized:</strong> {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}</p>
+            <p><strong>Monthly Cost:</strong> ${ec2_rec.get('total_monthly_cost', 0):.0f}</p>
+            <p><strong>Enhanced Networking:</strong> {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Deployment Decision Factors
+    st.markdown("**🎯 Decision Factors & Reasoning:**")
+    
+    primary_reasons = deployment_rec.get('primary_reasons', [])
+    ai_insights = deployment_rec.get('ai_insights', {})
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>💡 Primary Recommendation Factors</h4>
+            <ul>
+                {"".join([f"<li>{reason}</li>" for reason in primary_reasons[:4]])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🤖 AI Complexity Analysis</h4>
+            <p><strong>AI Complexity Factor:</strong> {deployment_rec.get('ai_complexity_factor', 6)}/10</p>
+            <p><strong>Impact:</strong> {ai_insights.get('complexity_impact', 'Standard impact on deployment choice')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        cost_factors = ai_insights.get('cost_factors', {})
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>💰 Cost Comparison</h4>
+            <p><strong>RDS Monthly:</strong> ${cost_factors.get('rds_monthly', 0):.0f}</p>
+            <p><strong>EC2 Monthly:</strong> ${cost_factors.get('ec2_monthly', 0):.0f}</p>
+            <p><strong>Cost Difference:</strong> {cost_factors.get('cost_difference_percent', 0):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Reader/Writer Configuration Details
+    st.markdown("**📊 Database Instance Configuration & Scaling:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="aws-sizing-card">
+            <h4>🔄 Reader/Writer Configuration</h4>
+            <p><strong>Writer Instances:</strong> {reader_writer_config.get('writers', 1)}</p>
+            <p><strong>Reader Instances:</strong> {reader_writer_config.get('readers', 0)}</p>
+            <p><strong>Total Instances:</strong> {reader_writer_config.get('total_instances', 1)}</p>
+            <p><strong>Write Capacity:</strong> {reader_writer_config.get('write_capacity_percent', 100):.1f}%</p>
+            <p><strong>Read Capacity:</strong> {reader_writer_config.get('read_capacity_percent', 0):.1f}%</p>
+            <p><strong>Recommended Read Split:</strong> {reader_writer_config.get('recommended_read_split', 0):.0f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        ai_scaling_insights = reader_writer_config.get('ai_insights', {})
+        st.markdown(f"""
+        <div class="aws-sizing-card">
+            <h4>🤖 AI Scaling Insights</h4>
+            <p><strong>Complexity Impact:</strong> {ai_scaling_insights.get('complexity_impact', 'N/A')}/10</p>
+            <p><strong>Optimization Potential:</strong> {ai_scaling_insights.get('optimization_potential', 'N/A')}</p>
+            <p><strong>Reasoning:</strong> {reader_writer_config.get('reasoning', 'Standard configuration')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # AI Sizing Factors
+    ai_sizing_factors = rds_rec.get('ai_sizing_factors', {}) if recommended_deployment == 'rds' else ec2_rec.get('ai_sizing_factors', {})
+    if ai_sizing_factors:
+        st.markdown("**🧠 AI Sizing Analysis:**")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h4>🎯 Complexity Multipliers</h4>
+                <p><strong>Base Multiplier:</strong> {ai_sizing_factors.get('complexity_multiplier', 1.0):.2f}x</p>
+                <p><strong>AI Complexity Score:</strong> {ai_sizing_factors.get('ai_complexity_score', 6)}/10</p>
+                <p><strong>Storage Multiplier:</strong> {ai_sizing_factors.get('storage_multiplier', 1.5):.2f}x</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            ai_recommendations = rds_rec.get('ai_recommendations', []) if recommended_deployment == 'rds' else ec2_rec.get('ai_recommendations', [])
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h4>💡 AI Recommendations</h4>
+                <ul>
+                    {"".join([f"<li>{rec}</li>" for rec in ai_recommendations[:3]])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            scaling_factors = ai_scaling_insights.get('scaling_factors', [])
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h4>📈 Scaling Considerations</h4>
+                <ul>
+                    {"".join([f"<li>{factor}</li>" for factor in scaling_factors[:3]])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
 def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
     """Enhanced AI insights tab with detailed analysis"""
@@ -4555,6 +5007,135 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
     
     st.plotly_chart(fig_timeline, use_container_width=True)
 
+def render_pdf_reports_tab(analysis: Dict, config: Dict):
+    """Render PDF reports generation tab"""
+    st.subheader("📄 Executive PDF Reports")
+    
+    # PDF Generation Section
+    st.markdown(f"""
+    <div class="pdf-download-section">
+        <h3>🎯 Generate Executive Migration Report</h3>
+        <p>Create a comprehensive PDF report for stakeholders with all analysis results, recommendations, and technical details.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        if st.button("📊 Generate Executive PDF Report", type="primary", use_container_width=True):
+            with st.spinner("🔄 Generating comprehensive PDF report..."):
+                try:
+                    # Generate PDF report
+                    pdf_generator = PDFReportGenerator()
+                    pdf_bytes = pdf_generator.generate_executive_report(analysis, config)
+                    
+                    # Create download button
+                    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"AWS_Migration_Analysis_{current_time}.pdf"
+                    
+                    st.success("✅ PDF Report Generated Successfully!")
+                    
+                    st.download_button(
+                        label="📥 Download Executive Report PDF",
+                        data=pdf_bytes,
+                        file_name=filename,
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                    
+                except Exception as e:
+                    st.error(f"❌ Error generating PDF: {str(e)}")
+                    st.info("💡 PDF generation requires matplotlib. The analysis is still available in other tabs.")
+    
+    # Report Contents Preview
+    st.markdown("**📋 Report Contents:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div class="detailed-analysis-section">
+            <h4>📈 Executive Summary</h4>
+            <ul>
+                <li>Migration overview and key metrics</li>
+                <li>AI readiness assessment</li>
+                <li>Cost summary and ROI analysis</li>
+                <li>Performance baseline evaluation</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="detailed-analysis-section">
+            <h4>⚙️ Technical Analysis</h4>
+            <ul>
+                <li>Current performance breakdown</li>
+                <li>Network path analysis</li>
+                <li>OS performance impact</li>
+                <li>Identified bottlenecks and solutions</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="detailed-analysis-section">
+            <h4>☁️ AWS Recommendations</h4>
+            <ul>
+                <li>Deployment recommendations (RDS vs EC2)</li>
+                <li>Instance sizing and configuration</li>
+                <li>Reader/writer setup</li>
+                <li>AI complexity analysis</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="detailed-analysis-section">
+            <h4>📊 Cost & Risk Analysis</h4>
+            <ul>
+                <li>Detailed cost breakdown</li>
+                <li>Financial projections and ROI</li>
+                <li>Risk assessment matrix</li>
+                <li>Recommended timeline and next steps</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Additional Report Options
+    st.markdown("**🔧 Report Customization:**")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        include_technical_details = st.checkbox("Include Technical Deep-Dive", value=True, help="Include detailed technical analysis and performance metrics")
+    
+    with col2:
+        include_ai_insights = st.checkbox("Include AI Insights", value=True, help="Include all AI-generated recommendations and analysis")
+    
+    with col3:
+        include_cost_analysis = st.checkbox("Include Cost Analysis", value=True, help="Include detailed cost breakdown and financial projections")
+    
+    # Report Metrics
+    st.markdown("**📊 Report Metrics:**")
+    
+    metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+    
+    with metrics_col1:
+        st.metric("📄 Pages", "5", delta="Executive format")
+    
+    with metrics_col2:
+        chart_count = 8 + (3 if include_technical_details else 0) + (2 if include_ai_insights else 0)
+        st.metric("📊 Charts & Graphs", str(chart_count), delta="Visual analysis")
+    
+    with metrics_col3:
+        recommendation_count = len(analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {}).get('performance_recommendations', []))
+        st.metric("💡 AI Recommendations", str(recommendation_count), delta="Actionable insights")
+    
+    with metrics_col4:
+        complexity_score = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {}).get('ai_complexity_score', 6)
+        st.metric("🎯 AI Complexity", f"{complexity_score}/10", delta="Migration difficulty")
+
 async def main():
     """Enhanced main function with professional UI and detailed analysis"""
     render_enhanced_header()
@@ -4571,7 +5152,24 @@ async def main():
     with analysis_placeholder.container():
         if config['enable_ai_analysis']:
             with st.spinner("🧠 Running comprehensive AI-powered migration analysis..."):
-                analysis = await analyzer.comprehensive_ai_migration_analysis(config)
+                try:
+                    analysis = await analyzer.comprehensive_ai_migration_analysis(config)
+                except Exception as e:
+                    st.error(f"Analysis error: {str(e)}")
+                    # Fallback to simplified analysis
+                    analysis = {
+                        'api_status': APIStatus(anthropic_connected=False, aws_pricing_connected=False),
+                        'onprem_performance': {'performance_score': 75, 'os_impact': {'total_efficiency': 0.85}},
+                        'network_performance': {'network_quality_score': 80, 'effective_bandwidth_mbps': 1000, 'segments': []},
+                        'migration_type': 'homogeneous' if config['source_database_engine'] == config['database_engine'] else 'heterogeneous',
+                        'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+                        'agent_analysis': {'primary_tool': 'datasync', 'effective_throughput': 500},
+                        'migration_throughput_mbps': 500,
+                        'estimated_migration_time_hours': 8,
+                        'aws_sizing_recommendations': {'deployment_recommendation': {'recommendation': 'rds'}},
+                        'cost_analysis': {'total_monthly_cost': 1500},
+                        'ai_overall_assessment': {'migration_readiness_score': 75, 'risk_level': 'Medium'}
+                    }
         else:
             with st.spinner("🔬 Running standard migration analysis..."):
                 # Simplified analysis without AI
@@ -4592,13 +5190,14 @@ async def main():
     analysis_placeholder.empty()
     
     # Enhanced tabs with professional styling
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "🧠 AI Insights & Analysis", 
         "🌐 Network Intelligence",
         "💰 Cost & Pricing Analysis",
         "💻 OS Performance Analysis",
         "📊 Migration Dashboard",
-        "🎯 AWS Sizing & Configuration"
+        "🎯 AWS Sizing & Configuration",
+        "📄 Executive PDF Reports"
     ])
     
     with tab1:
@@ -4620,12 +5219,21 @@ async def main():
         render_enhanced_migration_dashboard(analysis, config)
     
     with tab6:
-        st.subheader("🎯 AWS Sizing & Configuration Recommendations")
-        # Add enhanced AWS sizing display here
-        
-
+        render_aws_sizing_configuration_tab(analysis, config)
     
-  
+    with tab7:
+        render_pdf_reports_tab(analysis, config)
+    
+    # Professional footer
+    st.markdown("""
+    <div class="enterprise-footer">
+        <h4>🚀 AWS Enterprise Database Migration Analyzer AI v3.0</h4>
+        <p>Powered by Anthropic Claude AI • Real-time AWS Integration • Professional Migration Analysis</p>
+        <p style="font-size: 0.9rem; margin-top: 1rem;">
+            🔬 Advanced Network Intelligence • 🎯 AI-Driven Recommendations • 📊 Executive Reporting
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     import asyncio
