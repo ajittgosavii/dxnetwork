@@ -42,3 +42,14 @@ boto3
 botocore
 anthropic
 PyYAML
+
+streamlit
+pandas
+numpy
+plotly
+requests
+boto3
+anthropic
+pyyaml
+matplotlib
+seaborn
