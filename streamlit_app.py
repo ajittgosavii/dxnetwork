@@ -22,6 +22,7 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.backends.backend_pdf import PdfPages
+
 import seaborn as sns
 
 # Configure logging
@@ -6307,32 +6308,19 @@ async def main():
         render_fsx_destination_comparison_tab(analysis, config)
     
     with tab4:
-        # Include the network intelligence rendering function here
-        st.subheader("🌐 Network Intelligence & Path Optimization")
-        st.info("Network intelligence analysis would be rendered here")
+        render_network_intelligence_tab(analysis, config)
     
     with tab5:
-        # Include the cost analysis rendering function here
-        st.subheader("💰 Live AWS Pricing & Cost Analysis")
-        st.info("Cost analysis would be rendered here")
+        render_cost_pricing_tab(analysis, config)
     
     with tab6:
-        # Include the OS performance rendering function here
-        st.subheader("💻 Operating System Performance Analysis")
-        st.info("OS performance analysis would be rendered here")
+        render_os_performance_tab(analysis, config)
     
     with tab7:
-        # Include the migration dashboard rendering function here
-        st.subheader("📊 Enhanced Migration Performance Dashboard")
-        st.info("Migration dashboard would be rendered here")
+        render_migration_dashboard_tab(analysis, config)
     
     with tab8:
-        # Include the AWS sizing rendering function here
-        st.subheader("🎯 AWS Sizing & Configuration Recommendations")
-        st.info("AWS sizing recommendations would be rendered here")
-    
-    with tab9:
-        render_pdf_reports_tab(analysis, config)
+        render_aws_sizing_tab(analysis, config)
     
     # Professional footer with FSx capabilities
     st.markdown("""
@@ -6515,6 +6503,1306 @@ def render_pdf_reports_tab(analysis: Dict, config: Dict):
     with metrics_col4:
         complexity_score = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {}).get('ai_complexity_score', 6)
         st.metric("🎯 AI Complexity", f"{complexity_score}/10", delta="Migration difficulty")
+
+def render_network_intelligence_tab(analysis: Dict, config: Dict):
+    """Render network intelligence analysis tab with AI insights"""
+    st.subheader("🌐 Network Intelligence & Path Optimization")
+    
+    network_perf = analysis.get('network_performance', {})
+    
+    # Network Overview Dashboard
+    st.markdown("**📊 Network Performance Overview:**")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric(
+            "🎯 Network Quality",
+            f"{network_perf.get('network_quality_score', 0):.1f}/100",
+            delta=f"AI Enhanced: {network_perf.get('ai_enhanced_quality_score', 0):.1f}"
+        )
+    
+    with col2:
+        st.metric(
+            "⚡ Effective Bandwidth",
+            f"{network_perf.get('effective_bandwidth_mbps', 0):,.0f} Mbps",
+            delta=f"Utilization: {min(100, network_perf.get('effective_bandwidth_mbps', 0) / 10000 * 100):.1f}%"
+        )
+    
+    with col3:
+        st.metric(
+            "🕐 Total Latency",
+            f"{network_perf.get('total_latency_ms', 0):.1f} ms",
+            delta=f"Reliability: {network_perf.get('total_reliability', 0)*100:.2f}%"
+        )
+    
+    with col4:
+        st.metric(
+            "🗄️ Destination Storage",
+            network_perf.get('destination_storage', 'S3'),
+            delta=f"Bonus: +{network_perf.get('storage_performance_bonus', 0)}%"
+        )
+    
+    with col5:
+        ai_optimization = network_perf.get('ai_optimization_potential', 0)
+        st.metric(
+            "🤖 AI Optimization",
+            f"{ai_optimization:.1f}%",
+            delta="Improvement potential"
+        )
+    
+    # Network Path Visualization
+    st.markdown("**🗺️ Network Path Visualization:**")
+    
+    if network_perf.get('segments'):
+        # Create network path diagram
+        try:
+            network_diagram = create_network_path_diagram(network_perf)
+            st.plotly_chart(network_diagram, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Network diagram could not be rendered: {str(e)}")
+            
+            # Fallback: Show path as table
+            segments_data = []
+            for i, segment in enumerate(network_perf.get('segments', []), 1):
+                segments_data.append({
+                    'Hop': i,
+                    'Segment': segment['name'],
+                    'Type': segment['connection_type'].replace('_', ' ').title(),
+                    'Bandwidth (Mbps)': f"{segment.get('effective_bandwidth_mbps', 0):,.0f}",
+                    'Latency (ms)': f"{segment.get('effective_latency_ms', 0):.1f}",
+                    'Reliability': f"{segment['reliability']*100:.3f}%",
+                    'Cost Factor': f"{segment['cost_factor']:.1f}x"
+                })
+            
+            df_segments = pd.DataFrame(segments_data)
+            st.dataframe(df_segments, use_container_width=True)
+    else:
+        st.info("Network path data not available in current analysis")
+    
+    # Detailed Network Analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**🔍 Network Performance Analysis:**")
+        
+        st.markdown(f"""
+        <div class="network-intelligence-card">
+            <h4>Performance Metrics</h4>
+            <p><strong>Path Name:</strong> {network_perf.get('path_name', 'Unknown')}</p>
+            <p><strong>Environment:</strong> {network_perf.get('environment', 'Unknown').title()}</p>
+            <p><strong>OS Type:</strong> {network_perf.get('os_type', 'Unknown').title()}</p>
+            <p><strong>Storage Type:</strong> {network_perf.get('storage_type', 'Unknown').title()}</p>
+            <p><strong>Destination:</strong> {network_perf.get('destination_storage', 'S3')}</p>
+            <p><strong>Network Quality Score:</strong> {network_perf.get('network_quality_score', 0):.1f}/100</p>
+            <p><strong>AI Enhanced Score:</strong> {network_perf.get('ai_enhanced_quality_score', 0):.1f}/100</p>
+            <p><strong>Cost Factor:</strong> {network_perf.get('total_cost_factor', 0):.1f}x</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("**🤖 AI Network Insights:**")
+        
+        ai_insights = network_perf.get('ai_insights', {})
+        
+        st.markdown(f"""
+        <div class="network-intelligence-card">
+            <h4>AI Analysis & Recommendations</h4>
+            <p><strong>Performance Bottlenecks:</strong></p>
+            <ul>
+                {"".join([f"<li>{bottleneck}</li>" for bottleneck in ai_insights.get('performance_bottlenecks', ['No bottlenecks identified'])[:3]])}
+            </ul>
+            <p><strong>Optimization Opportunities:</strong></p>
+            <ul>
+                {"".join([f"<li>{opportunity}</li>" for opportunity in ai_insights.get('optimization_opportunities', ['Standard optimization'])[:3]])}
+            </ul>
+            <p><strong>Risk Factors:</strong></p>
+            <ul>
+                {"".join([f"<li>{risk}</li>" for risk in ai_insights.get('risk_factors', ['No significant risks'])[:2]])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Network Optimization Recommendations
+    st.markdown("**💡 Network Optimization Recommendations:**")
+    
+    recommendations = ai_insights.get('recommended_improvements', [])
+    if recommendations:
+        for i, recommendation in enumerate(recommendations, 1):
+            impact = "High" if i <= 2 else "Medium" if i <= 4 else "Low"
+            complexity = "Low" if i <= 2 else "Medium" if i <= 4 else "High"
+            
+            st.markdown(f"""
+            <div class="detailed-analysis-section">
+                <h5>Recommendation {i}: {recommendation}</h5>
+                <p><strong>Expected Impact:</strong> {impact}</p>
+                <p><strong>Implementation Complexity:</strong> {complexity}</p>
+                <p><strong>Priority:</strong> {"Immediate" if i <= 2 else "Short-term" if i <= 4 else "Long-term"}</p>
+            </div>
+            """)
+    else:
+        st.info("Network appears optimally configured for current requirements")
+
+def render_cost_pricing_tab(analysis: Dict, config: Dict):
+    """Render comprehensive cost and pricing analysis tab"""
+    st.subheader("💰 Live AWS Pricing & Cost Analysis")
+    
+    cost_analysis = analysis.get('cost_analysis', {})
+    
+    # Cost Overview Dashboard
+    st.markdown("**💸 Cost Overview Dashboard:**")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        total_monthly = cost_analysis.get('total_monthly_cost', 0)
+        st.metric(
+            "💰 Total Monthly Cost",
+            f"${total_monthly:,.0f}",
+            delta=f"Annual: ${total_monthly * 12:,.0f}"
+        )
+    
+    with col2:
+        one_time_cost = cost_analysis.get('one_time_migration_cost', 0)
+        st.metric(
+            "🔄 Migration Cost",
+            f"${one_time_cost:,.0f}",
+            delta="One-time"
+        )
+    
+    with col3:
+        savings = cost_analysis.get('estimated_monthly_savings', 0)
+        st.metric(
+            "📈 Monthly Savings",
+            f"${savings:,.0f}",
+            delta=f"Annual: ${savings * 12:,.0f}"
+        )
+    
+    with col4:
+        roi_months = cost_analysis.get('roi_months', 0)
+        st.metric(
+            "⏰ ROI Timeline",
+            f"{roi_months} months" if roi_months else "TBD",
+            delta=f"Break-even: Year {roi_months / 12:.1f}" if roi_months else "Calculate needed"
+        )
+    
+    with col5:
+        agent_cost = cost_analysis.get('agent_cost', 0)
+        num_agents = config.get('number_of_agents', 1)
+        st.metric(
+            "🤖 Agent Costs",
+            f"${agent_cost:,.0f}/mo",
+            delta=f"${agent_cost / num_agents:.0f} per agent" if num_agents > 0 else ""
+        )
+    
+    # Cost Breakdown Analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📊 Monthly Cost Breakdown:**")
+        
+        # Create cost breakdown pie chart
+        cost_breakdown = {
+            'Compute': cost_analysis.get('aws_compute_cost', 0),
+            'Storage': cost_analysis.get('aws_storage_cost', 0),
+            'Network': cost_analysis.get('network_cost', 0),
+            'Agents': cost_analysis.get('agent_cost', 0),
+            'Destination Storage': cost_analysis.get('destination_storage_cost', 0),
+            'OS Licensing': cost_analysis.get('os_licensing_cost', 0),
+            'Management': cost_analysis.get('management_cost', 0)
+        }
+        
+        # Filter out zero values
+        cost_breakdown = {k: v for k, v in cost_breakdown.items() if v > 0}
+        
+        if cost_breakdown:
+            fig_pie = px.pie(
+                values=list(cost_breakdown.values()),
+                names=list(cost_breakdown.keys()),
+                title="Monthly Cost Distribution"
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("Cost breakdown data not available")
+    
+    with col2:
+        st.markdown("**📈 Cost Projections:**")
+        
+        # Create cost projections chart
+        monthly_cost = cost_analysis.get('total_monthly_cost', 0)
+        one_time_cost = cost_analysis.get('one_time_migration_cost', 0)
+        
+        projections = {
+            '6 Months': monthly_cost * 6 + one_time_cost,
+            '1 Year': monthly_cost * 12 + one_time_cost,
+            '2 Years': monthly_cost * 24 + one_time_cost,
+            '3 Years': monthly_cost * 36 + one_time_cost,
+            '5 Years': monthly_cost * 60 + one_time_cost
+        }
+        
+        fig_bar = px.bar(
+            x=list(projections.keys()),
+            y=list(projections.values()),
+            title="Total Cost Projections",
+            labels={'x': 'Timeline', 'y': 'Total Cost ($)'}
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
+    
+    # Detailed Cost Analysis
+    st.markdown("**🔍 Detailed Cost Analysis:**")
+    
+    detail_col1, detail_col2, detail_col3 = st.columns(3)
+    
+    with detail_col1:
+        st.markdown(f"""
+        <div class="live-pricing-card">
+            <h4>💻 Compute Costs</h4>
+            <p><strong>AWS Compute:</strong> ${cost_analysis.get('aws_compute_cost', 0):,.0f}/month</p>
+            <p><strong>AWS Storage:</strong> ${cost_analysis.get('aws_storage_cost', 0):,.0f}/month</p>
+            <p><strong>OS Licensing:</strong> ${cost_analysis.get('os_licensing_cost', 0):,.0f}/month</p>
+            <p><strong>Management:</strong> ${cost_analysis.get('management_cost', 0):,.0f}/month</p>
+            <p><strong>Subtotal:</strong> ${cost_analysis.get('aws_compute_cost', 0) + cost_analysis.get('aws_storage_cost', 0) + cost_analysis.get('os_licensing_cost', 0) + cost_analysis.get('management_cost', 0):,.0f}/month</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with detail_col2:
+        st.markdown(f"""
+        <div class="live-pricing-card">
+            <h4>🔄 Migration & Agent Costs</h4>
+            <p><strong>Agent Base Cost:</strong> ${cost_analysis.get('agent_base_cost', 0):,.0f}/month</p>
+            <p><strong>Agent Setup:</strong> ${cost_analysis.get('agent_setup_cost', 0):,.0f} (one-time)</p>
+            <p><strong>Coordination Cost:</strong> ${cost_analysis.get('agent_coordination_cost', 0):,.0f} (one-time)</p>
+            <p><strong>Storage Setup:</strong> ${cost_analysis.get('storage_setup_cost', 0):,.0f} (one-time)</p>
+            <p><strong>Total Migration:</strong> ${cost_analysis.get('one_time_migration_cost', 0):,.0f} (one-time)</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with detail_col3:
+        st.markdown(f"""
+        <div class="live-pricing-card">
+            <h4>🗄️ Storage & Network Costs</h4>
+            <p><strong>Destination Storage:</strong> ${cost_analysis.get('destination_storage_cost', 0):,.0f}/month</p>
+            <p><strong>Storage Type:</strong> {cost_analysis.get('destination_storage_type', 'S3')}</p>
+            <p><strong>Network Costs:</strong> ${cost_analysis.get('network_cost', 0):,.0f}/month</p>
+            <p><strong>Data Transfer:</strong> Included in network</p>
+            <p><strong>Subtotal:</strong> ${cost_analysis.get('destination_storage_cost', 0) + cost_analysis.get('network_cost', 0):,.0f}/month</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Cost Optimization Analysis
+    st.markdown("**🎯 Cost Optimization Analysis:**")
+    
+    ai_cost_insights = cost_analysis.get('ai_cost_insights', {})
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>💡 AI Cost Optimization Insights</h4>
+            <p><strong>Optimization Factor:</strong> {ai_cost_insights.get('ai_optimization_factor', 0)*100:.1f}%</p>
+            <p><strong>Complexity Multiplier:</strong> {ai_cost_insights.get('complexity_multiplier', 1.0):.2f}x</p>
+            <p><strong>Management Reduction:</strong> {ai_cost_insights.get('management_reduction', 0)*100:.1f}%</p>
+            <p><strong>Agent Efficiency Bonus:</strong> {ai_cost_insights.get('agent_efficiency_bonus', 0)*100:.1f}%</p>
+            <p><strong>Storage Efficiency Bonus:</strong> {ai_cost_insights.get('storage_efficiency_bonus', 0)*100:.1f}%</p>
+            <p><strong>Additional Savings Potential:</strong> {ai_cost_insights.get('potential_additional_savings', '0%')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>📊 ROI & Financial Analysis</h4>
+            <p><strong>Current Monthly Cost (Est.):</strong> ${total_monthly * 1.2:,.0f}</p>
+            <p><strong>AWS Monthly Cost:</strong> ${total_monthly:,.0f}</p>
+            <p><strong>Monthly Savings:</strong> ${cost_analysis.get('estimated_monthly_savings', 0):,.0f}</p>
+            <p><strong>Annual Savings:</strong> ${cost_analysis.get('estimated_monthly_savings', 0) * 12:,.0f}</p>
+            <p><strong>Payback Period:</strong> {roi_months} months</p>
+            <p><strong>3-Year ROI:</strong> {((cost_analysis.get('estimated_monthly_savings', 0) * 36 - one_time_cost) / one_time_cost * 100):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Real-time Pricing Data
+    st.markdown("**💲 Real-time AWS Pricing Data:**")
+    
+    pricing_data = analysis.get('aws_sizing_recommendations', {}).get('pricing_data', {})
+    
+    if pricing_data.get('data_source') == 'aws_api':
+        st.success("✅ Using real-time AWS pricing data")
+        st.caption(f"Last updated: {pricing_data.get('last_updated', 'Unknown')}")
+    else:
+        st.warning("⚠️ Using fallback pricing data - AWS API not available")
+    
+    # Create pricing comparison table
+    if pricing_data:
+        tab1, tab2, tab3 = st.tabs(["🖥️ EC2 Instances", "🗄️ RDS Instances", "💾 Storage Types"])
+        
+        with tab1:
+            ec2_instances = pricing_data.get('ec2_instances', {})
+            if ec2_instances:
+                ec2_data = []
+                for instance, specs in ec2_instances.items():
+                    ec2_data.append({
+                        'Instance Type': instance,
+                        'vCPU': specs.get('vcpu', 'N/A'),
+                        'Memory (GB)': specs.get('memory', 'N/A'),
+                        'Cost per Hour': f"${specs.get('cost_per_hour', 0):.4f}",
+                        'Monthly Cost': f"${specs.get('cost_per_hour', 0) * 24 * 30:.0f}"
+                    })
+                
+                df_ec2 = pd.DataFrame(ec2_data)
+                st.dataframe(df_ec2, use_container_width=True)
+        
+        with tab2:
+            rds_instances = pricing_data.get('rds_instances', {})
+            if rds_instances:
+                rds_data = []
+                for instance, specs in rds_instances.items():
+                    rds_data.append({
+                        'Instance Type': instance,
+                        'vCPU': specs.get('vcpu', 'N/A'),
+                        'Memory (GB)': specs.get('memory', 'N/A'),
+                        'Cost per Hour': f"${specs.get('cost_per_hour', 0):.4f}",
+                        'Monthly Cost': f"${specs.get('cost_per_hour', 0) * 24 * 30:.0f}"
+                    })
+                
+                df_rds = pd.DataFrame(rds_data)
+                st.dataframe(df_rds, use_container_width=True)
+        
+        with tab3:
+            storage = pricing_data.get('storage', {})
+            if storage:
+                storage_data = []
+                for storage_type, specs in storage.items():
+                    storage_data.append({
+                        'Storage Type': storage_type.upper(),
+                        'Cost per GB/Month': f"${specs.get('cost_per_gb_month', 0):.3f}",
+                        'IOPS Included': specs.get('iops_included', 'N/A'),
+                        'Cost per IOPS/Month': f"${specs.get('cost_per_iops_month', 0):.3f}" if specs.get('cost_per_iops_month') else 'N/A'
+                    })
+                
+                df_storage = pd.DataFrame(storage_data)
+                st.dataframe(df_storage, use_container_width=True)
+
+def render_os_performance_tab(analysis: Dict, config: Dict):
+    """Render OS performance analysis tab with detailed metrics"""
+    st.subheader("💻 Operating System Performance Analysis")
+    
+    os_impact = analysis.get('onprem_performance', {}).get('os_impact', {})
+    
+    # OS Overview
+    st.markdown("**🖥️ Operating System Overview:**")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric(
+            "💻 Current OS",
+            os_impact.get('name', 'Unknown'),
+            delta=f"Platform: {config.get('server_type', 'Unknown').title()}"
+        )
+    
+    with col2:
+        st.metric(
+            "⚡ Total Efficiency",
+            f"{os_impact.get('total_efficiency', 0)*100:.1f}%",
+            delta=f"Base: {os_impact.get('base_efficiency', 0)*100:.1f}%"
+        )
+    
+    with col3:
+        st.metric(
+            "🗄️ DB Optimization",
+            f"{os_impact.get('db_optimization', 0)*100:.1f}%",
+            delta=f"Engine: {config.get('database_engine', 'Unknown').upper()}"
+        )
+    
+    with col4:
+        st.metric(
+            "💰 Licensing Factor",
+            f"{os_impact.get('licensing_cost_factor', 1.0):.1f}x",
+            delta=f"Complexity: {os_impact.get('management_complexity', 0)*100:.0f}%"
+        )
+    
+    with col5:
+        virt_overhead = os_impact.get('virtualization_overhead', 0)
+        st.metric(
+            "☁️ Virtualization",
+            f"{virt_overhead*100:.1f}%" if config.get('server_type') == 'vmware' else "N/A",
+            delta="Overhead" if config.get('server_type') == 'vmware' else "Physical"
+        )
+    
+    # OS Performance Breakdown
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📊 OS Performance Metrics:**")
+        
+        # Create radar chart for OS performance
+        performance_metrics = {
+            'CPU Efficiency': os_impact.get('cpu_efficiency', 0) * 100,
+            'Memory Efficiency': os_impact.get('memory_efficiency', 0) * 100,
+            'I/O Efficiency': os_impact.get('io_efficiency', 0) * 100,
+            'Network Efficiency': os_impact.get('network_efficiency', 0) * 100,
+            'DB Optimization': os_impact.get('db_optimization', 0) * 100
+        }
+        
+        fig_radar = go.Figure()
+        
+        categories = list(performance_metrics.keys())
+        values = list(performance_metrics.values())
+        
+        fig_radar.add_trace(go.Scatterpolar(
+            r=values + [values[0]],  # Close the polygon
+            theta=categories + [categories[0]],
+            fill='toself',
+            name='OS Performance',
+            line_color='#3498db'
+        ))
+        
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 100]
+                )),
+            showlegend=False,
+            title="OS Performance Profile"
+        )
+        
+        st.plotly_chart(fig_radar, use_container_width=True)
+    
+    with col2:
+        st.markdown("**🤖 AI OS Insights:**")
+        
+        ai_insights = os_impact.get('ai_insights', {})
+        
+        st.markdown(f"""
+        <div class="os-performance-enhanced-card">
+            <h4>AI Analysis of {os_impact.get('name', 'Current OS')}</h4>
+            <p><strong>Strengths:</strong></p>
+            <ul>
+                {"".join([f"<li>{strength}</li>" for strength in ai_insights.get('strengths', ['General purpose OS'])[:3]])}
+            </ul>
+            <p><strong>Weaknesses:</strong></p>
+            <ul>
+                {"".join([f"<li>{weakness}</li>" for weakness in ai_insights.get('weaknesses', ['No significant issues'])[:3]])}
+            </ul>
+            <p><strong>Migration Considerations:</strong></p>
+            <ul>
+                {"".join([f"<li>{consideration}</li>" for consideration in ai_insights.get('migration_considerations', ['Standard migration'])[:3]])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Database Engine Optimization
+    st.markdown("**🗄️ Database Engine Optimization Analysis:**")
+    
+    database_optimizations = os_impact.get('database_optimizations', {})
+    
+    if database_optimizations:
+        opt_data = []
+        current_engine = config.get('database_engine', 'unknown')
+        
+        for engine, optimization in database_optimizations.items():
+            opt_data.append({
+                'Database Engine': engine.upper(),
+                'Optimization Score': f"{optimization*100:.1f}%",
+                'Performance Rating': 'Excellent' if optimization > 0.95 else 'Very Good' if optimization > 0.90 else 'Good' if optimization > 0.85 else 'Fair',
+                'Current Selection': '✅' if engine == current_engine else ''
+            })
+        
+        df_opt = pd.DataFrame(opt_data)
+        st.dataframe(df_opt, use_container_width=True)
+    
+    # OS Comparison Analysis
+    st.markdown("**⚖️ OS Comparison Analysis:**")
+    
+    # Create comparison with other OS options
+    os_manager = OSPerformanceManager()
+    comparison_data = []
+    
+    current_os = config.get('operating_system')
+    current_platform = config.get('server_type')
+    current_db_engine = config.get('database_engine')
+    
+    for os_name, os_config in os_manager.operating_systems.items():
+        os_perf = os_manager.calculate_os_performance_impact(os_name, current_platform, current_db_engine)
+        
+        comparison_data.append({
+            'Operating System': os_config['name'],
+            'Total Efficiency': f"{os_perf['total_efficiency']*100:.1f}%",
+            'CPU Efficiency': f"{os_perf['cpu_efficiency']*100:.1f}%",
+            'Memory Efficiency': f"{os_perf['memory_efficiency']*100:.1f}%",
+            'I/O Efficiency': f"{os_perf['io_efficiency']*100:.1f}%",
+            'Licensing Cost': f"{os_perf['licensing_cost_factor']:.1f}x",
+            'Current Choice': '✅' if os_name == current_os else ''
+        })
+    
+    df_comparison = pd.DataFrame(comparison_data)
+    st.dataframe(df_comparison, use_container_width=True)
+    
+    # Performance Impact Analysis
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🎯 Performance Impact Assessment</h4>
+            <p><strong>Base Efficiency:</strong> {os_impact.get('base_efficiency', 0)*100:.1f}%</p>
+            <p><strong>Database Optimization:</strong> {os_impact.get('db_optimization', 0)*100:.1f}%</p>
+            <p><strong>Platform Optimization:</strong> {os_impact.get('platform_optimization', 1.0)*100:.1f}%</p>
+            <p><strong>Overall Impact:</strong> {((os_impact.get('total_efficiency', 0) - 0.8) / 0.2 * 100):.1f}% above baseline</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>💰 Cost Impact Analysis</h4>
+            <p><strong>Licensing Cost Factor:</strong> {os_impact.get('licensing_cost_factor', 1.0):.1f}x</p>
+            <p><strong>Monthly Licensing Est.:</strong> ${os_impact.get('licensing_cost_factor', 1.0) * 150:.0f}</p>
+            <p><strong>Management Complexity:</strong> {os_impact.get('management_complexity', 0)*100:.0f}%</p>
+            <p><strong>Security Overhead:</strong> {os_impact.get('security_overhead', 0)*100:.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🔧 Migration Recommendations</h4>
+            <p><strong>Current OS Suitability:</strong> {"Excellent" if os_impact.get('total_efficiency', 0) > 0.9 else "Good" if os_impact.get('total_efficiency', 0) > 0.8 else "Fair"}</p>
+            <p><strong>Migration Complexity:</strong> {"Low" if 'windows' in current_os and 'windows' in current_os else "Medium"}</p>
+            <p><strong>Recommended Action:</strong> {"Keep current OS" if os_impact.get('total_efficiency', 0) > 0.85 else "Consider optimization"}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+def render_migration_dashboard_tab(analysis: Dict, config: Dict):
+    """Render comprehensive migration dashboard with key metrics and visualizations"""
+    st.subheader("📊 Enhanced Migration Performance Dashboard")
+    
+    # Executive Summary Dashboard
+    st.markdown("**🎯 Executive Migration Summary:**")
+    
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    
+    with col1:
+        readiness_score = analysis.get('ai_overall_assessment', {}).get('migration_readiness_score', 0)
+        st.metric(
+            "🎯 Readiness Score",
+            f"{readiness_score:.0f}/100",
+            delta=analysis.get('ai_overall_assessment', {}).get('risk_level', 'Unknown')
+        )
+    
+    with col2:
+        migration_time = analysis.get('estimated_migration_time_hours', 0)
+        st.metric(
+            "⏱️ Migration Time",
+            f"{migration_time:.1f} hours",
+            delta=f"Window: {config.get('downtime_tolerance_minutes', 60)} min"
+        )
+    
+    with col3:
+        throughput = analysis.get('migration_throughput_mbps', 0)
+        st.metric(
+            "🚀 Throughput",
+            f"{throughput:,.0f} Mbps",
+            delta=f"Agents: {config.get('number_of_agents', 1)}"
+        )
+    
+    with col4:
+        monthly_cost = analysis.get('cost_analysis', {}).get('total_monthly_cost', 0)
+        st.metric(
+            "💰 Monthly Cost",
+            f"${monthly_cost:,.0f}",
+            delta=f"ROI: {analysis.get('cost_analysis', {}).get('roi_months', 'TBD')} months"
+        )
+    
+    with col5:
+        destination = config.get('destination_storage_type', 'S3')
+        agent_efficiency = analysis.get('agent_analysis', {}).get('scaling_efficiency', 1.0)
+        st.metric(
+            "🗄️ Destination",
+            destination,
+            delta=f"Efficiency: {agent_efficiency*100:.1f}%"
+        )
+    
+    with col6:
+        complexity = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {}).get('ai_complexity_score', 6)
+        confidence = analysis.get('ai_overall_assessment', {}).get('ai_confidence', 0.5)
+        st.metric(
+            "🤖 AI Confidence",
+            f"{confidence*100:.1f}%",
+            delta=f"Complexity: {complexity:.1f}/10"
+        )
+    
+    # Performance Overview Charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📈 Performance Analysis:**")
+        
+        # Current vs Target Performance
+        onprem_perf = analysis.get('onprem_performance', {}).get('overall_performance', {})
+        
+        performance_comparison = {
+            'Metric': ['CPU', 'Memory', 'Storage', 'Network', 'Database'],
+            'Current Score': [
+                onprem_perf.get('cpu_score', 0),
+                onprem_perf.get('memory_score', 0),
+                onprem_perf.get('storage_score', 0),
+                onprem_perf.get('network_score', 0),
+                onprem_perf.get('database_score', 0)
+            ],
+            'Target (AWS)': [85, 90, 95, 90, 88]  # Estimated AWS performance
+        }
+        
+        fig_perf = px.bar(
+            performance_comparison,
+            x='Metric',
+            y=['Current Score', 'Target (AWS)'],
+            title="Current vs AWS Target Performance",
+            barmode='group'
+        )
+        st.plotly_chart(fig_perf, use_container_width=True)
+    
+    with col2:
+        st.markdown("**🔄 Migration Timeline:**")
+        
+        # Timeline breakdown
+        timeline = analysis.get('ai_overall_assessment', {}).get('timeline_recommendation', {})
+        
+        timeline_data = {
+            'Phase': ['Planning', 'Testing', 'Migration', 'Validation'],
+            'Duration (Weeks)': [
+                timeline.get('planning_phase_weeks', 2),
+                timeline.get('testing_phase_weeks', 3),
+                timeline.get('migration_window_hours', 24) / (7 * 24),  # Convert to weeks
+                1  # Validation week
+            ]
+        }
+        
+        fig_timeline = px.bar(
+            timeline_data,
+            x='Phase',
+            y='Duration (Weeks)',
+            title="Project Timeline Breakdown",
+            color='Duration (Weeks)',
+            color_continuous_scale='viridis'
+        )
+        st.plotly_chart(fig_timeline, use_container_width=True)
+    
+    # Agent and Network Analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**🤖 Agent Performance Analysis:**")
+        
+        agent_analysis = analysis.get('agent_analysis', {})
+        
+        # Agent throughput breakdown
+        agent_data = {
+            'Component': ['Per Agent', 'Total Agents', 'Network Limit', 'Effective'],
+            'Throughput (Mbps)': [
+                agent_analysis.get('total_max_throughput_mbps', 0) / config.get('number_of_agents', 1),
+                agent_analysis.get('total_max_throughput_mbps', 0),
+                analysis.get('network_performance', {}).get('effective_bandwidth_mbps', 0),
+                agent_analysis.get('total_effective_throughput', 0)
+            ]
+        }
+        
+        fig_agent = px.bar(
+            agent_data,
+            x='Component',
+            y='Throughput (Mbps)',
+            title=f"Agent Throughput Analysis ({config.get('number_of_agents', 1)} agents)",
+            color='Throughput (Mbps)',
+            color_continuous_scale='blues'
+        )
+        st.plotly_chart(fig_agent, use_container_width=True)
+    
+    with col2:
+        st.markdown("**🌐 Network Performance Analysis:**")
+        
+        network_perf = analysis.get('network_performance', {})
+        
+        # Network metrics
+        network_data = {
+            'Metric': ['Quality Score', 'AI Enhanced', 'Bandwidth Util', 'Reliability'],
+            'Score/Percentage': [
+                network_perf.get('network_quality_score', 0),
+                network_perf.get('ai_enhanced_quality_score', 0),
+                min(100, network_perf.get('effective_bandwidth_mbps', 0) / 100),
+                network_perf.get('total_reliability', 0) * 100
+            ]
+        }
+        
+        fig_network = px.bar(
+            network_data,
+            x='Metric',
+            y='Score/Percentage',
+            title="Network Performance Metrics",
+            color='Score/Percentage',
+            color_continuous_scale='greens'
+        )
+        st.plotly_chart(fig_network, use_container_width=True)
+    
+    # Cost and ROI Analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**💰 Cost Analysis Dashboard:**")
+        
+        cost_analysis = analysis.get('cost_analysis', {})
+        
+        # Cost breakdown
+        cost_categories = {
+            'Compute': cost_analysis.get('aws_compute_cost', 0),
+            'Storage': cost_analysis.get('aws_storage_cost', 0) + cost_analysis.get('destination_storage_cost', 0),
+            'Agents': cost_analysis.get('agent_cost', 0),
+            'Network': cost_analysis.get('network_cost', 0),
+            'Other': cost_analysis.get('os_licensing_cost', 0) + cost_analysis.get('management_cost', 0)
+        }
+        
+        fig_cost = px.pie(
+            values=list(cost_categories.values()),
+            names=list(cost_categories.keys()),
+            title="Monthly Cost Distribution"
+        )
+        st.plotly_chart(fig_cost, use_container_width=True)
+    
+    with col2:
+        st.markdown("**📈 ROI Projection:**")
+        
+        # ROI over time
+        monthly_savings = cost_analysis.get('estimated_monthly_savings', 0)
+        one_time_cost = cost_analysis.get('one_time_migration_cost', 0)
+        
+        months = list(range(0, 37, 6))  # 0 to 36 months
+        cumulative_savings = []
+        
+        for month in months:
+            if month == 0:
+                cumulative_savings.append(-one_time_cost)
+            else:
+                cumulative_savings.append((monthly_savings * month) - one_time_cost)
+        
+        roi_data = {
+            'Months': months,
+            'Cumulative Savings ($)': cumulative_savings
+        }
+        
+        fig_roi = px.line(
+            roi_data,
+            x='Months',
+            y='Cumulative Savings ($)',
+            title="ROI Projection Over Time",
+            markers=True
+        )
+        fig_roi.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="Break-even")
+        st.plotly_chart(fig_roi, use_container_width=True)
+    
+    # Risk and Readiness Assessment
+    st.markdown("**⚠️ Risk and Readiness Assessment:**")
+    
+    risk_col1, risk_col2, risk_col3 = st.columns(3)
+    
+    with risk_col1:
+        ai_assessment = analysis.get('ai_overall_assessment', {})
+        
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🎯 Migration Readiness</h4>
+            <p><strong>Readiness Score:</strong> {ai_assessment.get('migration_readiness_score', 0):.0f}/100</p>
+            <p><strong>Success Probability:</strong> {ai_assessment.get('success_probability', 0):.0f}%</p>
+            <p><strong>Risk Level:</strong> {ai_assessment.get('risk_level', 'Unknown')}</p>
+            <p><strong>Recommended Approach:</strong> {ai_assessment.get('timeline_recommendation', {}).get('recommended_approach', 'Unknown').replace('_', ' ').title()}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with risk_col2:
+        agent_impact = ai_assessment.get('agent_scaling_impact', {})
+        
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🤖 Agent Scaling Assessment</h4>
+            <p><strong>Scaling Efficiency:</strong> {agent_impact.get('scaling_efficiency', 0):.1f}%</p>
+            <p><strong>Optimal Agents:</strong> {agent_impact.get('optimal_agents', config.get('number_of_agents', 1))}</p>
+            <p><strong>Current Agents:</strong> {agent_impact.get('current_agents', config.get('number_of_agents', 1))}</p>
+            <p><strong>Efficiency Bonus:</strong> {agent_impact.get('efficiency_bonus', 0):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with risk_col3:
+        storage_impact = ai_assessment.get('destination_storage_impact', {})
+        
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🗄️ Storage Destination Impact</h4>
+            <p><strong>Storage Type:</strong> {storage_impact.get('storage_type', 'Unknown')}</p>
+            <p><strong>Performance Bonus:</strong> +{storage_impact.get('performance_bonus', 0)}%</p>
+            <p><strong>Performance Multiplier:</strong> {storage_impact.get('storage_performance_multiplier', 1.0):.1f}x</p>
+            <p><strong>Optimization Level:</strong> {"High" if storage_impact.get('performance_multiplier', 1.0) > 1.2 else "Medium" if storage_impact.get('performance_multiplier', 1.0) > 1.0 else "Standard"}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Key Recommendations Summary
+    st.markdown("**💡 Key Recommendations Summary:**")
+    
+    recommendations = ai_assessment.get('recommended_next_steps', [])
+    if recommendations:
+        for i, rec in enumerate(recommendations[:4], 1):
+            priority = "🔴 High" if i <= 2 else "🟡 Medium"
+            st.markdown(f"**{priority} Priority:** {rec}")
+    
+    # Migration Health Score
+    st.markdown("**🏥 Migration Health Score:**")
+    
+    health_factors = {
+        'Performance Readiness': min(100, analysis.get('onprem_performance', {}).get('performance_score', 0)),
+        'Network Quality': network_perf.get('ai_enhanced_quality_score', 0),
+        'Agent Optimization': agent_analysis.get('scaling_efficiency', 1.0) * 100,
+        'Cost Efficiency': min(100, (monthly_savings / monthly_cost * 100)) if monthly_cost > 0 else 0,
+        'Risk Mitigation': readiness_score
+    }
+    
+    fig_health = px.bar(
+        x=list(health_factors.keys()),
+        y=list(health_factors.values()),
+        title="Migration Health Score Breakdown",
+        color=list(health_factors.values()),
+        color_continuous_scale='RdYlGn',
+        labels={'x': 'Factor', 'y': 'Score'}
+    )
+    
+    # Add benchmark line at 80%
+    fig_health.add_hline(y=80, line_dash="dash", line_color="blue", annotation_text="Target: 80%")
+    
+    st.plotly_chart(fig_health, use_container_width=True)
+
+def render_aws_sizing_tab(analysis: Dict, config: Dict):
+    """Render AWS sizing and configuration recommendations tab"""
+    st.subheader("🎯 AWS Sizing & Configuration Recommendations")
+    
+    aws_sizing = analysis.get('aws_sizing_recommendations', {})
+    deployment_rec = aws_sizing.get('deployment_recommendation', {})
+    
+    # Deployment Recommendation Overview
+    st.markdown("**☁️ Deployment Recommendation:**")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        recommendation = deployment_rec.get('recommendation', 'unknown').upper()
+        confidence = deployment_rec.get('confidence', 0)
+        st.metric(
+            "🎯 Recommended Deployment",
+            recommendation,
+            delta=f"Confidence: {confidence*100:.1f}%"
+        )
+    
+    with col2:
+        rds_score = deployment_rec.get('rds_score', 0)
+        ec2_score = deployment_rec.get('ec2_score', 0)
+        st.metric(
+            "📊 RDS Score",
+            f"{rds_score:.0f}",
+            delta=f"EC2: {ec2_score:.0f}"
+        )
+    
+    with col3:
+        ai_analysis = aws_sizing.get('ai_analysis', {})
+        complexity = ai_analysis.get('ai_complexity_score', 6)
+        st.metric(
+            "🤖 AI Complexity",
+            f"{complexity:.1f}/10",
+            delta=ai_analysis.get('confidence_level', 'medium').title()
+        )
+    
+    with col4:
+        if recommendation == 'RDS':
+            monthly_cost = aws_sizing.get('rds_recommendations', {}).get('total_monthly_cost', 0)
+        else:
+            monthly_cost = aws_sizing.get('ec2_recommendations', {}).get('total_monthly_cost', 0)
+        st.metric(
+            "💰 Monthly Cost",
+            f"${monthly_cost:,.0f}",
+            delta="Compute + Storage"
+        )
+    
+    with col5:
+        reader_writer = aws_sizing.get('reader_writer_config', {})
+        total_instances = reader_writer.get('total_instances', 1)
+        st.metric(
+            "🖥️ Total Instances",
+            f"{total_instances}",
+            delta=f"Writers: {reader_writer.get('writers', 1)}, Readers: {reader_writer.get('readers', 0)}"
+        )
+    
+    # Detailed Sizing Recommendations
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if recommendation == 'RDS':
+            st.markdown("**🗄️ RDS Recommended Configuration:**")
+            
+            rds_rec = aws_sizing.get('rds_recommendations', {})
+            
+            st.markdown(f"""
+            <div class="aws-sizing-card">
+                <h4>Amazon RDS Managed Service</h4>
+                <p><strong>Instance Type:</strong> {rds_rec.get('primary_instance', 'N/A')}</p>
+                <p><strong>vCPU:</strong> {rds_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
+                <p><strong>Memory:</strong> {rds_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
+                <p><strong>Storage:</strong> {rds_rec.get('storage_size_gb', 0):,.0f} GB</p>
+                <p><strong>Storage Type:</strong> {rds_rec.get('storage_type', 'gp3').upper()}</p>
+                <p><strong>Multi-AZ:</strong> {'Yes' if rds_rec.get('multi_az', False) else 'No'}</p>
+                <p><strong>Backup Retention:</strong> {rds_rec.get('backup_retention_days', 7)} days</p>
+                <p><strong>Monthly Instance Cost:</strong> ${rds_rec.get('monthly_instance_cost', 0):,.0f}</p>
+                <p><strong>Monthly Storage Cost:</strong> ${rds_rec.get('monthly_storage_cost', 0):,.0f}</p>
+                <p><strong>Total Monthly Cost:</strong> ${rds_rec.get('total_monthly_cost', 0):,.0f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("**🖥️ EC2 Recommended Configuration:**")
+            
+            ec2_rec = aws_sizing.get('ec2_recommendations', {})
+            
+            st.markdown(f"""
+            <div class="aws-sizing-card">
+                <h4>Amazon EC2 Self-Managed</h4>
+                <p><strong>Instance Type:</strong> {ec2_rec.get('primary_instance', 'N/A')}</p>
+                <p><strong>vCPU:</strong> {ec2_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
+                <p><strong>Memory:</strong> {ec2_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
+                <p><strong>Storage:</strong> {ec2_rec.get('storage_size_gb', 0):,.0f} GB</p>
+                <p><strong>Storage Type:</strong> {ec2_rec.get('storage_type', 'gp3').upper()}</p>
+                <p><strong>EBS Optimized:</strong> {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}</p>
+                <p><strong>Enhanced Networking:</strong> {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}</p>
+                <p><strong>Monthly Instance Cost:</strong> ${ec2_rec.get('monthly_instance_cost', 0):,.0f}</p>
+                <p><strong>Monthly Storage Cost:</strong> ${ec2_rec.get('monthly_storage_cost', 0):,.0f}</p>
+                <p><strong>Total Monthly Cost:</strong> ${ec2_rec.get('total_monthly_cost', 0):,.0f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("**🎯 AI Sizing Factors:**")
+        
+        if recommendation == 'RDS':
+            sizing_factors = aws_sizing.get('rds_recommendations', {}).get('ai_sizing_factors', {})
+        else:
+            sizing_factors = aws_sizing.get('ec2_recommendations', {}).get('ai_sizing_factors', {})
+        
+        st.markdown(f"""
+        <div class="aws-sizing-card">
+            <h4>AI-Enhanced Sizing Analysis</h4>
+            <p><strong>Complexity Multiplier:</strong> {sizing_factors.get('complexity_multiplier', 1.0):.2f}x</p>
+            <p><strong>Agent Scaling Factor:</strong> {sizing_factors.get('agent_scaling_factor', 1.0):.2f}x</p>
+            <p><strong>AI Complexity Score:</strong> {sizing_factors.get('ai_complexity_score', 6):.1f}/10</p>
+            <p><strong>Storage Multiplier:</strong> {sizing_factors.get('storage_multiplier', 1.5):.1f}x</p>
+            <p><strong>Database Size:</strong> {config.get('database_size_gb', 0):,} GB</p>
+            <p><strong>Performance Requirement:</strong> {config.get('performance_requirements', 'standard').title()}</p>
+            <p><strong>Environment:</strong> {config.get('environment', 'unknown').title()}</p>
+            <p><strong>Number of Agents:</strong> {config.get('number_of_agents', 1)}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # RDS vs EC2 Comparison
+    st.markdown("**⚖️ RDS vs EC2 Deployment Comparison:**")
+    
+    comparison_col1, comparison_col2 = st.columns(2)
+    
+    with comparison_col1:
+        # Create comparison chart
+        comparison_data = {
+            'Criteria': ['Management', 'Cost', 'Performance', 'Scalability', 'Control', 'Total Score'],
+            'RDS Score': [90, 80, 85, 90, 60, deployment_rec.get('rds_score', 0)],
+            'EC2 Score': [60, 85, 90, 80, 95, deployment_rec.get('ec2_score', 0)]
+        }
+        
+        fig_comparison = px.bar(
+            comparison_data,
+            x='Criteria',
+            y=['RDS Score', 'EC2 Score'],
+            title="RDS vs EC2 Scoring Breakdown",
+            barmode='group'
+        )
+        st.plotly_chart(fig_comparison, use_container_width=True)
+    
+    with comparison_col2:
+        st.markdown("**📊 Deployment Decision Factors:**")
+        
+        primary_reasons = deployment_rec.get('primary_reasons', [])
+        
+        st.markdown(f"""
+        <div class="deployment-comparison-card">
+            <h4>Why {recommendation}?</h4>
+            <ul>
+                {"".join([f"<li>{reason}</li>" for reason in primary_reasons[:4]])}
+            </ul>
+            <p><strong>Confidence Level:</strong> {confidence*100:.1f}%</p>
+            <p><strong>Decision Strength:</strong> {"Strong" if abs(rds_score - ec2_score) > 20 else "Moderate" if abs(rds_score - ec2_score) > 10 else "Weak"}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Reader/Writer Configuration
+    st.markdown("**🔄 Reader/Writer Instance Configuration:**")
+    
+    reader_writer = aws_sizing.get('reader_writer_config', {})
+    
+    config_col1, config_col2, config_col3 = st.columns(3)
+    
+    with config_col1:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>📊 Instance Distribution</h4>
+            <p><strong>Writer Instances:</strong> {reader_writer.get('writers', 1)}</p>
+            <p><strong>Reader Instances:</strong> {reader_writer.get('readers', 0)}</p>
+            <p><strong>Total Instances:</strong> {reader_writer.get('total_instances', 1)}</p>
+            <p><strong>Read Capacity:</strong> {reader_writer.get('read_capacity_percent', 0):.1f}%</p>
+            <p><strong>Write Capacity:</strong> {reader_writer.get('write_capacity_percent', 100):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with config_col2:
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🎯 Configuration Reasoning</h4>
+            <p><strong>Database Size:</strong> {config.get('database_size_gb', 0):,} GB</p>
+            <p><strong>Performance Requirement:</strong> {config.get('performance_requirements', 'standard').title()}</p>
+            <p><strong>Environment:</strong> {config.get('environment', 'unknown').title()}</p>
+            <p><strong>Recommended Read Split:</strong> {reader_writer.get('recommended_read_split', 0):.0f}%</p>
+            <p><strong>AI Optimization:</strong> {reader_writer.get('ai_insights', {}).get('optimization_potential', '0%')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with config_col3:
+        ai_insights_rw = reader_writer.get('ai_insights', {})
+        st.markdown(f"""
+        <div class="detailed-analysis-section">
+            <h4>🤖 AI Configuration Insights</h4>
+            <p><strong>Complexity Impact:</strong> {ai_insights_rw.get('complexity_impact', 0):.0f}/10</p>
+            <p><strong>Agent Scaling Impact:</strong> {ai_insights_rw.get('agent_scaling_impact', 1)} agents</p>
+            <p><strong>Scaling Factors:</strong></p>
+            <ul>
+                {"".join([f"<li>{factor}</li>" for factor in ai_insights_rw.get('scaling_factors', ['Standard scaling'])[:2]])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # AI Recommendations
+    st.markdown("**🤖 AI Performance Recommendations:**")
+    
+    if recommendation == 'RDS':
+        ai_recommendations = aws_sizing.get('rds_recommendations', {}).get('ai_recommendations', [])
+    else:
+        ai_recommendations = aws_sizing.get('ec2_recommendations', {}).get('ai_recommendations', [])
+    
+    if ai_recommendations:
+        for i, recommendation_text in enumerate(ai_recommendations, 1):
+            impact = "High" if i <= 2 else "Medium" if i <= 4 else "Low"
+            complexity = "Low" if i <= 2 else "Medium" if i <= 4 else "High"
+            
+            st.markdown(f"""
+            <div class="ai-recommendation-card">
+                <h5>AI Recommendation {i}: {recommendation_text}</h5>
+                <p><strong>Expected Impact:</strong> {impact}</p>
+                <p><strong>Implementation Complexity:</strong> {complexity}</p>
+                <p><strong>Priority:</strong> {"Immediate" if i <= 2 else "Short-term" if i <= 4 else "Long-term"}</p>
+            </div>
+            """)
+    
+    # Instance Comparison Table
+    st.markdown("**📋 Available Instance Options:**")
+    
+    pricing_data = aws_sizing.get('pricing_data', {})
+    
+    if recommendation == 'RDS':
+        instances = pricing_data.get('rds_instances', {})
+    else:
+        instances = pricing_data.get('ec2_instances', {})
+    
+    if instances:
+        instance_data = []
+        current_instance = aws_sizing.get(f'{recommendation.lower()}_recommendations', {}).get('primary_instance', '')
+        
+        for instance_type, specs in instances.items():
+            instance_data.append({
+                'Instance Type': instance_type,
+                'vCPU': specs.get('vcpu', 'N/A'),
+                'Memory (GB)': specs.get('memory', 'N/A'),
+                'Cost per Hour': f"${specs.get('cost_per_hour', 0):.4f}",
+                'Monthly Cost': f"${specs.get('cost_per_hour', 0) * 24 * 30:.0f}",
+                'Selected': '✅' if instance_type == current_instance else ''
+            })
+        
+        df_instances = pd.DataFrame(instance_data)
+        st.dataframe(df_instances, use_container_width=True)
+    
+    # Cost Optimization Suggestions
+    st.markdown("**💡 Cost Optimization Suggestions:**")
+    
+    opt_col1, opt_col2 = st.columns(2)
+    
+    with opt_col1:
+        st.markdown("""
+        <div class="detailed-analysis-section">
+            <h4>💰 Cost Reduction Strategies</h4>
+            <ul>
+                <li>Consider Reserved Instances for 20-30% savings</li>
+                <li>Use Spot Instances for non-production workloads</li>
+                <li>Implement automated scaling policies</li>
+                <li>Optimize storage type selection</li>
+                <li>Enable CloudWatch detailed monitoring</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with opt_col2:
+        st.markdown("""
+        <div class="detailed-analysis-section">
+            <h4>📈 Performance Optimization</h4>
+            <ul>
+                <li>Configure read replicas for read scaling</li>
+                <li>Enable enhanced monitoring</li>
+                <li>Optimize database parameters</li>
+                <li>Implement connection pooling</li>
+                <li>Consider caching strategies</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Update the main function to use these new implementations
+async def main():
+    """Enhanced main function with all implemented tabs"""
+    render_enhanced_header()
+    
+    # Get configuration
+    config = render_enhanced_sidebar_controls()
+    
+    # Initialize enhanced analyzer
+    analyzer = EnhancedMigrationAnalyzer()
+    
+    # Run analysis
+    analysis_placeholder = st.empty()
+    
+    with analysis_placeholder.container():
+        if config['enable_ai_analysis']:
+            with st.spinner("🧠 Running comprehensive AI-powered migration analysis with agent scaling optimization and FSx destination analysis..."):
+                try:
+                    analysis = await analyzer.comprehensive_ai_migration_analysis(config)
+                except Exception as e:
+                    st.error(f"Analysis error: {str(e)}")
+                    # Fallback to simplified analysis
+                    analysis = {
+                        'api_status': APIStatus(anthropic_connected=False, aws_pricing_connected=False),
+                        'onprem_performance': {'performance_score': 75, 'os_impact': {'total_efficiency': 0.85}},
+                        'network_performance': {'network_quality_score': 80, 'effective_bandwidth_mbps': 1000, 'segments': [], 'destination_storage': config.get('destination_storage_type', 'S3')},
+                        'migration_type': 'homogeneous' if config['source_database_engine'] == config['database_engine'] else 'heterogeneous',
+                        'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+                        'agent_analysis': {
+                            'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+                            'number_of_agents': config.get('number_of_agents', 1),
+                            'destination_storage': config.get('destination_storage_type', 'S3'),
+                            'total_effective_throughput': 500 * config.get('number_of_agents', 1),
+                            'scaling_efficiency': 0.95 if config.get('number_of_agents', 1) <= 3 else 0.85,
+                            'storage_performance_multiplier': {'S3': 1.0, 'FSx_Windows': 1.15, 'FSx_Lustre': 1.4}.get(config.get('destination_storage_type', 'S3'), 1.0),
+                            'monthly_cost': 150 * config.get('number_of_agents', 1)
+                        },
+                        'migration_throughput_mbps': 500,
+                        'estimated_migration_time_hours': 8,
+                        'aws_sizing_recommendations': {'deployment_recommendation': {'recommendation': 'rds'}},
+                        'cost_analysis': {'total_monthly_cost': 1500, 'destination_storage_type': config.get('destination_storage_type', 'S3'), 'destination_storage_cost': 200},
+                        'fsx_comparisons': {},
+                        'ai_overall_assessment': {'migration_readiness_score': 75, 'risk_level': 'Medium'}
+                    }
+        else:
+            with st.spinner("🔬 Running standard migration analysis with agent scaling and FSx destination analysis..."):
+                # Simplified analysis without AI
+                analysis = {
+                    'api_status': APIStatus(anthropic_connected=False, aws_pricing_connected=False),
+                    'onprem_performance': {'performance_score': 75, 'os_impact': {'total_efficiency': 0.85}},
+                    'network_performance': {'network_quality_score': 80, 'effective_bandwidth_mbps': 1000, 'segments': [], 'destination_storage': config.get('destination_storage_type', 'S3')},
+                    'migration_type': 'homogeneous' if config['source_database_engine'] == config['database_engine'] else 'heterogeneous',
+                    'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+                    'agent_analysis': {
+                        'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+                        'number_of_agents': config.get('number_of_agents', 1),
+                        'destination_storage': config.get('destination_storage_type', 'S3'),
+                        'total_effective_throughput': 500 * config.get('number_of_agents', 1),
+                        'scaling_efficiency': 0.95 if config.get('number_of_agents', 1) <= 3 else 0.85,
+                        'storage_performance_multiplier': {'S3': 1.0, 'FSx_Windows': 1.15, 'FSx_Lustre': 1.4}.get(config.get('destination_storage_type', 'S3'), 1.0),
+                        'monthly_cost': 150 * config.get('number_of_agents', 1)
+                    },
+                    'migration_throughput_mbps': 500,
+                    'estimated_migration_time_hours': 8,
+                    'aws_sizing_recommendations': {'deployment_recommendation': {'recommendation': 'rds'}},
+                    'cost_analysis': {'total_monthly_cost': 1500, 'destination_storage_type': config.get('destination_storage_type', 'S3'), 'destination_storage_cost': 200},
+                    'fsx_comparisons': {},
+                    'ai_overall_assessment': {'migration_readiness_score': 75, 'risk_level': 'Medium'}
+                }
+    
+    analysis_placeholder.empty()
+    
+    # Enhanced tabs with all implementations
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+        "🧠 AI Insights & Analysis", 
+        "🤖 Agent Scaling Analysis",
+        "🗄️ FSx Destination Comparison",
+        "🌐 Network Intelligence",
+        "💰 Cost & Pricing Analysis",
+        "💻 OS Performance Analysis",
+        "📊 Migration Dashboard",
+        "🎯 AWS Sizing & Configuration",
+        "📄 Executive PDF Reports"
+    ])
+    
+    with tab1:
+        if config['enable_ai_analysis']:
+            render_ai_insights_tab_enhanced(analysis, config)
+        else:
+            st.info("🤖 Enable AI Analysis in the sidebar for comprehensive migration insights")
+    
+    with tab2:
+        render_agent_scaling_tab(analysis, config)
+    
+    with tab3:
+        render_fsx_destination_comparison_tab(analysis, config)
+    
+    with tab4:
+        render_network_intelligence_tab(analysis, config)
+    
+    with tab5:
+        render_cost_pricing_tab(analysis, config)
+    
+    with tab6:
+        render_os_performance_tab(analysis, config)
+    
+    with tab7:
+        render_migration_dashboard_tab(analysis, config)
+    
+    with tab8:
+        render_aws_sizing_tab(analysis, config)
+    
+    with tab9:
+        render_pdf_reports_tab(analysis, config)
+    
+    # Professional footer with FSx capabilities
+    st.markdown("""
+    <div class="enterprise-footer">
+        <h4>🚀 AWS Enterprise Database Migration Analyzer AI v3.0</h4>
+        <p>Powered by Anthropic Claude AI • Real-time AWS Integration • Professional Migration Analysis • Advanced Agent Scaling • FSx Destination Analysis</p>
+        <p style="font-size: 0.9rem; margin-top: 1rem;">
+            🔬 Advanced Network Intelligence • 🎯 AI-Driven Recommendations • 📊 Executive Reporting • 🤖 Multi-Agent Optimization • 🗄️ S3/FSx Comparisons
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+
+
+
+
 
 if __name__ == "__main__":
     import asyncio
