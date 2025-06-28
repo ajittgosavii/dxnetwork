@@ -95,6 +95,33 @@ st.markdown("""
         box-shadow: 0 3px 15px rgba(104,159,56,0.1);
     }
     
+    .performance-card {
+        background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 5px solid #e91e63;
+        margin: 1rem 0;
+        box-shadow: 0 3px 15px rgba(233,30,99,0.1);
+    }
+    
+    .onprem-performance-card {
+        background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 5px solid #3f51b5;
+        margin: 1rem 0;
+        box-shadow: 0 3px 15px rgba(63,81,181,0.1);
+    }
+    
+    .aws-performance-card {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 5px solid #ff9800;
+        margin: 1rem 0;
+        box-shadow: 0 3px 15px rgba(255,152,0,0.1);
+    }
+    
     .performance-delta {
         display: inline-block;
         padding: 4px 8px;
@@ -278,7 +305,11 @@ class OSPerformanceManager:
             'virtualization_overhead': os_config['virtualization_overhead'] if platform_type == 'vmware' else 0,
             'licensing_cost_factor': os_config['licensing_cost_factor'],
             'management_complexity': os_config['management_complexity'],
-            'security_overhead': os_config['security_overhead']
+            'security_overhead': os_config['security_overhead'],
+            'cpu_efficiency': os_config['cpu_efficiency'],
+            'memory_efficiency': os_config['memory_efficiency'],
+            'io_efficiency': os_config['io_efficiency'],
+            'network_efficiency': os_config['network_efficiency']
         }
 
 class AgentSizingManager:
@@ -918,6 +949,635 @@ class EnhancedAWSMigrationManager:
                 "Custom backup and disaster recovery strategies"
             ]
 
+class OnPremPerformanceAnalyzer:
+    """Analyze on-premises database performance"""
+    
+    def __init__(self):
+        self.cpu_architectures = {
+            'intel_xeon_e5': {'base_performance': 1.0, 'single_thread': 0.9, 'multi_thread': 1.1},
+            'intel_xeon_sp': {'base_performance': 1.2, 'single_thread': 1.1, 'multi_thread': 1.3},
+            'amd_epyc': {'base_performance': 1.15, 'single_thread': 1.0, 'multi_thread': 1.4}
+        }
+        
+        self.storage_types = {
+            'sas_hdd': {'iops': 150, 'throughput_mbps': 200, 'latency_ms': 8},
+            'sata_ssd': {'iops': 75000, 'throughput_mbps': 500, 'latency_ms': 0.2},
+            'nvme_ssd': {'iops': 450000, 'throughput_mbps': 3500, 'latency_ms': 0.05}
+        }
+    
+    def calculate_onprem_performance(self, config: Dict, os_manager: OSPerformanceManager) -> Dict:
+        """Calculate comprehensive on-premises performance metrics"""
+        
+        # Get OS impact
+        os_impact = os_manager.calculate_os_performance_impact(
+            config['operating_system'], 
+            config['server_type'], 
+            config['database_engine']
+        )
+        
+        # Calculate CPU performance
+        cpu_performance = self._calculate_cpu_performance(config, os_impact)
+        
+        # Calculate memory performance
+        memory_performance = self._calculate_memory_performance(config, os_impact)
+        
+        # Calculate storage performance
+        storage_performance = self._calculate_storage_performance(config, os_impact)
+        
+        # Calculate network performance
+        network_performance = self._calculate_network_performance(config, os_impact)
+        
+        # Calculate database-specific performance
+        database_performance = self._calculate_database_performance(config, os_impact)
+        
+        # Overall system performance
+        overall_performance = self._calculate_overall_performance(
+            cpu_performance, memory_performance, storage_performance, 
+            network_performance, database_performance, os_impact
+        )
+        
+        return {
+            'cpu_performance': cpu_performance,
+            'memory_performance': memory_performance,
+            'storage_performance': storage_performance,
+            'network_performance': network_performance,
+            'database_performance': database_performance,
+            'overall_performance': overall_performance,
+            'os_impact': os_impact,
+            'bottlenecks': self._identify_bottlenecks(cpu_performance, memory_performance, 
+                                                    storage_performance, network_performance),
+            'performance_score': overall_performance['composite_score']
+        }
+    
+    def _calculate_cpu_performance(self, config: Dict, os_impact: Dict) -> Dict:
+        """Calculate CPU performance metrics"""
+        
+        # Base CPU calculation
+        base_performance = config['cpu_cores'] * config['cpu_ghz']
+        
+        # OS efficiency impact
+        os_adjusted = base_performance * os_impact['cpu_efficiency']
+        
+        # Platform impact
+        if config['server_type'] == 'vmware':
+            virtualization_penalty = 1 - os_impact['virtualization_overhead']
+            final_performance = os_adjusted * virtualization_penalty
+        else:
+            final_performance = os_adjusted * 1.05  # Physical boost
+        
+        # Performance categories
+        single_thread_perf = config['cpu_ghz'] * os_impact['cpu_efficiency']
+        multi_thread_perf = final_performance
+        
+        return {
+            'base_performance': base_performance,
+            'os_adjusted_performance': os_adjusted,
+            'final_performance': final_performance,
+            'single_thread_performance': single_thread_perf,
+            'multi_thread_performance': multi_thread_perf,
+            'utilization_estimate': 0.7,  # Typical database utilization
+            'efficiency_factor': os_impact['cpu_efficiency']
+        }
+    
+    def _calculate_memory_performance(self, config: Dict, os_impact: Dict) -> Dict:
+        """Calculate memory performance metrics"""
+        
+        base_memory = config['ram_gb']
+        
+        # OS overhead
+        if 'windows' in config['operating_system']:
+            os_overhead = 4  # GB for Windows
+        else:
+            os_overhead = 2  # GB for Linux
+        
+        available_memory = base_memory - os_overhead
+        
+        # Database memory allocation
+        db_memory = available_memory * 0.8  # 80% for database
+        buffer_pool = db_memory * 0.7  # 70% for buffer pool
+        
+        # Memory efficiency
+        memory_efficiency = os_impact['memory_efficiency']
+        effective_memory = available_memory * memory_efficiency
+        
+        return {
+            'total_memory_gb': base_memory,
+            'os_overhead_gb': os_overhead,
+            'available_memory_gb': available_memory,
+            'database_memory_gb': db_memory,
+            'buffer_pool_gb': buffer_pool,
+            'effective_memory_gb': effective_memory,
+            'memory_efficiency': memory_efficiency,
+            'memory_pressure': 'low' if available_memory > 32 else 'medium' if available_memory > 16 else 'high'
+        }
+    
+    def _calculate_storage_performance(self, config: Dict, os_impact: Dict) -> Dict:
+        """Calculate storage performance metrics"""
+        
+        # Assume NVMe SSD for modern systems, SAS HDD for older
+        if config['cpu_cores'] >= 8:
+            storage_type = 'nvme_ssd'
+        elif config['cpu_cores'] >= 4:
+            storage_type = 'sata_ssd'
+        else:
+            storage_type = 'sas_hdd'
+        
+        storage_specs = self.storage_types[storage_type]
+        
+        # Apply OS I/O efficiency
+        effective_iops = storage_specs['iops'] * os_impact['io_efficiency']
+        effective_throughput = storage_specs['throughput_mbps'] * os_impact['io_efficiency']
+        effective_latency = storage_specs['latency_ms'] / os_impact['io_efficiency']
+        
+        return {
+            'storage_type': storage_type,
+            'base_iops': storage_specs['iops'],
+            'effective_iops': effective_iops,
+            'base_throughput_mbps': storage_specs['throughput_mbps'],
+            'effective_throughput_mbps': effective_throughput,
+            'base_latency_ms': storage_specs['latency_ms'],
+            'effective_latency_ms': effective_latency,
+            'io_efficiency': os_impact['io_efficiency']
+        }
+    
+    def _calculate_network_performance(self, config: Dict, os_impact: Dict) -> Dict:
+        """Calculate network performance metrics"""
+        
+        base_bandwidth = config['nic_speed']
+        
+        # OS network efficiency
+        effective_bandwidth = base_bandwidth * os_impact['network_efficiency']
+        
+        # Platform impact
+        if config['server_type'] == 'vmware':
+            # VMware has additional network virtualization overhead
+            effective_bandwidth *= 0.92
+        
+        return {
+            'nic_type': config['nic_type'],
+            'base_bandwidth_mbps': base_bandwidth,
+            'effective_bandwidth_mbps': effective_bandwidth,
+            'network_efficiency': os_impact['network_efficiency'],
+            'estimated_latency_ms': 0.1 if 'fiber' in config['nic_type'] else 0.2
+        }
+    
+    def _calculate_database_performance(self, config: Dict, os_impact: Dict) -> Dict:
+        """Calculate database-specific performance metrics"""
+        
+        db_optimization = os_impact['db_optimization']
+        
+        # Calculate database-specific metrics
+        if config['database_engine'] == 'mysql':
+            base_tps = 5000  # Transactions per second baseline
+            connection_limit = 1000
+        elif config['database_engine'] == 'postgresql':
+            base_tps = 4500
+            connection_limit = 500
+        elif config['database_engine'] == 'oracle':
+            base_tps = 6000
+            connection_limit = 2000
+        elif config['database_engine'] == 'sqlserver':
+            base_tps = 5500
+            connection_limit = 1500
+        else:  # mongodb
+            base_tps = 4000
+            connection_limit = 800
+        
+        # Scale by hardware
+        hardware_factor = min(2.0, (config['cpu_cores'] / 4) * (config['ram_gb'] / 16))
+        
+        # Apply OS optimization
+        effective_tps = base_tps * hardware_factor * db_optimization
+        
+        return {
+            'database_engine': config['database_engine'],
+            'base_tps': base_tps,
+            'hardware_factor': hardware_factor,
+            'db_optimization': db_optimization,
+            'effective_tps': effective_tps,
+            'max_connections': connection_limit,
+            'query_cache_efficiency': db_optimization * 0.9
+        }
+    
+    def _calculate_overall_performance(self, cpu_perf: Dict, mem_perf: Dict, 
+                                     storage_perf: Dict, net_perf: Dict, 
+                                     db_perf: Dict, os_impact: Dict) -> Dict:
+        """Calculate overall system performance"""
+        
+        # Weighted performance score
+        cpu_score = min(100, (cpu_perf['final_performance'] / 50) * 100)
+        memory_score = min(100, (mem_perf['effective_memory_gb'] / 64) * 100)
+        storage_score = min(100, (storage_perf['effective_iops'] / 100000) * 100)
+        network_score = min(100, (net_perf['effective_bandwidth_mbps'] / 10000) * 100)
+        database_score = min(100, (db_perf['effective_tps'] / 10000) * 100)
+        
+        # Composite score with weights
+        composite_score = (
+            cpu_score * 0.25 +
+            memory_score * 0.2 +
+            storage_score * 0.25 +
+            network_score * 0.15 +
+            database_score * 0.15
+        )
+        
+        return {
+            'cpu_score': cpu_score,
+            'memory_score': memory_score,
+            'storage_score': storage_score,
+            'network_score': network_score,
+            'database_score': database_score,
+            'composite_score': composite_score,
+            'performance_tier': self._get_performance_tier(composite_score),
+            'scaling_recommendation': self._get_scaling_recommendation(cpu_score, memory_score, storage_score)
+        }
+    
+    def _get_performance_tier(self, score: float) -> str:
+        """Get performance tier based on score"""
+        if score >= 80:
+            return "High Performance"
+        elif score >= 60:
+            return "Standard Performance"
+        elif score >= 40:
+            return "Basic Performance"
+        else:
+            return "Limited Performance"
+    
+    def _get_scaling_recommendation(self, cpu_score: float, memory_score: float, storage_score: float) -> List[str]:
+        """Get scaling recommendations"""
+        recommendations = []
+        
+        if cpu_score < 60:
+            recommendations.append("Consider CPU upgrade or more cores")
+        if memory_score < 60:
+            recommendations.append("Consider memory expansion")
+        if storage_score < 60:
+            recommendations.append("Consider storage upgrade to NVMe SSD")
+        
+        if not recommendations:
+            recommendations.append("System is well-balanced for current workload")
+        
+        return recommendations
+    
+    def _identify_bottlenecks(self, cpu_perf: Dict, mem_perf: Dict, 
+                            storage_perf: Dict, net_perf: Dict) -> List[str]:
+        """Identify system bottlenecks"""
+        bottlenecks = []
+        
+        if cpu_perf['utilization_estimate'] > 0.8:
+            bottlenecks.append("CPU utilization high")
+        if mem_perf['memory_pressure'] == 'high':
+            bottlenecks.append("Memory pressure detected")
+        if storage_perf['effective_latency_ms'] > 5:
+            bottlenecks.append("Storage latency high")
+        if net_perf['effective_bandwidth_mbps'] < 1000:
+            bottlenecks.append("Network bandwidth limited")
+        
+        return bottlenecks if bottlenecks else ["No significant bottlenecks detected"]
+
+class AWSPerformanceAnalyzer:
+    """Analyze AWS post-migration performance"""
+    
+    def __init__(self):
+        self.aws_instance_performance = {
+            # CPU performance multipliers based on AWS instance types
+            't3': {'cpu_factor': 0.8, 'burst_capable': True, 'baseline_perf': 0.4},
+            'c5': {'cpu_factor': 1.2, 'burst_capable': False, 'baseline_perf': 1.0},
+            'r6g': {'cpu_factor': 1.1, 'burst_capable': False, 'baseline_perf': 1.0},
+            'r6i': {'cpu_factor': 1.15, 'burst_capable': False, 'baseline_perf': 1.0}
+        }
+        
+        self.aws_network_performance = {
+            'up_to_10_gbps': {'bandwidth': 10000, 'pps': 1000000},
+            '25_gbps': {'bandwidth': 25000, 'pps': 2500000},
+            '50_gbps': {'bandwidth': 50000, 'pps': 5000000},
+            '100_gbps': {'bandwidth': 100000, 'pps': 10000000}
+        }
+    
+    def calculate_aws_performance(self, config: Dict, onprem_performance: Dict, 
+                                aws_sizing: Dict) -> Dict:
+        """Calculate expected AWS performance post-migration"""
+        
+        deployment_type = aws_sizing['deployment_recommendation']['recommendation']
+        
+        if deployment_type == 'rds':
+            aws_performance = self._calculate_rds_performance(config, aws_sizing['rds_recommendations'])
+        else:
+            aws_performance = self._calculate_ec2_performance(config, aws_sizing['ec2_recommendations'])
+        
+        # Performance comparison
+        performance_comparison = self._compare_performance(onprem_performance, aws_performance)
+        
+        # Scaling capabilities
+        scaling_capabilities = self._calculate_scaling_capabilities(aws_sizing, deployment_type)
+        
+        # Network latency impact
+        network_impact = self._calculate_network_impact(config)
+        
+        return {
+            'aws_performance': aws_performance,
+            'performance_comparison': performance_comparison,
+            'scaling_capabilities': scaling_capabilities,
+            'network_impact': network_impact,
+            'deployment_type': deployment_type,
+            'optimization_recommendations': self._get_optimization_recommendations(
+                aws_performance, performance_comparison
+            )
+        }
+    
+    def _calculate_rds_performance(self, config: Dict, rds_config: Dict) -> Dict:
+        """Calculate RDS performance metrics"""
+        
+        instance_specs = rds_config['instance_specs']
+        
+        # RDS has optimized database performance
+        rds_optimization_factor = 1.2  # AWS-optimized database engines
+        
+        # Calculate performance metrics
+        if config['database_engine'] == 'mysql':
+            base_tps = 8000
+        elif config['database_engine'] == 'postgresql':
+            base_tps = 7500
+        elif config['database_engine'] == 'oracle':
+            base_tps = 9000
+        elif config['database_engine'] == 'sqlserver':
+            base_tps = 8500
+        else:  # DocumentDB
+            base_tps = 6000
+        
+        # Scale by instance size
+        hardware_factor = (instance_specs['vcpu'] / 2) * (instance_specs['memory'] / 8)
+        effective_tps = base_tps * hardware_factor * rds_optimization_factor
+        
+        # Storage performance
+        if rds_config['storage_type'] == 'gp3':
+            storage_iops = min(16000, max(3000, rds_config['storage_size_gb'] * 3))
+            storage_throughput = min(1000, max(125, rds_config['storage_size_gb'] * 0.25))
+        else:  # io1
+            storage_iops = min(64000, rds_config['storage_size_gb'] * 50)
+            storage_throughput = min(4000, storage_iops * 0.256)
+        
+        return {
+            'service_type': 'Amazon RDS',
+            'instance_type': rds_config['primary_instance'],
+            'vcpu': instance_specs['vcpu'],
+            'memory_gb': instance_specs['memory'],
+            'effective_tps': effective_tps,
+            'storage_iops': storage_iops,
+            'storage_throughput_mbps': storage_throughput,
+            'multi_az': rds_config['multi_az'],
+            'automated_backups': True,
+            'point_in_time_recovery': True,
+            'performance_insights': True,
+            'managed_service_benefits': [
+                "Automated patching and updates",
+                "Built-in monitoring and alerting",
+                "Automatic failover (Multi-AZ)",
+                "Read replicas for scaling",
+                "Performance Insights"
+            ]
+        }
+    
+    def _calculate_ec2_performance(self, config: Dict, ec2_config: Dict) -> Dict:
+        """Calculate EC2 performance metrics"""
+        
+        instance_specs = ec2_config['instance_specs']
+        
+        # EC2 requires more overhead but offers more control
+        ec2_overhead_factor = 0.9  # OS and management overhead
+        
+        # Calculate performance based on instance family
+        instance_family = ec2_config['primary_instance'].split('.')[0]
+        
+        if instance_family in self.aws_instance_performance:
+            cpu_factor = self.aws_instance_performance[instance_family]['cpu_factor']
+        else:
+            cpu_factor = 1.0
+        
+        # Database performance calculation
+        if config['database_engine'] == 'mysql':
+            base_tps = 6000
+        elif config['database_engine'] == 'postgresql':
+            base_tps = 5500
+        elif config['database_engine'] == 'oracle':
+            base_tps = 7000
+        elif config['database_engine'] == 'sqlserver':
+            base_tps = 6500
+        else:  # mongodb
+            base_tps = 5000
+        
+        hardware_factor = (instance_specs['vcpu'] / 2) * (instance_specs['memory'] / 8)
+        effective_tps = base_tps * hardware_factor * cpu_factor * ec2_overhead_factor
+        
+        # EBS storage performance
+        if ec2_config['storage_type'] == 'gp3':
+            storage_iops = min(16000, max(3000, ec2_config['storage_size_gb'] * 3))
+            storage_throughput = min(1000, max(125, ec2_config['storage_size_gb'] * 0.25))
+        else:  # io2
+            storage_iops = min(64000, ec2_config['storage_size_gb'] * 500)
+            storage_throughput = min(4000, storage_iops * 0.256)
+        
+        return {
+            'service_type': 'Amazon EC2',
+            'instance_type': ec2_config['primary_instance'],
+            'vcpu': instance_specs['vcpu'],
+            'memory_gb': instance_specs['memory'],
+            'effective_tps': effective_tps,
+            'storage_iops': storage_iops,
+            'storage_throughput_mbps': storage_throughput,
+            'ebs_optimized': ec2_config['ebs_optimized'],
+            'enhanced_networking': ec2_config['enhanced_networking'],
+            'self_managed_benefits': [
+                "Full control over database configuration",
+                "Custom backup strategies",
+                "Advanced performance tuning",
+                "Flexible maintenance windows",
+                "Custom monitoring solutions"
+            ]
+        }
+    
+    def _compare_performance(self, onprem: Dict, aws: Dict) -> Dict:
+        """Compare on-premises vs AWS performance"""
+        
+        # TPS comparison
+        onprem_tps = onprem['database_performance']['effective_tps']
+        aws_tps = aws['aws_performance']['effective_tps']
+        tps_improvement = ((aws_tps - onprem_tps) / onprem_tps) * 100
+        
+        # Storage comparison
+        onprem_iops = onprem['storage_performance']['effective_iops']
+        aws_iops = aws['aws_performance']['storage_iops']
+        iops_improvement = ((aws_iops - onprem_iops) / onprem_iops) * 100
+        
+        # Memory comparison
+        onprem_memory = onprem['memory_performance']['effective_memory_gb']
+        aws_memory = aws['aws_performance']['memory_gb']
+        memory_improvement = ((aws_memory - onprem_memory) / onprem_memory) * 100
+        
+        # Overall performance score comparison
+        onprem_score = onprem['overall_performance']['composite_score']
+        aws_score = min(100, onprem_score * (1 + max(tps_improvement, 0) / 100))
+        score_improvement = aws_score - onprem_score
+        
+        return {
+            'tps_comparison': {
+                'onprem': onprem_tps,
+                'aws': aws_tps,
+                'improvement_percent': tps_improvement,
+                'status': 'improvement' if tps_improvement > 0 else 'regression' if tps_improvement < -5 else 'similar'
+            },
+            'iops_comparison': {
+                'onprem': onprem_iops,
+                'aws': aws_iops,
+                'improvement_percent': iops_improvement,
+                'status': 'improvement' if iops_improvement > 0 else 'regression' if iops_improvement < -5 else 'similar'
+            },
+            'memory_comparison': {
+                'onprem': onprem_memory,
+                'aws': aws_memory,
+                'improvement_percent': memory_improvement,
+                'status': 'improvement' if memory_improvement > 0 else 'regression' if memory_improvement < -5 else 'similar'
+            },
+            'overall_score_comparison': {
+                'onprem_score': onprem_score,
+                'aws_score': aws_score,
+                'improvement': score_improvement,
+                'status': 'improvement' if score_improvement > 5 else 'regression' if score_improvement < -5 else 'similar'
+            }
+        }
+    
+    def _calculate_scaling_capabilities(self, aws_sizing: Dict, deployment_type: str) -> Dict:
+        """Calculate AWS scaling capabilities"""
+        
+        if deployment_type == 'rds':
+            scaling_options = {
+                'vertical_scaling': {
+                    'supported': True,
+                    'downtime_required': True,
+                    'max_vcpu': 32,
+                    'max_memory_gb': 256,
+                    'scaling_time_minutes': 5
+                },
+                'horizontal_scaling': {
+                    'read_replicas': True,
+                    'max_read_replicas': 5,
+                    'cross_region': True,
+                    'automatic_failover': True
+                },
+                'storage_scaling': {
+                    'supported': True,
+                    'downtime_required': False,
+                    'max_size_gb': 65536,
+                    'auto_scaling': True
+                }
+            }
+        else:  # EC2
+            scaling_options = {
+                'vertical_scaling': {
+                    'supported': True,
+                    'downtime_required': True,
+                    'max_vcpu': 32,
+                    'max_memory_gb': 256,
+                    'scaling_time_minutes': 2
+                },
+                'horizontal_scaling': {
+                    'clustering': True,
+                    'load_balancing': True,
+                    'auto_scaling_group': True,
+                    'cross_az': True
+                },
+                'storage_scaling': {
+                    'supported': True,
+                    'downtime_required': False,
+                    'max_size_gb': 65536,
+                    'snapshot_scaling': True
+                }
+            }
+        
+        # Reader/Writer scaling
+        rw_config = aws_sizing['reader_writer_config']
+        
+        return {
+            'scaling_options': scaling_options,
+            'current_config': {
+                'writers': rw_config['writers'],
+                'readers': rw_config['readers'],
+                'total_instances': rw_config['total_instances']
+            },
+            'scaling_potential': {
+                'max_writers': 2 if deployment_type == 'rds' else 10,
+                'max_readers': 15 if deployment_type == 'rds' else 50,
+                'geographic_distribution': True,
+                'elastic_scaling': deployment_type == 'ec2'
+            }
+        }
+    
+    def _calculate_network_impact(self, config: Dict) -> Dict:
+        """Calculate network latency impact on performance"""
+        
+        # Application to database latency in AWS
+        aws_internal_latency = 0.5  # ms within AZ
+        cross_az_latency = 2.0  # ms cross-AZ
+        
+        # Compare to on-premises
+        onprem_latency = 0.1  # Very low latency on-premises
+        
+        # Calculate performance impact
+        latency_penalty = (aws_internal_latency - onprem_latency) / onprem_latency
+        
+        return {
+            'onprem_latency_ms': onprem_latency,
+            'aws_same_az_latency_ms': aws_internal_latency,
+            'aws_cross_az_latency_ms': cross_az_latency,
+            'latency_impact_percent': latency_penalty * 100,
+            'mitigation_strategies': [
+                "Deploy applications and database in same AZ",
+                "Use connection pooling",
+                "Implement application-level caching",
+                "Optimize query patterns",
+                "Consider read replicas for read-heavy workloads"
+            ]
+        }
+    
+    def _get_optimization_recommendations(self, aws_performance: Dict, 
+                                        performance_comparison: Dict) -> List[str]:
+        """Get AWS performance optimization recommendations"""
+        
+        recommendations = []
+        
+        # Instance optimization
+        if aws_performance['service_type'] == 'Amazon RDS':
+            recommendations.extend([
+                "Enable Performance Insights for detailed monitoring",
+                "Configure appropriate parameter groups",
+                "Set up CloudWatch enhanced monitoring",
+                "Consider Aurora for even better performance"
+            ])
+        else:
+            recommendations.extend([
+                "Optimize database configuration parameters",
+                "Set up detailed CloudWatch metrics",
+                "Consider using Placement Groups for low latency",
+                "Implement database connection pooling"
+            ])
+        
+        # Storage optimization
+        if performance_comparison['iops_comparison']['improvement_percent'] < 50:
+            recommendations.append("Consider upgrading to io1/io2 storage for higher IOPS")
+        
+        # Memory optimization
+        if performance_comparison['memory_comparison']['improvement_percent'] < 0:
+            recommendations.append("Consider memory-optimized instance types")
+        
+        # General AWS optimizations
+        recommendations.extend([
+            "Implement Multi-AZ for high availability",
+            "Set up automated backups and snapshots",
+            "Use AWS Config for compliance monitoring",
+            "Consider Reserved Instances for cost optimization"
+        ])
+        
+        return recommendations
+
 def render_enhanced_header():
     """Enhanced header with v2.0 features"""
     st.markdown("""
@@ -1081,6 +1741,422 @@ def render_enhanced_sidebar_controls():
         'datasync_agent_size': datasync_agent_size,
         'dms_agent_size': dms_agent_size
     }
+
+def render_onprem_performance_tab(onprem_analysis: Dict, config: Dict):
+    """Render on-premises performance analysis tab"""
+    st.subheader("🖥️ On-Premises Performance Analysis")
+    
+    # Performance overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Overall Score", 
+            f"{onprem_analysis['performance_score']:.1f}/100",
+            delta=onprem_analysis['overall_performance']['performance_tier']
+        )
+    
+    with col2:
+        st.metric(
+            "Database TPS",
+            f"{onprem_analysis['database_performance']['effective_tps']:.0f}",
+            delta=f"OS Opt: {onprem_analysis['database_performance']['db_optimization']*100:.1f}%"
+        )
+    
+    with col3:
+        st.metric(
+            "Storage IOPS",
+            f"{onprem_analysis['storage_performance']['effective_iops']:,.0f}",
+            delta=f"{onprem_analysis['storage_performance']['storage_type'].upper()}"
+        )
+    
+    with col4:
+        st.metric(
+            "Network Bandwidth",
+            f"{onprem_analysis['network_performance']['effective_bandwidth_mbps']:,.0f} Mbps",
+            delta=f"{config['nic_type'].replace('_', ' ').title()}"
+        )
+    
+    # Detailed performance breakdown
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**💻 System Configuration & Performance:**")
+        st.markdown(f"""
+        <div class="onprem-performance-card">
+            <h4>🔧 Hardware Configuration</h4>
+            <p><strong>OS:</strong> {onprem_analysis['os_impact']['name'] if 'name' in onprem_analysis['os_impact'] else config['operating_system']}</p>
+            <p><strong>Platform:</strong> {config['server_type'].title()}</p>
+            <p><strong>CPU:</strong> {config['cpu_cores']} cores @ {config['cpu_ghz']} GHz</p>
+            <p><strong>Memory:</strong> {config['ram_gb']} GB ({onprem_analysis['memory_performance']['available_memory_gb']:.1f} GB available)</p>
+            <p><strong>Storage:</strong> {onprem_analysis['storage_performance']['storage_type'].upper().replace('_', ' ')}</p>
+            <p><strong>Network:</strong> {config['nic_type'].replace('_', ' ').title()}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="onprem-performance-card">
+            <h4>📊 Performance Scores</h4>
+            <p><strong>CPU Score:</strong> {onprem_analysis['overall_performance']['cpu_score']:.1f}/100</p>
+            <p><strong>Memory Score:</strong> {onprem_analysis['overall_performance']['memory_score']:.1f}/100</p>
+            <p><strong>Storage Score:</strong> {onprem_analysis['overall_performance']['storage_score']:.1f}/100</p>
+            <p><strong>Network Score:</strong> {onprem_analysis['overall_performance']['network_score']:.1f}/100</p>
+            <p><strong>Database Score:</strong> {onprem_analysis['overall_performance']['database_score']:.1f}/100</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("**🎯 OS Performance Impact:**")
+        st.markdown(f"""
+        <div class="os-comparison-card">
+            <h4>⚙️ Operating System Efficiency</h4>
+            <p><strong>Overall Efficiency:</strong> {onprem_analysis['os_impact']['total_efficiency']*100:.1f}%</p>
+            <p><strong>CPU Efficiency:</strong> {onprem_analysis['os_impact']['cpu_efficiency']*100:.1f}%</p>
+            <p><strong>Memory Efficiency:</strong> {onprem_analysis['os_impact']['memory_efficiency']*100:.1f}%</p>
+            <p><strong>I/O Efficiency:</strong> {onprem_analysis['os_impact']['io_efficiency']*100:.1f}%</p>
+            <p><strong>Network Efficiency:</strong> {onprem_analysis['os_impact']['network_efficiency']*100:.1f}%</p>
+            <p><strong>DB Optimization:</strong> {onprem_analysis['os_impact']['db_optimization']*100:.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="onprem-performance-card">
+            <h4>⚠️ Bottlenecks & Issues</h4>
+            <ul>
+                {"".join([f"<li>{bottleneck}</li>" for bottleneck in onprem_analysis['bottlenecks']])}
+            </ul>
+            <h5>📈 Scaling Recommendations:</h5>
+            <ul>
+                {"".join([f"<li>{rec}</li>" for rec in onprem_analysis['overall_performance']['scaling_recommendation']])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Performance comparison charts
+    st.markdown("**📊 Performance Metrics Visualization:**")
+    
+    # Create performance comparison data
+    performance_data = {
+        'Component': ['CPU', 'Memory', 'Storage', 'Network', 'Database'],
+        'Score': [
+            onprem_analysis['overall_performance']['cpu_score'],
+            onprem_analysis['overall_performance']['memory_score'],
+            onprem_analysis['overall_performance']['storage_score'],
+            onprem_analysis['overall_performance']['network_score'],
+            onprem_analysis['overall_performance']['database_score']
+        ],
+        'Category': ['Hardware', 'Hardware', 'Hardware', 'Hardware', 'Software']
+    }
+    
+    fig_performance = px.bar(
+        performance_data, 
+        x='Component', 
+        y='Score',
+        color='Category',
+        title="On-Premises Performance Component Analysis",
+        color_discrete_map={'Hardware': '#3498db', 'Software': '#e74c3c'}
+    )
+    fig_performance.update_layout(yaxis_range=[0, 100])
+    st.plotly_chart(fig_performance, use_container_width=True)
+    
+    # OS Efficiency radar chart
+    st.markdown("**🎯 Operating System Efficiency Analysis:**")
+    
+    os_metrics = ['CPU', 'Memory', 'I/O', 'Network', 'DB Optimization']
+    os_values = [
+        onprem_analysis['os_impact']['cpu_efficiency'] * 100,
+        onprem_analysis['os_impact']['memory_efficiency'] * 100,
+        onprem_analysis['os_impact']['io_efficiency'] * 100,
+        onprem_analysis['os_impact']['network_efficiency'] * 100,
+        onprem_analysis['os_impact']['db_optimization'] * 100
+    ]
+    
+    fig_radar = go.Figure()
+    fig_radar.add_trace(go.Scatterpolar(
+        r=os_values,
+        theta=os_metrics,
+        fill='toself',
+        name='OS Efficiency',
+        line_color='#2ecc71'
+    ))
+    
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100]
+            )),
+        showlegend=False,
+        title="Operating System Performance Efficiency"
+    )
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+def render_aws_performance_tab(aws_analysis: Dict, config: Dict):
+    """Render AWS post-migration performance analysis tab"""
+    st.subheader("☁️ AWS Post-Migration Performance Analysis")
+    
+    aws_perf = aws_analysis['aws_performance']
+    comparison = aws_analysis['performance_comparison']
+    
+    # Performance overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        tps_delta = comparison['tps_comparison']['improvement_percent']
+        delta_class = "delta-positive" if tps_delta > 0 else "delta-negative" if tps_delta < -5 else "delta-neutral"
+        st.metric(
+            "Database TPS",
+            f"{aws_perf['effective_tps']:.0f}",
+            delta=f"{tps_delta:+.1f}%"
+        )
+    
+    with col2:
+        iops_delta = comparison['iops_comparison']['improvement_percent']
+        st.metric(
+            "Storage IOPS",
+            f"{aws_perf['storage_iops']:,.0f}",
+            delta=f"{iops_delta:+.1f}%"
+        )
+    
+    with col3:
+        memory_delta = comparison['memory_comparison']['improvement_percent']
+        st.metric(
+            "Memory",
+            f"{aws_perf['memory_gb']} GB",
+            delta=f"{memory_delta:+.1f}%"
+        )
+    
+    with col4:
+        overall_delta = comparison['overall_score_comparison']['improvement']
+        st.metric(
+            "Performance Score",
+            f"{comparison['overall_score_comparison']['aws_score']:.1f}/100",
+            delta=f"{overall_delta:+.1f} points"
+        )
+    
+    # AWS service details
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="aws-performance-card">
+            <h4>☁️ AWS Service Configuration</h4>
+            <p><strong>Service:</strong> {aws_perf['service_type']}</p>
+            <p><strong>Instance:</strong> {aws_perf['instance_type']}</p>
+            <p><strong>vCPU:</strong> {aws_perf['vcpu']} cores</p>
+            <p><strong>Memory:</strong> {aws_perf['memory_gb']} GB</p>
+            <p><strong>Storage IOPS:</strong> {aws_perf['storage_iops']:,}</p>
+            <p><strong>Storage Throughput:</strong> {aws_perf['storage_throughput_mbps']:.0f} MB/s</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Service-specific benefits
+        if aws_perf['service_type'] == 'Amazon RDS':
+            benefits = aws_perf['managed_service_benefits']
+            st.markdown(f"""
+            <div class="rds-recommendation">
+                <h4>🎯 RDS Managed Service Benefits</h4>
+                <ul>
+                    {"".join([f"<li>{benefit}</li>" for benefit in benefits])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            benefits = aws_perf['self_managed_benefits']
+            st.markdown(f"""
+            <div class="ec2-recommendation">
+                <h4>🔧 EC2 Self-Managed Benefits</h4>
+                <ul>
+                    {"".join([f"<li>{benefit}</li>" for benefit in benefits])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("**📈 Performance Comparison Summary:**")
+        
+        # Performance comparison cards
+        for metric, data in comparison.items():
+            if metric.endswith('_comparison'):
+                metric_name = metric.replace('_comparison', '').replace('_', ' ').title()
+                if metric_name == 'Overall Score':
+                    improvement = data['improvement']
+                    status_icon = "📈" if improvement > 5 else "📉" if improvement < -5 else "➡️"
+                    st.markdown(f"""
+                    <div class="performance-card">
+                        <h5>{status_icon} {metric_name}</h5>
+                        <p><strong>On-Prem:</strong> {data['onprem_score']:.1f}</p>
+                        <p><strong>AWS:</strong> {data['aws_score']:.1f}</p>
+                        <p><strong>Change:</strong> {improvement:+.1f} points</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    improvement = data['improvement_percent']
+                    status_icon = "📈" if improvement > 0 else "📉" if improvement < -5 else "➡️"
+                    st.markdown(f"""
+                    <div class="performance-card">
+                        <h5>{status_icon} {metric_name}</h5>
+                        <p><strong>On-Prem:</strong> {data['onprem']:,.0f}</p>
+                        <p><strong>AWS:</strong> {data['aws']:,.0f}</p>
+                        <p><strong>Change:</strong> {improvement:+.1f}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+    # Scaling capabilities
+    st.markdown("**🚀 AWS Scaling Capabilities:**")
+    
+    scaling = aws_analysis['scaling_capabilities']
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        vertical = scaling['scaling_options']['vertical_scaling']
+        st.markdown(f"""
+        <div class="aws-performance-card">
+            <h4>📊 Vertical Scaling</h4>
+            <p><strong>Supported:</strong> {'✅' if vertical['supported'] else '❌'}</p>
+            <p><strong>Max vCPU:</strong> {vertical['max_vcpu']}</p>
+            <p><strong>Max Memory:</strong> {vertical['max_memory_gb']} GB</p>
+            <p><strong>Downtime:</strong> {'Required' if vertical['downtime_required'] else 'Not Required'}</p>
+            <p><strong>Scaling Time:</strong> {vertical['scaling_time_minutes']} minutes</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        horizontal = scaling['scaling_options']['horizontal_scaling']
+        st.markdown(f"""
+        <div class="aws-performance-card">
+            <h4>📈 Horizontal Scaling</h4>
+            {f"<p><strong>Read Replicas:</strong> {'✅' if horizontal.get('read_replicas') else '❌'}</p>" if 'read_replicas' in horizontal else ""}
+            {f"<p><strong>Max Replicas:</strong> {horizontal.get('max_read_replicas', 'N/A')}</p>" if 'max_read_replicas' in horizontal else ""}
+            {f"<p><strong>Clustering:</strong> {'✅' if horizontal.get('clustering') else '❌'}</p>" if 'clustering' in horizontal else ""}
+            {f"<p><strong>Auto Scaling:</strong> {'✅' if horizontal.get('auto_scaling_group') else '❌'}</p>" if 'auto_scaling_group' in horizontal else ""}
+            {f"<p><strong>Cross-Region:</strong> {'✅' if horizontal.get('cross_region') else '❌'}</p>" if 'cross_region' in horizontal else ""}
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        storage = scaling['scaling_options']['storage_scaling']
+        st.markdown(f"""
+        <div class="aws-performance-card">
+            <h4>💾 Storage Scaling</h4>
+            <p><strong>Supported:</strong> {'✅' if storage['supported'] else '❌'}</p>
+            <p><strong>Max Size:</strong> {storage['max_size_gb']:,} GB</p>
+            <p><strong>Downtime:</strong> {'Required' if storage['downtime_required'] else 'Not Required'}</p>
+            {f"<p><strong>Auto Scaling:</strong> {'✅' if storage.get('auto_scaling') else '❌'}</p>" if 'auto_scaling' in storage else ""}
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Network impact analysis
+    st.markdown("**🌐 Network Latency Impact Analysis:**")
+    
+    network_impact = aws_analysis['network_impact']
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="network-path-card">
+            <h4>📡 Latency Comparison</h4>
+            <p><strong>On-Premises:</strong> {network_impact['onprem_latency_ms']:.1f} ms</p>
+            <p><strong>AWS Same AZ:</strong> {network_impact['aws_same_az_latency_ms']:.1f} ms</p>
+            <p><strong>AWS Cross AZ:</strong> {network_impact['aws_cross_az_latency_ms']:.1f} ms</p>
+            <p><strong>Impact:</strong> {network_impact['latency_impact_percent']:+.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="network-path-card">
+            <h4>🛠️ Mitigation Strategies</h4>
+            <ul>
+                {"".join([f"<li>{strategy}</li>" for strategy in network_impact['mitigation_strategies'][:4]])}
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Optimization recommendations
+    st.markdown("**💡 AWS Optimization Recommendations:**")
+    
+    recommendations = aws_analysis['optimization_recommendations']
+    
+    # Group recommendations by category
+    performance_recs = [r for r in recommendations if any(word in r.lower() for word in ['performance', 'monitoring', 'insights'])]
+    scaling_recs = [r for r in recommendations if any(word in r.lower() for word in ['scaling', 'instance', 'memory'])]
+    operational_recs = [r for r in recommendations if any(word in r.lower() for word in ['backup', 'multi-az', 'config', 'reserved'])]
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if performance_recs:
+            st.markdown(f"""
+            <div class="aws-recommendation-card">
+                <h4>🎯 Performance Optimization</h4>
+                <ul>
+                    {"".join([f"<li>{rec}</li>" for rec in performance_recs])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col2:
+        if scaling_recs:
+            st.markdown(f"""
+            <div class="aws-recommendation-card">
+                <h4>📊 Scaling & Sizing</h4>
+                <ul>
+                    {"".join([f"<li>{rec}</li>" for rec in scaling_recs])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col3:
+        if operational_recs:
+            st.markdown(f"""
+            <div class="aws-recommendation-card">
+                <h4>🔧 Operational Excellence</h4>
+                <ul>
+                    {"".join([f"<li>{rec}</li>" for rec in operational_recs])}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Performance comparison visualization
+    st.markdown("**📊 Performance Comparison Charts:**")
+    
+    # Create comparison data
+    metrics = ['TPS', 'IOPS', 'Memory (GB)']
+    onprem_values = [
+        comparison['tps_comparison']['onprem'],
+        comparison['iops_comparison']['onprem'],
+        comparison['memory_comparison']['onprem']
+    ]
+    aws_values = [
+        comparison['tps_comparison']['aws'],
+        comparison['iops_comparison']['aws'],
+        comparison['memory_comparison']['aws']
+    ]
+    
+    fig_comparison = go.Figure()
+    fig_comparison.add_trace(go.Bar(
+        name='On-Premises',
+        x=metrics,
+        y=onprem_values,
+        marker_color='#3498db'
+    ))
+    fig_comparison.add_trace(go.Bar(
+        name='AWS',
+        x=metrics,
+        y=aws_values,
+        marker_color='#e74c3c'
+    ))
+    
+    fig_comparison.update_layout(
+        title="On-Premises vs AWS Performance Comparison",
+        barmode='group',
+        yaxis_title="Performance Units"
+    )
+    
+    st.plotly_chart(fig_comparison, use_container_width=True)
 
 def render_enhanced_aws_recommendations(analysis: Dict, config: Dict):
     """Render enhanced AWS sizing recommendations"""
@@ -1419,6 +2495,8 @@ class EnhancedMigrationAnalyzer:
         self.aws_manager = EnhancedAWSMigrationManager()
         self.network_manager = EnhancedNetworkPathManager()
         self.agent_manager = AgentSizingManager()
+        self.onprem_analyzer = OnPremPerformanceAnalyzer()
+        self.aws_analyzer = AWSPerformanceAnalyzer()
         
         # Enhanced hardware manager (simplified for this implementation)
         self.nic_types = {
@@ -1432,6 +2510,9 @@ class EnhancedMigrationAnalyzer:
     
     def comprehensive_migration_analysis(self, config: Dict) -> Dict:
         """Comprehensive v2.0 migration analysis"""
+        
+        # On-premises performance analysis
+        onprem_performance = self.onprem_analyzer.calculate_onprem_performance(config, self.os_manager)
         
         # Hardware performance calculation
         hardware_perf = self._calculate_hardware_performance(config)
@@ -1459,10 +2540,16 @@ class EnhancedMigrationAnalyzer:
         # AWS sizing recommendations
         aws_sizing = self.aws_manager.recommend_aws_sizing(config)
         
+        # AWS performance analysis
+        aws_performance_analysis = self.aws_analyzer.calculate_aws_performance(
+            config, onprem_performance, aws_sizing
+        )
+        
         # Cost analysis
         cost_analysis = self._calculate_comprehensive_costs(config, aws_sizing, agent_analysis, network_perf)
         
         return {
+            'onprem_performance': onprem_performance,
             'hardware_performance': hardware_perf,
             'network_performance': network_perf,
             'migration_type': migration_type,
@@ -1471,6 +2558,7 @@ class EnhancedMigrationAnalyzer:
             'migration_throughput_mbps': migration_throughput,
             'estimated_migration_time_hours': migration_time_hours,
             'aws_sizing_recommendations': aws_sizing,
+            'aws_performance_analysis': aws_performance_analysis,
             'cost_analysis': cost_analysis
         }
     
@@ -1604,12 +2692,14 @@ def main():
         analysis = analyzer.comprehensive_migration_analysis(config)
     
     # Create tabs for different analysis views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "🎯 AWS Sizing", 
         "🤖 Agent Config",
         "🌐 Network Analysis",
         "💰 Cost Analysis",
-        "📊 Performance Dashboard"
+        "📊 Performance Dashboard",
+        "🖥️ On-Prem Performance",
+        "☁️ AWS Performance"
     ])
     
     with tab1:
@@ -1678,6 +2768,43 @@ def main():
                     color_continuous_scale='RdYlGn')
         
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Additional performance insights
+        st.markdown("**🔍 Performance Insights:**")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="performance-card">
+                <h4>🚀 Migration Performance Summary</h4>
+                <p><strong>Bottleneck:</strong> {analysis['agent_analysis']['bottleneck'].title()}</p>
+                <p><strong>Agent Utilization:</strong> {analysis['agent_analysis']['throughput_impact']*100:.1f}%</p>
+                <p><strong>Network Quality:</strong> {analysis['network_performance']['network_quality_score']:.1f}/100</p>
+                <p><strong>OS Efficiency:</strong> {analysis['hardware_performance']['os_efficiency_factor']*100:.1f}%</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            # On-prem vs AWS performance preview
+            onprem_score = analysis['onprem_performance']['performance_score']
+            aws_score = analysis['aws_performance_analysis']['performance_comparison']['overall_score_comparison']['aws_score']
+            
+            st.markdown(f"""
+            <div class="performance-card">
+                <h4>📈 Performance Comparison Preview</h4>
+                <p><strong>On-Premises Score:</strong> {onprem_score:.1f}/100</p>
+                <p><strong>Expected AWS Score:</strong> {aws_score:.1f}/100</p>
+                <p><strong>Performance Change:</strong> {aws_score - onprem_score:+.1f} points</p>
+                <p><strong>Status:</strong> {'📈 Improvement' if aws_score > onprem_score else '📉 Decline' if aws_score < onprem_score else '➡️ Similar'}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with tab6:
+        render_onprem_performance_tab(analysis['onprem_performance'], config)
+    
+    with tab7:
+        render_aws_performance_tab(analysis['aws_performance_analysis'], config)
     
     # Summary footer
     st.markdown("---")
@@ -1687,6 +2814,7 @@ def main():
         • 🕒 <strong>Time:</strong> {analysis['estimated_migration_time_hours']:.1f} hours 
         • 💰 <strong>Monthly Cost:</strong> ${analysis['cost_analysis']['total_monthly_cost']:.0f} 
         • 🎯 <strong>AWS:</strong> {analysis['aws_sizing_recommendations']['deployment_recommendation']['recommendation'].upper()}
+        • 📊 <strong>Performance:</strong> {analysis['onprem_performance']['performance_score']:.1f} → {analysis['aws_performance_analysis']['performance_comparison']['overall_score_comparison']['aws_score']:.1f}
     </div>
     """, unsafe_allow_html=True)
 
