@@ -5459,7 +5459,7 @@ def render_enhanced_sidebar_controls():
     }
 
 def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
-    """Render FSx destination comparison analysis tab"""
+    """Render FSx destination comparison analysis tab using native Streamlit components"""
     st.subheader("🗄️ FSx Destination Storage Comparison & Performance Analysis")
     
     fsx_comparisons = analysis.get('fsx_comparisons', {})
@@ -5469,7 +5469,7 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
         st.error("FSx comparison data not available. Please run the analysis first.")
         return
     
-    # Destination Overview Cards
+    # Destination Overview Cards using native components
     st.markdown("**📊 Destination Storage Overview:**")
     
     col1, col2, col3 = st.columns(3)
@@ -5480,19 +5480,18 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
         
         # Determine if this is the current selection
         is_current = destination == current_destination
-        card_style = "storage-destination-card" if is_current else "detailed-analysis-section"
         
         with col:
-            st.markdown(f"""
-            <div class="{card_style}">
-                <h4>{'🎯 ' if is_current else ''}{destination} {'(Selected)' if is_current else ''}</h4>
-                <p><strong>Performance:</strong> {comparison.get('performance_rating', 'Unknown')}</p>
-                <p><strong>Cost Rating:</strong> {comparison.get('cost_rating', 'Unknown')}</p>
-                <p><strong>Complexity:</strong> {comparison.get('complexity_rating', 'Unknown')}</p>
-                <p><strong>Migration Time:</strong> {comparison.get('estimated_migration_time_hours', 0):.1f} hours</p>
-                <p><strong>Monthly Storage Cost:</strong> ${comparison.get('estimated_monthly_storage_cost', 0):,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            if is_current:
+                st.success(f"🎯 **{destination} (Selected)**")
+            else:
+                st.info(f"**{destination}**")
+            
+            st.write(f"**Performance:** {comparison.get('performance_rating', 'Unknown')}")
+            st.write(f"**Cost Rating:** {comparison.get('cost_rating', 'Unknown')}")
+            st.write(f"**Complexity:** {comparison.get('complexity_rating', 'Unknown')}")
+            st.write(f"**Migration Time:** {comparison.get('estimated_migration_time_hours', 0):.1f} hours")
+            st.write(f"**Monthly Storage Cost:** ${comparison.get('estimated_monthly_storage_cost', 0):,.0f}")
     
     # Performance Comparison Charts
     st.markdown("**📈 Performance & Cost Comparison:**")
@@ -5540,7 +5539,7 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
         
         st.plotly_chart(fig_cost, use_container_width=True)
     
-    # Detailed Analysis per Destination
+    # Detailed Analysis per Destination using tabs
     st.markdown("**🔍 Detailed Destination Analysis:**")
     
     destination_tabs = st.tabs([f"{dest}" for dest in destinations])
@@ -5552,92 +5551,68 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown(f"""
-                <div class="fsx-comparison-card">
-                    <h4>{destination} Performance Metrics</h4>
-                    <p><strong>Migration Time:</strong> {comparison.get('estimated_migration_time_hours', 0):.1f} hours</p>
-                    <p><strong>Throughput:</strong> {comparison.get('migration_throughput_mbps', 0):,.0f} Mbps</p>
-                    <p><strong>Performance Rating:</strong> {comparison.get('performance_rating', 'Unknown')}</p>
-                    <p><strong>Cost Rating:</strong> {comparison.get('cost_rating', 'Unknown')}</p>
-                    <p><strong>Complexity Rating:</strong> {comparison.get('complexity_rating', 'Unknown')}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.success(f"**{destination} Performance Metrics**")
+                st.write(f"**Migration Time:** {comparison.get('estimated_migration_time_hours', 0):.1f} hours")
+                st.write(f"**Throughput:** {comparison.get('migration_throughput_mbps', 0):,.0f} Mbps")
+                st.write(f"**Performance Rating:** {comparison.get('performance_rating', 'Unknown')}")
+                st.write(f"**Cost Rating:** {comparison.get('cost_rating', 'Unknown')}")
+                st.write(f"**Complexity Rating:** {comparison.get('complexity_rating', 'Unknown')}")
             
             with col2:
-                st.markdown(f"""
-                <div class="fsx-comparison-card">
-                    <h4>{destination} Cost Analysis</h4>
-                    <p><strong>Monthly Storage:</strong> ${comparison.get('estimated_monthly_storage_cost', 0):,.0f}</p>
-                    <p><strong>Agent Configuration:</strong> {comparison.get('agent_configuration', {}).get('number_of_agents', 1)} agents</p>
-                    <p><strong>Agent Monthly Cost:</strong> ${comparison.get('agent_configuration', {}).get('total_monthly_cost', 0):,.0f}</p>
-                    <p><strong>Storage Multiplier:</strong> {comparison.get('agent_configuration', {}).get('storage_performance_multiplier', 1.0):.1f}x</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.info(f"**{destination} Cost Analysis**")
+                st.write(f"**Monthly Storage:** ${comparison.get('estimated_monthly_storage_cost', 0):,.0f}")
+                st.write(f"**Agent Configuration:** {comparison.get('agent_configuration', {}).get('number_of_agents', 1)} agents")
+                st.write(f"**Agent Monthly Cost:** ${comparison.get('agent_configuration', {}).get('total_monthly_cost', 0):,.0f}")
+                st.write(f"**Storage Multiplier:** {comparison.get('agent_configuration', {}).get('storage_performance_multiplier', 1.0):.1f}x")
             
             # Recommendations for this destination
             recommendations = comparison.get('recommendations', [])
             if recommendations:
-                st.markdown(f"**💡 {destination} Recommendations:**")
-                for i, rec in enumerate(recommendations, 1):
-                    st.markdown(f"{i}. {rec}")
+                with st.expander(f"💡 {destination} Recommendations", expanded=True):
+                    for i, rec in enumerate(recommendations, 1):
+                        st.write(f"{i}. {rec}")
             
             # Network performance for this destination
             network_perf = comparison.get('network_performance', {})
             if network_perf:
-                st.markdown(f"**🌐 {destination} Network Performance:**")
-                
-                network_col1, network_col2 = st.columns(2)
-                
-                with network_col1:
-                    st.metric("Network Quality", f"{network_perf.get('network_quality_score', 0):.1f}/100")
-                    st.metric("AI Enhanced Quality", f"{network_perf.get('ai_enhanced_quality_score', 0):.1f}/100")
-                
-                with network_col2:
-                    st.metric("Effective Bandwidth", f"{network_perf.get('effective_bandwidth_mbps', 0):,.0f} Mbps")
-                    st.metric("Total Latency", f"{network_perf.get('total_latency_ms', 0):.1f} ms")
+                with st.expander(f"🌐 {destination} Network Performance", expanded=False):
+                    network_col1, network_col2 = st.columns(2)
+                    
+                    with network_col1:
+                        st.metric("Network Quality", f"{network_perf.get('network_quality_score', 0):.1f}/100")
+                        st.metric("AI Enhanced Quality", f"{network_perf.get('ai_enhanced_quality_score', 0):.1f}/100")
+                    
+                    with network_col2:
+                        st.metric("Effective Bandwidth", f"{network_perf.get('effective_bandwidth_mbps', 0):,.0f} Mbps")
+                        st.metric("Total Latency", f"{network_perf.get('total_latency_ms', 0):.1f} ms")
     
-    # Summary Recommendations
+    # Summary Recommendations using native components
     st.markdown("**🎯 Overall Destination Recommendations:**")
     
     # Find the best option for different criteria
-    best_performance = max(destinations, key=lambda x: fsx_comparisons[x].get('estimated_migration_time_hours', float('inf')), default='S3')
-    best_cost = min(destinations, key=lambda x: fsx_comparisons[x].get('estimated_monthly_storage_cost', float('inf')), default='S3')
-    
-    # Invert for performance (lower time is better)
     best_performance = min(destinations, key=lambda x: fsx_comparisons[x].get('estimated_migration_time_hours', float('inf')), default='S3')
+    best_cost = min(destinations, key=lambda x: fsx_comparisons[x].get('estimated_monthly_storage_cost', float('inf')), default='S3')
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown(f"""
-        <div class="performance-comparison-card">
-            <h4>🚀 Best Performance</h4>
-            <p><strong>Winner:</strong> {best_performance}</p>
-            <p><strong>Migration Time:</strong> {fsx_comparisons[best_performance].get('estimated_migration_time_hours', 0):.1f} hours</p>
-            <p><strong>Throughput:</strong> {fsx_comparisons[best_performance].get('migration_throughput_mbps', 0):,.0f} Mbps</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.success("🚀 **Best Performance**")
+        st.write(f"**Winner:** {best_performance}")
+        st.write(f"**Migration Time:** {fsx_comparisons[best_performance].get('estimated_migration_time_hours', 0):.1f} hours")
+        st.write(f"**Throughput:** {fsx_comparisons[best_performance].get('migration_throughput_mbps', 0):,.0f} Mbps")
     
     with col2:
-        st.markdown(f"""
-        <div class="performance-comparison-card">
-            <h4>💰 Best Cost Efficiency</h4>
-            <p><strong>Winner:</strong> {best_cost}</p>
-            <p><strong>Monthly Cost:</strong> ${fsx_comparisons[best_cost].get('estimated_monthly_storage_cost', 0):,.0f}</p>
-            <p><strong>Cost Rating:</strong> {fsx_comparisons[best_cost].get('cost_rating', 'Unknown')}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("💰 **Best Cost Efficiency**")
+        st.write(f"**Winner:** {best_cost}")
+        st.write(f"**Monthly Cost:** ${fsx_comparisons[best_cost].get('estimated_monthly_storage_cost', 0):,.0f}")
+        st.write(f"**Cost Rating:** {fsx_comparisons[best_cost].get('cost_rating', 'Unknown')}")
     
     with col3:
         current_comparison = fsx_comparisons.get(current_destination, {})
-        st.markdown(f"""
-        <div class="performance-comparison-card">
-            <h4>🎯 Current Selection</h4>
-            <p><strong>Choice:</strong> {current_destination}</p>
-            <p><strong>Performance:</strong> {current_comparison.get('performance_rating', 'Unknown')}</p>
-            <p><strong>Complexity:</strong> {current_comparison.get('complexity_rating', 'Unknown')}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("🎯 **Current Selection**")
+        st.write(f"**Choice:** {current_destination}")
+        st.write(f"**Performance:** {current_comparison.get('performance_rating', 'Unknown')}")
+        st.write(f"**Complexity:** {current_comparison.get('complexity_rating', 'Unknown')}")
     
     # Decision Matrix
     st.markdown("**📊 Decision Matrix:**")
@@ -5658,321 +5633,8 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
     
     df_matrix = pd.DataFrame(matrix_data)
     st.dataframe(df_matrix, use_container_width=True)
-
-def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
-    """Enhanced AI insights tab with detailed analysis including agent scaling and FSx destinations"""
-    st.subheader("🧠 Comprehensive AI-Powered Migration Analysis")
-    
-    ai_assessment = analysis.get('ai_overall_assessment', {})
-    aws_sizing = analysis.get('aws_sizing_recommendations', {})
-    ai_analysis = aws_sizing.get('ai_analysis', {})
-    agent_analysis = analysis.get('agent_analysis', {})
-    
-    # Enhanced Migration Readiness Dashboard with agent scaling and destination storage metrics
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        readiness_score = ai_assessment.get('migration_readiness_score', 0)
-        success_prob = ai_assessment.get('success_probability', 0)
-        st.metric(
-            "🎯 Migration Readiness", 
-            f"{readiness_score:.0f}/100",
-            delta=f"Success Rate: {success_prob:.0f}%"
-        )
-    
-    with col2:
-        complexity_score = ai_analysis.get('ai_complexity_score', 6)
-        risk_level = ai_assessment.get('risk_level', 'Unknown')
-        st.metric(
-            "🔄 Complexity Analysis",
-            f"{complexity_score:.1f}/10",
-            delta=f"Risk: {risk_level}"
-        )
-    
-    with col3:
-        confidence = ai_analysis.get('confidence_level', 'medium')
-        ai_confidence = ai_assessment.get('ai_confidence', 0.5)
-        st.metric(
-            "🤖 AI Confidence",
-            f"{ai_confidence*100:.1f}%",
-            delta=confidence.title()
-        )
-    
-    with col4:
-        timeline = ai_assessment.get('timeline_recommendation', {})
-        total_weeks = timeline.get('total_project_weeks', 6)
-        approach = timeline.get('recommended_approach', 'direct')
-        st.metric(
-            "📅 Project Timeline",
-            f"{total_weeks:.0f} weeks",
-            delta=approach.replace('_', ' ').title()
-        )
-    
-    with col5:
-        resource_allocation = ai_analysis.get('resource_allocation', {})
-        team_size = resource_allocation.get('migration_team_size', 3)
-        specialists = resource_allocation.get('aws_specialists_needed', 1)
-        st.metric(
-            "👥 Team Requirements",
-            f"{team_size:.0f} members",
-            delta=f"{specialists} AWS specialists"
-        )
-    
-    # Agent Scaling Performance Metrics
-    st.markdown("**🤖 Agent Scaling Performance Analysis:**")
-    
-    agent_col1, agent_col2, agent_col3, agent_col4, agent_col5 = st.columns(5)
-    
-    with agent_col1:
-        num_agents = config.get('number_of_agents', 1)
-        optimal_agents = agent_analysis.get('optimal_recommendations', {}).get('optimal_configuration', {}).get('configuration', {}).get('number_of_agents', num_agents)
-        st.metric(
-            "🔧 Agent Configuration",
-            f"{num_agents} agents",
-            delta=f"Optimal: {optimal_agents}"
-        )
-    
-    with agent_col2:
-        scaling_efficiency = agent_analysis.get('scaling_efficiency', 1.0)
-        management_overhead = agent_analysis.get('management_overhead', 1.0)
-        st.metric(
-            "⚡ Scaling Efficiency",
-            f"{scaling_efficiency*100:.1f}%",
-            delta=f"Overhead: {(management_overhead-1)*100:.1f}%"
-        )
-    
-    with agent_col3:
-        total_throughput = agent_analysis.get('total_effective_throughput', 0)
-        per_agent_throughput = total_throughput / num_agents if num_agents > 0 else 0
-        st.metric(
-            "🚀 Total Throughput",
-            f"{total_throughput:,.0f} Mbps",
-            delta=f"{per_agent_throughput:.0f} Mbps/agent"
-        )
-    
-    with agent_col4:
-        bottleneck = agent_analysis.get('bottleneck', 'unknown')
-        bottleneck_severity = agent_analysis.get('bottleneck_severity', 'medium')
-        st.metric(
-            "🔍 Bottleneck Analysis",
-            bottleneck.title(),
-            delta=f"Severity: {bottleneck_severity.title()}"
-        )
-    
-    with agent_col5:
-        agent_monthly_cost = agent_analysis.get('monthly_cost', 0)
-        cost_per_agent = agent_monthly_cost / num_agents if num_agents > 0 else 0
-        st.metric(
-            "💰 Agent Costs",
-            f"${agent_monthly_cost:,.0f}/mo",
-            delta=f"${cost_per_agent:.0f}/agent"
-        )
-    
-    # Destination Storage Impact Analysis
-    st.markdown("**🗄️ Destination Storage Impact Analysis:**")
-    
-    dest_col1, dest_col2, dest_col3, dest_col4, dest_col5 = st.columns(5)
-    
-    destination_storage = config.get('destination_storage_type', 'S3')
-    storage_impact = ai_assessment.get('destination_storage_impact', {})
-    
-    with dest_col1:
-        st.metric(
-            "🎯 Current Destination",
-            destination_storage,
-            delta=f"Type: {storage_impact.get('storage_type', 'Unknown')}"
-        )
-    
-    with dest_col2:
-        performance_bonus = storage_impact.get('performance_bonus', 0)
-        storage_multiplier = storage_impact.get('storage_performance_multiplier', 1.0)
-        st.metric(
-            "⚡ Performance Multiplier",
-            f"{storage_multiplier:.1f}x",
-            delta=f"Bonus: +{performance_bonus}%"
-        )
-    
-    with dest_col3:
-        # Get destination storage cost from cost analysis
-        cost_analysis = analysis.get('cost_analysis', {})
-        dest_storage_cost = cost_analysis.get('destination_storage_cost', 0)
-        st.metric(
-            "💰 Storage Cost",
-            f"${dest_storage_cost:,.0f}/mo",
-            delta=f"For {config.get('database_size_gb', 0):,} GB"
-        )
-    
-    with dest_col4:
-        # Calculate relative cost compared to S3
-        fsx_comparisons = analysis.get('fsx_comparisons', {})
-        s3_cost = fsx_comparisons.get('S3', {}).get('estimated_monthly_storage_cost', 0)
-        current_cost = fsx_comparisons.get(destination_storage, {}).get('estimated_monthly_storage_cost', 0)
-        cost_difference = ((current_cost - s3_cost) / s3_cost * 100) if s3_cost > 0 else 0
-        st.metric(
-            "📊 Cost vs S3",
-            f"{cost_difference:+.0f}%",
-            delta=f"${current_cost - s3_cost:+,.0f}/mo"
-        )
-    
-    with dest_col5:
-        # Get migration time benefit
-        s3_time = fsx_comparisons.get('S3', {}).get('estimated_migration_time_hours', 0)
-        current_time = fsx_comparisons.get(destination_storage, {}).get('estimated_migration_time_hours', 0)
-        time_difference = ((s3_time - current_time) / s3_time * 100) if s3_time > 0 else 0
-        st.metric(
-            "⏱️ Time vs S3",
-            f"{time_difference:+.0f}%",
-            delta=f"{current_time - s3_time:+.1f} hours"
-        )
-    
-    # Performance Metrics Overview
-    st.markdown("**📊 Current Performance Analysis:**")
-    
-    perf_col1, perf_col2, perf_col3, perf_col4, perf_col5 = st.columns(5)
-    
-    with perf_col1:
-        st.markdown(f"""
-        <div class="compact-metric">
-            <h5>💾 Current Storage</h5>
-            <p><strong>{config.get('current_storage_gb', 0):,} GB</strong></p>
-            <p>Database: {config.get('database_size_gb', 0):,} GB</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with perf_col2:
-        st.markdown(f"""
-        <div class="compact-metric">
-            <h5>⚡ Peak IOPS</h5>
-            <p><strong>{config.get('peak_iops', 0):,}</strong></p>
-            <p>Max observed performance</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with perf_col3:
-        st.markdown(f"""
-        <div class="compact-metric">
-            <h5>🚀 Max Throughput</h5>
-            <p><strong>{config.get('max_throughput_mbps', 0)} MB/s</strong></p>
-            <p>Storage throughput peak</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with perf_col4:
-        st.markdown(f"""
-        <div class="compact-metric">
-            <h5>🧠 Anticipated Memory</h5>
-            <p><strong>{config.get('anticipated_max_memory_gb', 0)} GB</strong></p>
-            <p>Current: {config.get('ram_gb', 0)} GB</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with perf_col5:
-        st.markdown(f"""
-        <div class="compact-metric">
-            <h5>⚙️ Anticipated CPU</h5>
-            <p><strong>{config.get('anticipated_max_cpu_cores', 0)} cores</strong></p>
-            <p>Current: {config.get('cpu_cores', 0)} cores</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Agent Scaling Optimization Analysis
-    st.markdown("**🎯 Agent Scaling Optimization Analysis:**")
-    
-    agent_optimization = agent_analysis.get('ai_optimization', {})
-    optimal_recommendations = agent_analysis.get('optimal_recommendations', {})
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="agent-scaling-card">
-            <h4>🔧 Current Agent Configuration Analysis</h4>
-            <p><strong>Configuration Efficiency:</strong> {agent_optimization.get('current_efficiency', 0):.1f}%</p>
-            <p><strong>Optimization Potential:</strong> {agent_optimization.get('optimization_potential_percent', 0):.1f}%</p>
-            <p><strong>Bottleneck Type:</strong> {agent_optimization.get('bottleneck_type', 'Unknown').title()}</p>
-            <p><strong>Scaling Assessment:</strong> {agent_optimization.get('scaling_assessment', {}).get('cost_efficiency', 'Unknown')}</p>
-            <p><strong>Estimated Improvement:</strong> {agent_optimization.get('estimated_improvement', 'N/A')}</p>
-            <p><strong>Destination Impact:</strong> {agent_optimization.get('destination_storage_impact', 'Standard performance')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        if optimal_recommendations.get('optimal_configuration'):
-            optimal_config = optimal_recommendations['optimal_configuration']
-            st.markdown(f"""
-            <div class="agent-scaling-card">
-                <h4>🎯 AI-Recommended Optimal Configuration</h4>
-                <p><strong>Optimal Agents:</strong> {optimal_config['configuration']['number_of_agents']}</p>
-                <p><strong>Agent Size:</strong> {optimal_config['configuration']['agent_size'].title()}</p>
-                <p><strong>Destination:</strong> {optimal_config['configuration']['destination_storage']}</p>
-                <p><strong>Total Throughput:</strong> {optimal_config['total_throughput_mbps']:,.0f} Mbps</p>
-                <p><strong>Monthly Cost:</strong> ${optimal_config['total_cost_per_hour'] * 24 * 30:,.0f}</p>
-                <p><strong>Overall Score:</strong> {optimal_config['overall_score']:.1f}/100</p>
-                <p><strong>Storage Multiplier:</strong> {optimal_config.get('storage_performance_multiplier', 1.0):.1f}x</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="agent-scaling-card">
-                <h4>🎯 AI Analysis Status</h4>
-                <p>Optimal configuration analysis not available</p>
-                <p>Current configuration efficiency: {agent_optimization.get('current_efficiency', 0):.1f}%</p>
-                <p>Destination storage: {destination_storage}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # Agent Scaling Recommendations
-    agent_recommendations = agent_optimization.get('recommendations', [])
-    if agent_recommendations:
-        st.markdown("**🤖 AI Agent Scaling Recommendations:**")
-        
-        for i, recommendation in enumerate(agent_recommendations, 1):
-            priority = "High" if i <= 2 else "Medium" if i <= 4 else "Low"
-            impact = "Significant" if i <= 2 else "Moderate" if i <= 4 else "Minor"
-            
-            st.markdown(f"""
-            <div class="detailed-analysis-section">
-                <h5>Recommendation {i}: {recommendation}</h5>
-                <p><strong>Priority:</strong> {priority}</p>
-                <p><strong>Expected Impact:</strong> {impact}</p>
-                <p><strong>Implementation:</strong> {"Immediate" if i <= 2 else "Short-term" if i <= 4 else "Long-term"}</p>
-                <p><strong>Destination Relevance:</strong> {"High" if destination_storage in recommendation else "Standard"}</p>
-            </div>
-            """)
-    
-    # Destination Storage Analysis
-    st.markdown("**🗄️ Destination Storage Analysis:**")
-    
-    dest_ai_analysis = ai_analysis.get('destination_storage_impact', {})
-    if dest_ai_analysis:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="ai-insight-card">
-                <h4>📊 {destination_storage} Performance Analysis</h4>
-                <p><strong>Performance Impact:</strong> {dest_ai_analysis.get('performance_impact', {}).get('performance_rating', 'Unknown')}</p>
-                <p><strong>Throughput Multiplier:</strong> {dest_ai_analysis.get('performance_impact', {}).get('throughput_multiplier', 1.0):.1f}x</p>
-                <p><strong>Latency Impact:</strong> {dest_ai_analysis.get('performance_impact', {}).get('latency_impact', 1.0):.1f}x</p>
-                <p><strong>IOPS Capability:</strong> {dest_ai_analysis.get('performance_impact', {}).get('iops_capability', 'Standard')}</p>
-                <p><strong>Complexity Factor:</strong> {dest_ai_analysis.get('complexity_factor', 1.0):.1f}x</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            recommendations_for_storage = dest_ai_analysis.get('recommended_for', [])
-            st.markdown(f"""
-            <div class="ai-recommendation-card">
-                <h4>💡 {destination_storage} Recommendations</h4>
-                <ul>
-                    {"".join([f"<li>{rec}</li>" for rec in recommendations_for_storage])}
-                </ul>
-                <p><strong>Best Use Cases:</strong> {'High-performance workloads' if destination_storage == 'FSx_Lustre' else 'Windows applications' if destination_storage == 'FSx_Windows' else 'General purpose, cost-effective'}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
 def render_agent_scaling_tab(analysis: Dict, config: Dict):
-    """Render dedicated agent scaling analysis tab with FSx destination awareness"""
+    """Render dedicated agent scaling analysis tab using native Streamlit components"""
     st.subheader("🤖 Agent Scaling Analysis & Optimization with Storage Destinations")
     
     agent_analysis = analysis.get('agent_analysis', {})
@@ -6024,51 +5686,45 @@ def render_agent_scaling_tab(analysis: Dict, config: Dict):
         
         agent_config = agent_analysis.get('agent_configuration', {})
         destination_storage = agent_analysis.get('destination_storage', 'S3')
-        st.markdown(f"""
-        <div class="agent-scaling-card">
-            <h4>Current Setup Details</h4>
-            <p><strong>Agent Type:</strong> {agent_analysis.get('primary_tool', 'Unknown').upper()}</p>
-            <p><strong>Agent Size:</strong> {agent_analysis.get('agent_size', 'Unknown').title()}</p>
-            <p><strong>Number of Agents:</strong> {agent_analysis.get('number_of_agents', 1)}</p>
-            <p><strong>Destination Storage:</strong> {destination_storage}</p>
-            <p><strong>Per-Agent vCPU:</strong> {agent_config.get('per_agent_spec', {}).get('vcpu', 'N/A')}</p>
-            <p><strong>Per-Agent Memory:</strong> {agent_config.get('per_agent_spec', {}).get('memory_gb', 'N/A')} GB</p>
-            <p><strong>Per-Agent Throughput:</strong> {agent_config.get('max_throughput_mbps_per_agent', 0):,.0f} Mbps</p>
-            <p><strong>Storage Performance Bonus:</strong> {agent_config.get('storage_performance_multiplier', 1.0):.1f}x</p>
-            <p><strong>Total Concurrent Tasks:</strong> {agent_config.get('total_concurrent_tasks', 0)}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        
+        with st.container():
+            st.success("Current Setup Details")
+            st.write(f"**Agent Type:** {agent_analysis.get('primary_tool', 'Unknown').upper()}")
+            st.write(f"**Agent Size:** {agent_analysis.get('agent_size', 'Unknown').title()}")
+            st.write(f"**Number of Agents:** {agent_analysis.get('number_of_agents', 1)}")
+            st.write(f"**Destination Storage:** {destination_storage}")
+            st.write(f"**Per-Agent vCPU:** {agent_config.get('per_agent_spec', {}).get('vcpu', 'N/A')}")
+            st.write(f"**Per-Agent Memory:** {agent_config.get('per_agent_spec', {}).get('memory_gb', 'N/A')} GB")
+            st.write(f"**Per-Agent Throughput:** {agent_config.get('max_throughput_mbps_per_agent', 0):,.0f} Mbps")
+            st.write(f"**Storage Performance Bonus:** {agent_config.get('storage_performance_multiplier', 1.0):.1f}x")
+            st.write(f"**Total Concurrent Tasks:** {agent_config.get('total_concurrent_tasks', 0)}")
     
     with col2:
         st.markdown("**🎯 Optimal Configuration Recommendation:**")
         
         if optimal_recommendations.get('optimal_configuration'):
             optimal_config = optimal_recommendations['optimal_configuration']
-            st.markdown(f"""
-            <div class="agent-scaling-card">
-                <h4>AI-Recommended Optimal Setup</h4>
-                <p><strong>Optimal Agents:</strong> {optimal_config['configuration']['number_of_agents']}</p>
-                <p><strong>Optimal Size:</strong> {optimal_config['configuration']['agent_size'].title()}</p>
-                <p><strong>Recommended Destination:</strong> {optimal_config['configuration']['destination_storage']}</p>
-                <p><strong>Total Throughput:</strong> {optimal_config['total_throughput_mbps']:,.0f} Mbps</p>
-                <p><strong>Storage Performance:</strong> {optimal_config.get('storage_performance_multiplier', 1.0):.1f}x</p>
-                <p><strong>Monthly Cost:</strong> ${optimal_config['total_cost_per_hour'] * 24 * 30:,.0f}</p>
-                <p><strong>Overall Score:</strong> {optimal_config['overall_score']:.1f}/100</p>
-                <p><strong>Efficiency Gain:</strong> {optimal_config['overall_score'] - agent_config.get('optimal_configuration', {}).get('efficiency_score', 0):.1f} points</p>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container():
+                st.info("AI-Recommended Optimal Setup")
+                st.write(f"**Optimal Agents:** {optimal_config['configuration']['number_of_agents']}")
+                st.write(f"**Optimal Size:** {optimal_config['configuration']['agent_size'].title()}")
+                st.write(f"**Recommended Destination:** {optimal_config['configuration']['destination_storage']}")
+                st.write(f"**Total Throughput:** {optimal_config['total_throughput_mbps']:,.0f} Mbps")
+                st.write(f"**Storage Performance:** {optimal_config.get('storage_performance_multiplier', 1.0):.1f}x")
+                st.write(f"**Monthly Cost:** ${optimal_config['total_cost_per_hour'] * 24 * 30:,.0f}")
+                st.write(f"**Overall Score:** {optimal_config['overall_score']:.1f}/100")
+                
+                efficiency_gain = optimal_config['overall_score'] - agent_config.get('optimal_configuration', {}).get('efficiency_score', 0)
+                st.write(f"**Efficiency Gain:** {efficiency_gain:.1f} points")
         else:
-            st.markdown(f"""
-            <div class="agent-scaling-card">
-                <h4>Configuration Analysis</h4>
-                <p>Current configuration appears optimal for {destination_storage}</p>
-                <p><strong>Efficiency Score:</strong> {agent_config.get('optimal_configuration', {}).get('efficiency_score', 0):.1f}/100</p>
-                <p><strong>Management Complexity:</strong> {agent_config.get('optimal_configuration', {}).get('management_complexity', 'Unknown')}</p>
-                <p><strong>Storage Optimization:</strong> {agent_config.get('optimal_configuration', {}).get('storage_optimization', 'Unknown')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container():
+                st.warning("Configuration Analysis")
+                st.write(f"Current configuration appears optimal for {destination_storage}")
+                st.write(f"**Efficiency Score:** {agent_config.get('optimal_configuration', {}).get('efficiency_score', 0):.1f}/100")
+                st.write(f"**Management Complexity:** {agent_config.get('optimal_configuration', {}).get('management_complexity', 'Unknown')}")
+                st.write(f"**Storage Optimization:** {agent_config.get('optimal_configuration', {}).get('storage_optimization', 'Unknown')}")
     
-    # Throughput Analysis Chart with Storage Impact
+    # Throughput Analysis Chart
     st.markdown("**📊 Throughput Analysis with Storage Impact:**")
     
     throughput_data = {
@@ -6094,25 +5750,25 @@ def render_agent_scaling_tab(analysis: Dict, config: Dict):
     
     st.plotly_chart(fig_throughput, use_container_width=True)
     
-    # Scaling Efficiency Analysis with Storage Considerations
+    # Scaling Efficiency Analysis using native components
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("**📈 Scaling Efficiency Analysis:**")
         
         scaling_recommendations = agent_config.get('scaling_recommendations', [])
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>Scaling Assessment</h4>
-            <p><strong>Current Efficiency:</strong> {agent_analysis.get('scaling_efficiency', 1.0)*100:.1f}%</p>
-            <p><strong>Management Overhead:</strong> {(agent_analysis.get('management_overhead', 1.0)-1)*100:.1f}%</p>
-            <p><strong>Storage Overhead:</strong> {(agent_analysis.get('storage_management_overhead', 1.0)-1)*100:.1f}%</p>
-            <p><strong>Coordination Complexity:</strong> {agent_config.get('optimal_configuration', {}).get('management_complexity', 'Unknown')}</p>
-            <ul>
-                {"".join([f"<li>{rec}</li>" for rec in scaling_recommendations[:3]])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        
+        with st.container():
+            st.info("Scaling Assessment")
+            st.write(f"**Current Efficiency:** {agent_analysis.get('scaling_efficiency', 1.0)*100:.1f}%")
+            st.write(f"**Management Overhead:** {(agent_analysis.get('management_overhead', 1.0)-1)*100:.1f}%")
+            st.write(f"**Storage Overhead:** {(agent_analysis.get('storage_management_overhead', 1.0)-1)*100:.1f}%")
+            st.write(f"**Coordination Complexity:** {agent_config.get('optimal_configuration', {}).get('management_complexity', 'Unknown')}")
+            
+            if scaling_recommendations:
+                st.write("**Key Recommendations:**")
+                for rec in scaling_recommendations[:3]:
+                    st.write(f"• {rec}")
     
     with col2:
         st.markdown("**🔍 Bottleneck Analysis:**")
@@ -6120,16 +5776,21 @@ def render_agent_scaling_tab(analysis: Dict, config: Dict):
         bottleneck = agent_analysis.get('bottleneck', 'unknown')
         bottleneck_severity = agent_analysis.get('bottleneck_severity', 'medium')
         
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>Performance Constraints</h4>
-            <p><strong>Primary Bottleneck:</strong> {bottleneck.title()}</p>
-            <p><strong>Severity:</strong> {bottleneck_severity.title()}</p>
-            <p><strong>Throughput Impact:</strong> {agent_analysis.get('throughput_impact', 0)*100:.1f}%</p>
-            <p><strong>Storage Impact:</strong> {destination_storage} provides {agent_analysis.get('storage_performance_multiplier', 1.0):.1f}x multiplier</p>
-            <p><strong>Recommendation:</strong> {"Scale agents" if bottleneck == 'agents' else "Optimize network" if bottleneck == 'network' else "Monitor performance"}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container():
+            if bottleneck_severity == 'high':
+                st.error("Performance Constraints")
+            elif bottleneck_severity == 'medium':
+                st.warning("Performance Constraints")
+            else:
+                st.success("Performance Constraints")
+                
+            st.write(f"**Primary Bottleneck:** {bottleneck.title()}")
+            st.write(f"**Severity:** {bottleneck_severity.title()}")
+            st.write(f"**Throughput Impact:** {agent_analysis.get('throughput_impact', 0)*100:.1f}%")
+            st.write(f"**Storage Impact:** {destination_storage} provides {agent_analysis.get('storage_performance_multiplier', 1.0):.1f}x multiplier")
+            
+            recommendation = "Scale agents" if bottleneck == 'agents' else "Optimize network" if bottleneck == 'network' else "Monitor performance"
+            st.write(f"**Recommendation:** {recommendation}")
     
     with col3:
         st.markdown("**💰 Cost Efficiency Analysis:**")
@@ -6143,19 +5804,16 @@ def render_agent_scaling_tab(analysis: Dict, config: Dict):
             'FSx_Lustre': 1.2
         }.get(destination_storage, 1.0)
         
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>Cost Efficiency Metrics</h4>
-            <p><strong>Cost per Agent:</strong> ${cost_per_agent:,.0f}/month</p>
-            <p><strong>Cost per Mbps:</strong> ${cost_per_mbps:.2f}/month</p>
-            <p><strong>Total Monthly:</strong> ${agent_analysis.get('monthly_cost', 0):,.0f}</p>
-            <p><strong>Storage Impact:</strong> {storage_cost_impact:.1f}x base cost</p>
-            <p><strong>Efficiency Rating:</strong> {agent_config.get('optimal_configuration', {}).get('cost_efficiency', 'Unknown')}</p>
-            <p><strong>Storage Optimization:</strong> {agent_config.get('optimal_configuration', {}).get('storage_optimization', 'Standard')}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container():
+            st.info("Cost Efficiency Metrics")
+            st.write(f"**Cost per Agent:** ${cost_per_agent:,.0f}/month")
+            st.write(f"**Cost per Mbps:** ${cost_per_mbps:.2f}/month")
+            st.write(f"**Total Monthly:** ${agent_analysis.get('monthly_cost', 0):,.0f}")
+            st.write(f"**Storage Impact:** {storage_cost_impact:.1f}x base cost")
+            st.write(f"**Efficiency Rating:** {agent_config.get('optimal_configuration', {}).get('cost_efficiency', 'Unknown')}")
+            st.write(f"**Storage Optimization:** {agent_config.get('optimal_configuration', {}).get('storage_optimization', 'Standard')}")
     
-    # AI Optimization Recommendations with Storage Considerations
+    # AI Optimization Recommendations using expandable sections
     ai_optimization = agent_analysis.get('ai_optimization', {})
     optimization_recommendations = ai_optimization.get('recommendations', [])
     
@@ -6169,16 +5827,32 @@ def render_agent_scaling_tab(analysis: Dict, config: Dict):
             # Determine if recommendation is storage-specific
             storage_specific = any(storage in recommendation.lower() for storage in ['s3', 'fsx', 'lustre', 'windows'])
             
-            st.markdown(f"""
-            <div class="ai-recommendation-card">
-                <h5>Optimization {i}: {recommendation}</h5>
-                <p><strong>Implementation Complexity:</strong> {complexity}</p>
-                <p><strong>Timeframe:</strong> {timeframe}</p>
-                <p><strong>Expected Benefit:</strong> {ai_optimization.get('optimization_potential_percent', 0) // i}% improvement</p>
-                <p><strong>Storage Relevance:</strong> {"High" if storage_specific else "General"}</p>
-                <p><strong>Destination:</strong> {"Specific to " + destination_storage if storage_specific else "All destinations"}</p>
-            </div>
-            """)
+            with st.expander(f"Optimization {i}: {recommendation}", expanded=(i <= 2)):
+                col1, col2, col3, col4, col5 = st.columns(5)
+                
+                with col1:
+                    if complexity == "Low":
+                        st.success(f"**Complexity:** {complexity}")
+                    elif complexity == "Medium":
+                        st.warning(f"**Complexity:** {complexity}")
+                    else:
+                        st.error(f"**Complexity:** {complexity}")
+                
+                with col2:
+                    st.write(f"**Timeframe:** {timeframe}")
+                
+                with col3:
+                    expected_benefit = ai_optimization.get('optimization_potential_percent', 0) // i
+                    st.write(f"**Expected Benefit:** {expected_benefit}% improvement")
+                
+                with col4:
+                    relevance = "High" if storage_specific else "General"
+                    st.write(f"**Storage Relevance:** {relevance}")
+                
+                with col5:
+                    destination_text = "Specific to " + destination_storage if storage_specific else "All destinations"
+                    st.write(f"**Destination:** {destination_text}")
+
 
 async def main():
     """Enhanced main function with professional UI, detailed agent scaling analysis, and FSx destination support"""
@@ -6474,7 +6148,7 @@ def render_pdf_reports_tab(analysis: Dict, config: Dict):
         st.metric("🎯 AI Complexity", f"{complexity_score}/10", delta="Migration difficulty")
 
 def render_network_intelligence_tab(analysis: Dict, config: Dict):
-    """Render network intelligence analysis tab with AI insights"""
+    """Render network intelligence analysis tab with AI insights using native components"""
     st.subheader("🌐 Network Intelligence & Path Optimization")
     
     network_perf = analysis.get('network_performance', {})
@@ -6555,42 +6229,39 @@ def render_network_intelligence_tab(analysis: Dict, config: Dict):
     with col1:
         st.markdown("**🔍 Network Performance Analysis:**")
         
-        st.markdown(f"""
-        <div class="network-intelligence-card">
-            <h4>Performance Metrics</h4>
-            <p><strong>Path Name:</strong> {network_perf.get('path_name', 'Unknown')}</p>
-            <p><strong>Environment:</strong> {network_perf.get('environment', 'Unknown').title()}</p>
-            <p><strong>OS Type:</strong> {network_perf.get('os_type', 'Unknown').title()}</p>
-            <p><strong>Storage Type:</strong> {network_perf.get('storage_type', 'Unknown').title()}</p>
-            <p><strong>Destination:</strong> {network_perf.get('destination_storage', 'S3')}</p>
-            <p><strong>Network Quality Score:</strong> {network_perf.get('network_quality_score', 0):.1f}/100</p>
-            <p><strong>AI Enhanced Score:</strong> {network_perf.get('ai_enhanced_quality_score', 0):.1f}/100</p>
-            <p><strong>Cost Factor:</strong> {network_perf.get('total_cost_factor', 0):.1f}x</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container():
+            st.info("Performance Metrics")
+            st.write(f"**Path Name:** {network_perf.get('path_name', 'Unknown')}")
+            st.write(f"**Environment:** {network_perf.get('environment', 'Unknown').title()}")
+            st.write(f"**OS Type:** {network_perf.get('os_type', 'Unknown').title()}")
+            st.write(f"**Storage Type:** {network_perf.get('storage_type', 'Unknown').title()}")
+            st.write(f"**Destination:** {network_perf.get('destination_storage', 'S3')}")
+            st.write(f"**Network Quality Score:** {network_perf.get('network_quality_score', 0):.1f}/100")
+            st.write(f"**AI Enhanced Score:** {network_perf.get('ai_enhanced_quality_score', 0):.1f}/100")
+            st.write(f"**Cost Factor:** {network_perf.get('total_cost_factor', 0):.1f}x")
     
     with col2:
         st.markdown("**🤖 AI Network Insights:**")
         
         ai_insights = network_perf.get('ai_insights', {})
         
-        st.markdown(f"""
-        <div class="network-intelligence-card">
-            <h4>AI Analysis & Recommendations</h4>
-            <p><strong>Performance Bottlenecks:</strong></p>
-            <ul>
-                {"".join([f"<li>{bottleneck}</li>" for bottleneck in ai_insights.get('performance_bottlenecks', ['No bottlenecks identified'])[:3]])}
-            </ul>
-            <p><strong>Optimization Opportunities:</strong></p>
-            <ul>
-                {"".join([f"<li>{opportunity}</li>" for opportunity in ai_insights.get('optimization_opportunities', ['Standard optimization'])[:3]])}
-            </ul>
-            <p><strong>Risk Factors:</strong></p>
-            <ul>
-                {"".join([f"<li>{risk}</li>" for risk in ai_insights.get('risk_factors', ['No significant risks'])[:2]])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container():
+            st.success("AI Analysis & Recommendations")
+            
+            st.write("**Performance Bottlenecks:**")
+            bottlenecks = ai_insights.get('performance_bottlenecks', ['No bottlenecks identified'])
+            for bottleneck in bottlenecks[:3]:
+                st.write(f"• {bottleneck}")
+            
+            st.write("**Optimization Opportunities:**")
+            opportunities = ai_insights.get('optimization_opportunities', ['Standard optimization'])
+            for opportunity in opportunities[:3]:
+                st.write(f"• {opportunity}")
+            
+            st.write("**Risk Factors:**")
+            risks = ai_insights.get('risk_factors', ['No significant risks'])
+            for risk in risks[:2]:
+                st.write(f"• {risk}")
     
     # Network Optimization Recommendations
     st.markdown("**💡 Network Optimization Recommendations:**")
@@ -6600,20 +6271,30 @@ def render_network_intelligence_tab(analysis: Dict, config: Dict):
         for i, recommendation in enumerate(recommendations, 1):
             impact = "High" if i <= 2 else "Medium" if i <= 4 else "Low"
             complexity = "Low" if i <= 2 else "Medium" if i <= 4 else "High"
+            priority = "Immediate" if i <= 2 else "Short-term" if i <= 4 else "Long-term"
             
-            st.markdown(f"""
-            <div class="detailed-analysis-section">
-                <h5>Recommendation {i}: {recommendation}</h5>
-                <p><strong>Expected Impact:</strong> {impact}</p>
-                <p><strong>Implementation Complexity:</strong> {complexity}</p>
-                <p><strong>Priority:</strong> {"Immediate" if i <= 2 else "Short-term" if i <= 4 else "Long-term"}</p>
-            </div>
-            """)
+            with st.expander(f"Recommendation {i}: {recommendation}", expanded=(i <= 2)):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if impact == "High":
+                        st.success(f"**Expected Impact:** {impact}")
+                    elif impact == "Medium":
+                        st.warning(f"**Expected Impact:** {impact}")
+                    else:
+                        st.info(f"**Expected Impact:** {impact}")
+                
+                with col2:
+                    st.write(f"**Implementation Complexity:** {complexity}")
+                
+                with col3:
+                    st.write(f"**Priority:** {priority}")
     else:
         st.info("Network appears optimally configured for current requirements")
 
+
 def render_cost_pricing_tab(analysis: Dict, config: Dict):
-    """Render comprehensive cost and pricing analysis tab"""
+    """Render comprehensive cost and pricing analysis tab using native components"""
     st.subheader("💰 Live AWS Pricing & Cost Analysis")
     
     cost_analysis = analysis.get('cost_analysis', {})
@@ -6717,79 +6398,66 @@ def render_cost_pricing_tab(analysis: Dict, config: Dict):
         )
         st.plotly_chart(fig_bar, use_container_width=True)
     
-    # Detailed Cost Analysis
+    # Detailed Cost Analysis using native components
     st.markdown("**🔍 Detailed Cost Analysis:**")
     
     detail_col1, detail_col2, detail_col3 = st.columns(3)
     
     with detail_col1:
-        st.markdown(f"""
-        <div class="live-pricing-card">
-            <h4>💻 Compute Costs</h4>
-            <p><strong>AWS Compute:</strong> ${cost_analysis.get('aws_compute_cost', 0):,.0f}/month</p>
-            <p><strong>AWS Storage:</strong> ${cost_analysis.get('aws_storage_cost', 0):,.0f}/month</p>
-            <p><strong>OS Licensing:</strong> ${cost_analysis.get('os_licensing_cost', 0):,.0f}/month</p>
-            <p><strong>Management:</strong> ${cost_analysis.get('management_cost', 0):,.0f}/month</p>
-            <p><strong>Subtotal:</strong> ${cost_analysis.get('aws_compute_cost', 0) + cost_analysis.get('aws_storage_cost', 0) + cost_analysis.get('os_licensing_cost', 0) + cost_analysis.get('management_cost', 0):,.0f}/month</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.success("💻 **Compute Costs**")
+        st.write(f"**AWS Compute:** ${cost_analysis.get('aws_compute_cost', 0):,.0f}/month")
+        st.write(f"**AWS Storage:** ${cost_analysis.get('aws_storage_cost', 0):,.0f}/month")
+        st.write(f"**OS Licensing:** ${cost_analysis.get('os_licensing_cost', 0):,.0f}/month")
+        st.write(f"**Management:** ${cost_analysis.get('management_cost', 0):,.0f}/month")
+        subtotal_compute = (cost_analysis.get('aws_compute_cost', 0) + 
+                           cost_analysis.get('aws_storage_cost', 0) + 
+                           cost_analysis.get('os_licensing_cost', 0) + 
+                           cost_analysis.get('management_cost', 0))
+        st.write(f"**Subtotal:** ${subtotal_compute:,.0f}/month")
     
     with detail_col2:
-        st.markdown(f"""
-        <div class="live-pricing-card">
-            <h4>🔄 Migration & Agent Costs</h4>
-            <p><strong>Agent Base Cost:</strong> ${cost_analysis.get('agent_base_cost', 0):,.0f}/month</p>
-            <p><strong>Agent Setup:</strong> ${cost_analysis.get('agent_setup_cost', 0):,.0f} (one-time)</p>
-            <p><strong>Coordination Cost:</strong> ${cost_analysis.get('agent_coordination_cost', 0):,.0f} (one-time)</p>
-            <p><strong>Storage Setup:</strong> ${cost_analysis.get('storage_setup_cost', 0):,.0f} (one-time)</p>
-            <p><strong>Total Migration:</strong> ${cost_analysis.get('one_time_migration_cost', 0):,.0f} (one-time)</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("🔄 **Migration & Agent Costs**")
+        st.write(f"**Agent Base Cost:** ${cost_analysis.get('agent_base_cost', 0):,.0f}/month")
+        st.write(f"**Agent Setup:** ${cost_analysis.get('agent_setup_cost', 0):,.0f} (one-time)")
+        st.write(f"**Coordination Cost:** ${cost_analysis.get('agent_coordination_cost', 0):,.0f} (one-time)")
+        st.write(f"**Storage Setup:** ${cost_analysis.get('storage_setup_cost', 0):,.0f} (one-time)")
+        st.write(f"**Total Migration:** ${cost_analysis.get('one_time_migration_cost', 0):,.0f} (one-time)")
     
     with detail_col3:
-        st.markdown(f"""
-        <div class="live-pricing-card">
-            <h4>🗄️ Storage & Network Costs</h4>
-            <p><strong>Destination Storage:</strong> ${cost_analysis.get('destination_storage_cost', 0):,.0f}/month</p>
-            <p><strong>Storage Type:</strong> {cost_analysis.get('destination_storage_type', 'S3')}</p>
-            <p><strong>Network Costs:</strong> ${cost_analysis.get('network_cost', 0):,.0f}/month</p>
-            <p><strong>Data Transfer:</strong> Included in network</p>
-            <p><strong>Subtotal:</strong> ${cost_analysis.get('destination_storage_cost', 0) + cost_analysis.get('network_cost', 0):,.0f}/month</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("🗄️ **Storage & Network Costs**")
+        st.write(f"**Destination Storage:** ${cost_analysis.get('destination_storage_cost', 0):,.0f}/month")
+        st.write(f"**Storage Type:** {cost_analysis.get('destination_storage_type', 'S3')}")
+        st.write(f"**Network Costs:** ${cost_analysis.get('network_cost', 0):,.0f}/month")
+        st.write(f"**Data Transfer:** Included in network")
+        subtotal_storage = cost_analysis.get('destination_storage_cost', 0) + cost_analysis.get('network_cost', 0)
+        st.write(f"**Subtotal:** ${subtotal_storage:,.0f}/month")
     
-    # Cost Optimization Analysis
-    st.markdown("**🎯 Cost Optimization Analysis:**")
-    
-    ai_cost_insights = cost_analysis.get('ai_cost_insights', {})
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>💡 AI Cost Optimization Insights</h4>
-            <p><strong>Optimization Factor:</strong> {ai_cost_insights.get('ai_optimization_factor', 0)*100:.1f}%</p>
-            <p><strong>Complexity Multiplier:</strong> {ai_cost_insights.get('complexity_multiplier', 1.0):.2f}x</p>
-            <p><strong>Management Reduction:</strong> {ai_cost_insights.get('management_reduction', 0)*100:.1f}%</p>
-            <p><strong>Agent Efficiency Bonus:</strong> {ai_cost_insights.get('agent_efficiency_bonus', 0)*100:.1f}%</p>
-            <p><strong>Storage Efficiency Bonus:</strong> {ai_cost_insights.get('storage_efficiency_bonus', 0)*100:.1f}%</p>
-            <p><strong>Additional Savings Potential:</strong> {ai_cost_insights.get('potential_additional_savings', '0%')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>📊 ROI & Financial Analysis</h4>
-            <p><strong>Current Monthly Cost (Est.):</strong> ${total_monthly * 1.2:,.0f}</p>
-            <p><strong>AWS Monthly Cost:</strong> ${total_monthly:,.0f}</p>
-            <p><strong>Monthly Savings:</strong> ${cost_analysis.get('estimated_monthly_savings', 0):,.0f}</p>
-            <p><strong>Annual Savings:</strong> ${cost_analysis.get('estimated_monthly_savings', 0) * 12:,.0f}</p>
-            <p><strong>Payback Period:</strong> {roi_months} months</p>
-            <p><strong>3-Year ROI:</strong> {((cost_analysis.get('estimated_monthly_savings', 0) * 36 - one_time_cost) / one_time_cost * 100):.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Cost Optimization Analysis using expandable sections
+    with st.expander("🎯 Cost Optimization Analysis", expanded=True):
+        ai_cost_insights = cost_analysis.get('ai_cost_insights', {})
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.success("💡 **AI Cost Optimization Insights**")
+            st.write(f"**Optimization Factor:** {ai_cost_insights.get('ai_optimization_factor', 0)*100:.1f}%")
+            st.write(f"**Complexity Multiplier:** {ai_cost_insights.get('complexity_multiplier', 1.0):.2f}x")
+            st.write(f"**Management Reduction:** {ai_cost_insights.get('management_reduction', 0)*100:.1f}%")
+            st.write(f"**Agent Efficiency Bonus:** {ai_cost_insights.get('agent_efficiency_bonus', 0)*100:.1f}%")
+            st.write(f"**Storage Efficiency Bonus:** {ai_cost_insights.get('storage_efficiency_bonus', 0)*100:.1f}%")
+            st.write(f"**Additional Savings Potential:** {ai_cost_insights.get('potential_additional_savings', '0%')}")
+        
+        with col2:
+            st.info("📊 **ROI & Financial Analysis**")
+            st.write(f"**Current Monthly Cost (Est.):** ${total_monthly * 1.2:,.0f}")
+            st.write(f"**AWS Monthly Cost:** ${total_monthly:,.0f}")
+            st.write(f"**Monthly Savings:** ${cost_analysis.get('estimated_monthly_savings', 0):,.0f}")
+            st.write(f"**Annual Savings:** ${cost_analysis.get('estimated_monthly_savings', 0) * 12:,.0f}")
+            st.write(f"**Payback Period:** {roi_months} months")
+            
+            if roi_months and one_time_cost > 0:
+                three_year_roi = ((cost_analysis.get('estimated_monthly_savings', 0) * 36 - one_time_cost) / one_time_cost * 100)
+                st.write(f"**3-Year ROI:** {three_year_roi:.1f}%")
     
     # Real-time Pricing Data
     st.markdown("**💲 Real-time AWS Pricing Data:**")
@@ -6853,8 +6521,9 @@ def render_cost_pricing_tab(analysis: Dict, config: Dict):
                 df_storage = pd.DataFrame(storage_data)
                 st.dataframe(df_storage, use_container_width=True)
 
+
 def render_os_performance_tab(analysis: Dict, config: Dict):
-    """Render OS performance analysis tab with detailed metrics"""
+    """Render OS performance analysis tab using native Streamlit components"""
     st.subheader("💻 Operating System Performance Analysis")
     
     os_impact = analysis.get('onprem_performance', {}).get('os_impact', {})
@@ -6945,23 +6614,20 @@ def render_os_performance_tab(analysis: Dict, config: Dict):
         
         ai_insights = os_impact.get('ai_insights', {})
         
-        st.markdown(f"""
-        <div class="os-performance-enhanced-card">
-            <h4>AI Analysis of {os_impact.get('name', 'Current OS')}</h4>
-            <p><strong>Strengths:</strong></p>
-            <ul>
-                {"".join([f"<li>{strength}</li>" for strength in ai_insights.get('strengths', ['General purpose OS'])[:3]])}
-            </ul>
-            <p><strong>Weaknesses:</strong></p>
-            <ul>
-                {"".join([f"<li>{weakness}</li>" for weakness in ai_insights.get('weaknesses', ['No significant issues'])[:3]])}
-            </ul>
-            <p><strong>Migration Considerations:</strong></p>
-            <ul>
-                {"".join([f"<li>{consideration}</li>" for consideration in ai_insights.get('migration_considerations', ['Standard migration'])[:3]])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container():
+            st.success(f"AI Analysis of {os_impact.get('name', 'Current OS')}")
+            
+            st.write("**Strengths:**")
+            for strength in ai_insights.get('strengths', ['General purpose OS'])[:3]:
+                st.write(f"• {strength}")
+            
+            st.write("**Weaknesses:**")
+            for weakness in ai_insights.get('weaknesses', ['No significant issues'])[:3]:
+                st.write(f"• {weakness}")
+            
+            st.write("**Migration Considerations:**")
+            for consideration in ai_insights.get('migration_considerations', ['Standard migration'])[:3]:
+                st.write(f"• {consideration}")
     
     # Database Engine Optimization
     st.markdown("**🗄️ Database Engine Optimization Analysis:**")
@@ -6973,10 +6639,14 @@ def render_os_performance_tab(analysis: Dict, config: Dict):
         current_engine = config.get('database_engine', 'unknown')
         
         for engine, optimization in database_optimizations.items():
+            performance_rating = ('Excellent' if optimization > 0.95 else 
+                                'Very Good' if optimization > 0.90 else 
+                                'Good' if optimization > 0.85 else 'Fair')
+            
             opt_data.append({
                 'Database Engine': engine.upper(),
                 'Optimization Score': f"{optimization*100:.1f}%",
-                'Performance Rating': 'Excellent' if optimization > 0.95 else 'Very Good' if optimization > 0.90 else 'Good' if optimization > 0.85 else 'Fair',
+                'Performance Rating': performance_rating,
                 'Current Selection': '✅' if engine == current_engine else ''
             })
         
@@ -7010,40 +6680,38 @@ def render_os_performance_tab(analysis: Dict, config: Dict):
     df_comparison = pd.DataFrame(comparison_data)
     st.dataframe(df_comparison, use_container_width=True)
     
-    # Performance Impact Analysis
+    # Performance Impact Analysis using native components
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>🎯 Performance Impact Assessment</h4>
-            <p><strong>Base Efficiency:</strong> {os_impact.get('base_efficiency', 0)*100:.1f}%</p>
-            <p><strong>Database Optimization:</strong> {os_impact.get('db_optimization', 0)*100:.1f}%</p>
-            <p><strong>Platform Optimization:</strong> {os_impact.get('platform_optimization', 1.0)*100:.1f}%</p>
-            <p><strong>Overall Impact:</strong> {((os_impact.get('total_efficiency', 0) - 0.8) / 0.2 * 100):.1f}% above baseline</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("🎯 **Performance Impact Assessment**")
+        st.write(f"**Base Efficiency:** {os_impact.get('base_efficiency', 0)*100:.1f}%")
+        st.write(f"**Database Optimization:** {os_impact.get('db_optimization', 0)*100:.1f}%")
+        st.write(f"**Platform Optimization:** {os_impact.get('platform_optimization', 1.0)*100:.1f}%")
+        improvement = ((os_impact.get('total_efficiency', 0) - 0.8) / 0.2 * 100)
+        st.write(f"**Overall Impact:** {improvement:.1f}% above baseline")
     
     with col2:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>💰 Cost Impact Analysis</h4>
-            <p><strong>Licensing Cost Factor:</strong> {os_impact.get('licensing_cost_factor', 1.0):.1f}x</p>
-            <p><strong>Monthly Licensing Est.:</strong> ${os_impact.get('licensing_cost_factor', 1.0) * 150:.0f}</p>
-            <p><strong>Management Complexity:</strong> {os_impact.get('management_complexity', 0)*100:.0f}%</p>
-            <p><strong>Security Overhead:</strong> {os_impact.get('security_overhead', 0)*100:.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("💰 **Cost Impact Analysis**")
+        st.write(f"**Licensing Cost Factor:** {os_impact.get('licensing_cost_factor', 1.0):.1f}x")
+        monthly_licensing = os_impact.get('licensing_cost_factor', 1.0) * 150
+        st.write(f"**Monthly Licensing Est.:** ${monthly_licensing:.0f}")
+        st.write(f"**Management Complexity:** {os_impact.get('management_complexity', 0)*100:.0f}%")
+        st.write(f"**Security Overhead:** {os_impact.get('security_overhead', 0)*100:.1f}%")
     
     with col3:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>🔧 Migration Recommendations</h4>
-            <p><strong>Current OS Suitability:</strong> {"Excellent" if os_impact.get('total_efficiency', 0) > 0.9 else "Good" if os_impact.get('total_efficiency', 0) > 0.8 else "Fair"}</p>
-            <p><strong>Migration Complexity:</strong> {"Low" if 'windows' in current_os and 'windows' in current_os else "Medium"}</p>
-            <p><strong>Recommended Action:</strong> {"Keep current OS" if os_impact.get('total_efficiency', 0) > 0.85 else "Consider optimization"}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        suitability = ("Excellent" if os_impact.get('total_efficiency', 0) > 0.9 else 
+                      "Good" if os_impact.get('total_efficiency', 0) > 0.8 else "Fair")
+        
+        migration_complexity = ("Low" if 'windows' in current_os and 'windows' in current_os else "Medium")
+        
+        recommendation = ("Keep current OS" if os_impact.get('total_efficiency', 0) > 0.85 else 
+                         "Consider optimization")
+        
+        st.success("🔧 **Migration Recommendations**")
+        st.write(f"**Current OS Suitability:** {suitability}")
+        st.write(f"**Migration Complexity:** {migration_complexity}")
+        st.write(f"**Recommended Action:** {recommendation}")
 
 def render_migration_dashboard_tab(analysis: Dict, config: Dict):
     """Render comprehensive migration dashboard with key metrics and visualizations"""
@@ -7349,7 +7017,7 @@ def render_migration_dashboard_tab(analysis: Dict, config: Dict):
     st.plotly_chart(fig_health, use_container_width=True)
 
 def render_aws_sizing_tab(analysis: Dict, config: Dict):
-    """Render AWS sizing and configuration recommendations tab"""
+    """Render AWS sizing and configuration recommendations tab using native components"""
     st.subheader("🎯 AWS Sizing & Configuration Recommendations")
     
     aws_sizing = analysis.get('aws_sizing_recommendations', {})
@@ -7401,13 +7069,15 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
     with col5:
         reader_writer = aws_sizing.get('reader_writer_config', {})
         total_instances = reader_writer.get('total_instances', 1)
+        writers = reader_writer.get('writers', 1)
+        readers = reader_writer.get('readers', 0)
         st.metric(
             "🖥️ Total Instances",
             f"{total_instances}",
-            delta=f"Writers: {reader_writer.get('writers', 1)}, Readers: {reader_writer.get('readers', 0)}"
+            delta=f"Writers: {writers}, Readers: {readers}"
         )
     
-    # Detailed Sizing Recommendations
+    # Detailed Sizing Recommendations using native components
     col1, col2 = st.columns(2)
     
     with col1:
@@ -7416,41 +7086,35 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
             
             rds_rec = aws_sizing.get('rds_recommendations', {})
             
-            st.markdown(f"""
-            <div class="aws-sizing-card">
-                <h4>Amazon RDS Managed Service</h4>
-                <p><strong>Instance Type:</strong> {rds_rec.get('primary_instance', 'N/A')}</p>
-                <p><strong>vCPU:</strong> {rds_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
-                <p><strong>Memory:</strong> {rds_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
-                <p><strong>Storage:</strong> {rds_rec.get('storage_size_gb', 0):,.0f} GB</p>
-                <p><strong>Storage Type:</strong> {rds_rec.get('storage_type', 'gp3').upper()}</p>
-                <p><strong>Multi-AZ:</strong> {'Yes' if rds_rec.get('multi_az', False) else 'No'}</p>
-                <p><strong>Backup Retention:</strong> {rds_rec.get('backup_retention_days', 7)} days</p>
-                <p><strong>Monthly Instance Cost:</strong> ${rds_rec.get('monthly_instance_cost', 0):,.0f}</p>
-                <p><strong>Monthly Storage Cost:</strong> ${rds_rec.get('monthly_storage_cost', 0):,.0f}</p>
-                <p><strong>Total Monthly Cost:</strong> ${rds_rec.get('total_monthly_cost', 0):,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container():
+                st.success("Amazon RDS Managed Service")
+                st.write(f"**Instance Type:** {rds_rec.get('primary_instance', 'N/A')}")
+                st.write(f"**vCPU:** {rds_rec.get('instance_specs', {}).get('vcpu', 'N/A')}")
+                st.write(f"**Memory:** {rds_rec.get('instance_specs', {}).get('memory', 'N/A')} GB")
+                st.write(f"**Storage:** {rds_rec.get('storage_size_gb', 0):,.0f} GB")
+                st.write(f"**Storage Type:** {rds_rec.get('storage_type', 'gp3').upper()}")
+                st.write(f"**Multi-AZ:** {'Yes' if rds_rec.get('multi_az', False) else 'No'}")
+                st.write(f"**Backup Retention:** {rds_rec.get('backup_retention_days', 7)} days")
+                st.write(f"**Monthly Instance Cost:** ${rds_rec.get('monthly_instance_cost', 0):,.0f}")
+                st.write(f"**Monthly Storage Cost:** ${rds_rec.get('monthly_storage_cost', 0):,.0f}")
+                st.write(f"**Total Monthly Cost:** ${rds_rec.get('total_monthly_cost', 0):,.0f}")
         else:
             st.markdown("**🖥️ EC2 Recommended Configuration:**")
             
             ec2_rec = aws_sizing.get('ec2_recommendations', {})
             
-            st.markdown(f"""
-            <div class="aws-sizing-card">
-                <h4>Amazon EC2 Self-Managed</h4>
-                <p><strong>Instance Type:</strong> {ec2_rec.get('primary_instance', 'N/A')}</p>
-                <p><strong>vCPU:</strong> {ec2_rec.get('instance_specs', {}).get('vcpu', 'N/A')}</p>
-                <p><strong>Memory:</strong> {ec2_rec.get('instance_specs', {}).get('memory', 'N/A')} GB</p>
-                <p><strong>Storage:</strong> {ec2_rec.get('storage_size_gb', 0):,.0f} GB</p>
-                <p><strong>Storage Type:</strong> {ec2_rec.get('storage_type', 'gp3').upper()}</p>
-                <p><strong>EBS Optimized:</strong> {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}</p>
-                <p><strong>Enhanced Networking:</strong> {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}</p>
-                <p><strong>Monthly Instance Cost:</strong> ${ec2_rec.get('monthly_instance_cost', 0):,.0f}</p>
-                <p><strong>Monthly Storage Cost:</strong> ${ec2_rec.get('monthly_storage_cost', 0):,.0f}</p>
-                <p><strong>Total Monthly Cost:</strong> ${ec2_rec.get('total_monthly_cost', 0):,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            with st.container():
+                st.info("Amazon EC2 Self-Managed")
+                st.write(f"**Instance Type:** {ec2_rec.get('primary_instance', 'N/A')}")
+                st.write(f"**vCPU:** {ec2_rec.get('instance_specs', {}).get('vcpu', 'N/A')}")
+                st.write(f"**Memory:** {ec2_rec.get('instance_specs', {}).get('memory', 'N/A')} GB")
+                st.write(f"**Storage:** {ec2_rec.get('storage_size_gb', 0):,.0f} GB")
+                st.write(f"**Storage Type:** {ec2_rec.get('storage_type', 'gp3').upper()}")
+                st.write(f"**EBS Optimized:** {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}")
+                st.write(f"**Enhanced Networking:** {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}")
+                st.write(f"**Monthly Instance Cost:** ${ec2_rec.get('monthly_instance_cost', 0):,.0f}")
+                st.write(f"**Monthly Storage Cost:** ${ec2_rec.get('monthly_storage_cost', 0):,.0f}")
+                st.write(f"**Total Monthly Cost:** ${ec2_rec.get('total_monthly_cost', 0):,.0f}")
     
     with col2:
         st.markdown("**🎯 AI Sizing Factors:**")
@@ -7460,19 +7124,16 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
         else:
             sizing_factors = aws_sizing.get('ec2_recommendations', {}).get('ai_sizing_factors', {})
         
-        st.markdown(f"""
-        <div class="aws-sizing-card">
-            <h4>AI-Enhanced Sizing Analysis</h4>
-            <p><strong>Complexity Multiplier:</strong> {sizing_factors.get('complexity_multiplier', 1.0):.2f}x</p>
-            <p><strong>Agent Scaling Factor:</strong> {sizing_factors.get('agent_scaling_factor', 1.0):.2f}x</p>
-            <p><strong>AI Complexity Score:</strong> {sizing_factors.get('ai_complexity_score', 6):.1f}/10</p>
-            <p><strong>Storage Multiplier:</strong> {sizing_factors.get('storage_multiplier', 1.5):.1f}x</p>
-            <p><strong>Database Size:</strong> {config.get('database_size_gb', 0):,} GB</p>
-            <p><strong>Performance Requirement:</strong> {config.get('performance_requirements', 'standard').title()}</p>
-            <p><strong>Environment:</strong> {config.get('environment', 'unknown').title()}</p>
-            <p><strong>Number of Agents:</strong> {config.get('number_of_agents', 1)}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container():
+            st.warning("AI-Enhanced Sizing Analysis")
+            st.write(f"**Complexity Multiplier:** {sizing_factors.get('complexity_multiplier', 1.0):.2f}x")
+            st.write(f"**Agent Scaling Factor:** {sizing_factors.get('agent_scaling_factor', 1.0):.2f}x")
+            st.write(f"**AI Complexity Score:** {sizing_factors.get('ai_complexity_score', 6):.1f}/10")
+            st.write(f"**Storage Multiplier:** {sizing_factors.get('storage_multiplier', 1.5):.1f}x")
+            st.write(f"**Database Size:** {config.get('database_size_gb', 0):,} GB")
+            st.write(f"**Performance Requirement:** {config.get('performance_requirements', 'standard').title()}")
+            st.write(f"**Environment:** {config.get('environment', 'unknown').title()}")
+            st.write(f"**Number of Agents:** {config.get('number_of_agents', 1)}")
     
     # RDS vs EC2 Comparison
     st.markdown("**⚖️ RDS vs EC2 Deployment Comparison:**")
@@ -7501,143 +7162,47 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
         
         primary_reasons = deployment_rec.get('primary_reasons', [])
         
-        st.markdown(f"""
-        <div class="deployment-comparison-card">
-            <h4>Why {recommendation}?</h4>
-            <ul>
-                {"".join([f"<li>{reason}</li>" for reason in primary_reasons[:4]])}
-            </ul>
-            <p><strong>Confidence Level:</strong> {confidence*100:.1f}%</p>
-            <p><strong>Decision Strength:</strong> {"Strong" if abs(rds_score - ec2_score) > 20 else "Moderate" if abs(rds_score - ec2_score) > 10 else "Weak"}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Reader/Writer Configuration
-    st.markdown("**🔄 Reader/Writer Instance Configuration:**")
-    
-    reader_writer = aws_sizing.get('reader_writer_config', {})
-    
-    config_col1, config_col2, config_col3 = st.columns(3)
-    
-    with config_col1:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>📊 Instance Distribution</h4>
-            <p><strong>Writer Instances:</strong> {reader_writer.get('writers', 1)}</p>
-            <p><strong>Reader Instances:</strong> {reader_writer.get('readers', 0)}</p>
-            <p><strong>Total Instances:</strong> {reader_writer.get('total_instances', 1)}</p>
-            <p><strong>Read Capacity:</strong> {reader_writer.get('read_capacity_percent', 0):.1f}%</p>
-            <p><strong>Write Capacity:</strong> {reader_writer.get('write_capacity_percent', 100):.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with config_col2:
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>🎯 Configuration Reasoning</h4>
-            <p><strong>Database Size:</strong> {config.get('database_size_gb', 0):,} GB</p>
-            <p><strong>Performance Requirement:</strong> {config.get('performance_requirements', 'standard').title()}</p>
-            <p><strong>Environment:</strong> {config.get('environment', 'unknown').title()}</p>
-            <p><strong>Recommended Read Split:</strong> {reader_writer.get('recommended_read_split', 0):.0f}%</p>
-            <p><strong>AI Optimization:</strong> {reader_writer.get('ai_insights', {}).get('optimization_potential', '0%')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with config_col3:
-        ai_insights_rw = reader_writer.get('ai_insights', {})
-        st.markdown(f"""
-        <div class="detailed-analysis-section">
-            <h4>🤖 AI Configuration Insights</h4>
-            <p><strong>Complexity Impact:</strong> {ai_insights_rw.get('complexity_impact', 0):.0f}/10</p>
-            <p><strong>Agent Scaling Impact:</strong> {ai_insights_rw.get('agent_scaling_impact', 1)} agents</p>
-            <p><strong>Scaling Factors:</strong></p>
-            <ul>
-                {"".join([f"<li>{factor}</li>" for factor in ai_insights_rw.get('scaling_factors', ['Standard scaling'])[:2]])}
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # AI Recommendations
-    st.markdown("**🤖 AI Performance Recommendations:**")
-    
-    if recommendation == 'RDS':
-        ai_recommendations = aws_sizing.get('rds_recommendations', {}).get('ai_recommendations', [])
-    else:
-        ai_recommendations = aws_sizing.get('ec2_recommendations', {}).get('ai_recommendations', [])
-    
-    if ai_recommendations:
-        for i, recommendation_text in enumerate(ai_recommendations, 1):
-            impact = "High" if i <= 2 else "Medium" if i <= 4 else "Low"
-            complexity = "Low" if i <= 2 else "Medium" if i <= 4 else "High"
+        with st.container():
+            st.success(f"Why {recommendation}?")
+            for reason in primary_reasons[:4]:
+                st.write(f"• {reason}")
             
-            st.markdown(f"""
-            <div class="ai-recommendation-card">
-                <h5>AI Recommendation {i}: {recommendation_text}</h5>
-                <p><strong>Expected Impact:</strong> {impact}</p>
-                <p><strong>Implementation Complexity:</strong> {complexity}</p>
-                <p><strong>Priority:</strong> {"Immediate" if i <= 2 else "Short-term" if i <= 4 else "Long-term"}</p>
-            </div>
-            """)
+            st.write(f"**Confidence Level:** {confidence*100:.1f}%")
+            decision_strength = ("Strong" if abs(rds_score - ec2_score) > 20 else 
+                               "Moderate" if abs(rds_score - ec2_score) > 10 else "Weak")
+            st.write(f"**Decision Strength:** {decision_strength}")
     
-    # Instance Comparison Table
-    st.markdown("**📋 Available Instance Options:**")
-    
-    pricing_data = aws_sizing.get('pricing_data', {})
-    
-    if recommendation == 'RDS':
-        instances = pricing_data.get('rds_instances', {})
-    else:
-        instances = pricing_data.get('ec2_instances', {})
-    
-    if instances:
-        instance_data = []
-        current_instance = aws_sizing.get(f'{recommendation.lower()}_recommendations', {}).get('primary_instance', '')
+    # Reader/Writer Configuration using expandable section
+    with st.expander("🔄 Reader/Writer Instance Configuration", expanded=True):
+        reader_writer = aws_sizing.get('reader_writer_config', {})
         
-        for instance_type, specs in instances.items():
-            instance_data.append({
-                'Instance Type': instance_type,
-                'vCPU': specs.get('vcpu', 'N/A'),
-                'Memory (GB)': specs.get('memory', 'N/A'),
-                'Cost per Hour': f"${specs.get('cost_per_hour', 0):.4f}",
-                'Monthly Cost': f"${specs.get('cost_per_hour', 0) * 24 * 30:.0f}",
-                'Selected': '✅' if instance_type == current_instance else ''
-            })
+        config_col1, config_col2, config_col3 = st.columns(3)
         
-        df_instances = pd.DataFrame(instance_data)
-        st.dataframe(df_instances, use_container_width=True)
-    
-    # Cost Optimization Suggestions
-    st.markdown("**💡 Cost Optimization Suggestions:**")
-    
-    opt_col1, opt_col2 = st.columns(2)
-    
-    with opt_col1:
-        st.markdown("""
-        <div class="detailed-analysis-section">
-            <h4>💰 Cost Reduction Strategies</h4>
-            <ul>
-                <li>Consider Reserved Instances for 20-30% savings</li>
-                <li>Use Spot Instances for non-production workloads</li>
-                <li>Implement automated scaling policies</li>
-                <li>Optimize storage type selection</li>
-                <li>Enable CloudWatch detailed monitoring</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with opt_col2:
-        st.markdown("""
-        <div class="detailed-analysis-section">
-            <h4>📈 Performance Optimization</h4>
-            <ul>
-                <li>Configure read replicas for read scaling</li>
-                <li>Enable enhanced monitoring</li>
-                <li>Optimize database parameters</li>
-                <li>Implement connection pooling</li>
-                <li>Consider caching strategies</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        with config_col1:
+            st.info("📊 **Instance Distribution**")
+            st.write(f"**Writer Instances:** {reader_writer.get('writers', 1)}")
+            st.write(f"**Reader Instances:** {reader_writer.get('readers', 0)}")
+            st.write(f"**Total Instances:** {reader_writer.get('total_instances', 1)}")
+            st.write(f"**Read Capacity:** {reader_writer.get('read_capacity_percent', 0):.1f}%")
+            st.write(f"**Write Capacity:** {reader_writer.get('write_capacity_percent', 100):.1f}%")
+        
+        with config_col2:
+            st.success("🎯 **Configuration Reasoning**")
+            st.write(f"**Database Size:** {config.get('database_size_gb', 0):,} GB")
+            st.write(f"**Performance Requirement:** {config.get('performance_requirements', 'standard').title()}")
+            st.write(f"**Environment:** {config.get('environment', 'unknown').title()}")
+            st.write(f"**Recommended Read Split:** {reader_writer.get('recommended_read_split', 0):.0f}%")
+            st.write(f"**AI Optimization:** {reader_writer.get('ai_insights', {}).get('optimization_potential', '0%')}")
+        
+        with config_col3:
+            ai_insights_rw = reader_writer.get('ai_insights', {})
+            st.warning("🤖 **AI Configuration Insights**")
+            st.write(f"**Complexity Impact:** {ai_insights_rw.get('complexity_impact', 0):.0f}/10")
+            st.write(f"**Agent Scaling Impact:** {ai_insights_rw.get('agent_scaling_impact', 1)} agents")
+            
+            st.write("**Scaling Factors:**")
+            for factor in ai_insights_rw.get('scaling_factors', ['Standard scaling'])[:2]:
+                st.write(f"• {factor}")
 
     
     # Professional footer with FSx capabilities
