@@ -7639,48 +7639,6 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
         </div>
         """, unsafe_allow_html=True)
 
-    # Enhanced tabs with all implementations
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
-        "🧠 AI Insights & Analysis", 
-        "🤖 Agent Scaling Analysis",
-        "🗄️ FSx Destination Comparison",
-        "🌐 Network Intelligence",
-        "💰 Cost & Pricing Analysis",
-        "💻 OS Performance Analysis",
-        "📊 Migration Dashboard",
-        "🎯 AWS Sizing & Configuration",
-        "📄 Executive PDF Reports"
-    ])
-    
-    with tab1:
-        if config['enable_ai_analysis']:
-            render_ai_insights_tab_enhanced(analysis, config)
-        else:
-            st.info("🤖 Enable AI Analysis in the sidebar for comprehensive migration insights")
-    
-    with tab2:
-        render_agent_scaling_tab(analysis, config)
-    
-    with tab3:
-        render_fsx_destination_comparison_tab(analysis, config)
-    
-    with tab4:
-        render_network_intelligence_tab(analysis, config)
-    
-    with tab5:
-        render_cost_pricing_tab(analysis, config)
-    
-    with tab6:
-        render_os_performance_tab(analysis, config)
-    
-    with tab7:
-        render_migration_dashboard_tab(analysis, config)
-    
-    with tab8:
-        render_aws_sizing_tab(analysis, config)
-    
-    with tab9:
-        render_pdf_reports_tab(analysis, config)
     
     # Professional footer with FSx capabilities
     st.markdown("""
