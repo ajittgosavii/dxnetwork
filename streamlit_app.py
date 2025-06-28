@@ -35,110 +35,136 @@ st.markdown("""
 <style>
     .main-header {
         background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #34495e 100%);
-        padding: 2rem;
-        border-radius: 12px;
+        padding: 1.5rem;
+        border-radius: 10px;
         color: white;
         text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 24px rgba(30,60,114,0.15);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(30,60,114,0.15);
         border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .main-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 2.2rem;
+        font-weight: 600;
     }
     
     .ai-insight-card {
         background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         color: white;
         margin: 1rem 0;
-        box-shadow: 0 4px 16px rgba(52,73,94,0.2);
-        border-left: 4px solid #3498db;
+        box-shadow: 0 3px 15px rgba(52,73,94,0.2);
+        border-left: 3px solid #3498db;
     }
     
     .ai-recommendation-card {
         background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         color: white;
         margin: 1rem 0;
-        box-shadow: 0 4px 16px rgba(44,62,80,0.2);
-        border-left: 4px solid #e74c3c;
+        box-shadow: 0 3px 15px rgba(44,62,80,0.2);
+        border-left: 3px solid #e74c3c;
     }
     
     .live-pricing-card {
         background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         color: white;
         margin: 1rem 0;
-        box-shadow: 0 4px 16px rgba(41,128,185,0.2);
-        border-left: 4px solid #f39c12;
+        box-shadow: 0 3px 15px rgba(41,128,185,0.2);
+        border-left: 3px solid #f39c12;
     }
     
     .network-intelligence-card {
         background: linear-gradient(135deg, #16a085 0%, #1abc9c 100%);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         color: white;
         margin: 1rem 0;
-        box-shadow: 0 4px 16px rgba(22,160,133,0.2);
-        border-left: 4px solid #27ae60;
+        box-shadow: 0 3px 15px rgba(22,160,133,0.2);
+        border-left: 3px solid #27ae60;
     }
     
     .os-performance-enhanced-card {
         background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         color: white;
         margin: 1rem 0;
-        box-shadow: 0 4px 16px rgba(142,68,173,0.2);
-        border-left: 4px solid #e67e22;
+        box-shadow: 0 3px 15px rgba(142,68,173,0.2);
+        border-left: 3px solid #e67e22;
     }
     
     .physical-virtual-comparison-card {
         background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         color: #2c3e50;
         margin: 1rem 0;
-        box-shadow: 0 4px 16px rgba(189,195,199,0.3);
-        border-left: 4px solid #95a5a6;
+        box-shadow: 0 3px 15px rgba(189,195,199,0.3);
+        border-left: 3px solid #95a5a6;
     }
     
     .api-status-card {
-        background: #f8f9fa;
-        padding: 1rem;
+        background: #ffffff;
+        padding: 0.8rem;
         border-radius: 6px;
         margin: 0.5rem 0;
         color: #2c3e50;
         font-size: 0.9rem;
         border: 1px solid #dee2e6;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     
     .metric-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        padding: 1.5rem;
+        background: #ffffff;
+        padding: 1.2rem;
         border-radius: 8px;
-        border-left: 4px solid #3498db;
+        border-left: 3px solid #3498db;
         margin: 1rem 0;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         border: 1px solid #e9ecef;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+    
+    .metric-card h4, .metric-card h5 {
+        margin: 0 0 0.8rem 0;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+    
+    .metric-card p {
+        margin: 0.4rem 0;
+        color: #5a6c7d;
+        line-height: 1.4;
     }
     
     .network-diagram-card {
         background: #ffffff;
-        padding: 1.5rem;
+        padding: 1rem;
         border-radius: 8px;
         margin: 1rem 0;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         border: 1px solid #dee2e6;
     }
     
     .status-indicator {
         display: inline-block;
-        width: 12px;
-        height: 12px;
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        margin-right: 8px;
+        margin-right: 6px;
+        vertical-align: middle;
     }
     
     .status-online { background-color: #27ae60; }
@@ -148,18 +174,129 @@ st.markdown("""
     .enterprise-footer {
         background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
         color: white;
-        padding: 2rem;
+        padding: 1.5rem;
         border-radius: 8px;
         margin-top: 2rem;
         text-align: center;
+        box-shadow: 0 4px 15px rgba(44,62,80,0.2);
     }
     
     .detailed-analysis-section {
         background: #f8f9fa;
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 8px;
         margin: 1rem 0;
         border: 1px solid #dee2e6;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .detailed-analysis-section h4, .detailed-analysis-section h5 {
+        margin: 0 0 0.8rem 0;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+    
+    .detailed-analysis-section p {
+        margin: 0.4rem 0;
+        color: #5a6c7d;
+        line-height: 1.4;
+    }
+    
+    .detailed-analysis-section ul {
+        margin: 0.5rem 0;
+        padding-left: 1.2rem;
+    }
+    
+    .detailed-analysis-section li {
+        margin: 0.3rem 0;
+        color: #5a6c7d;
+    }
+    
+    /* Compact metric cards for dashboard */
+    .compact-metric {
+        background: #ffffff;
+        padding: 1rem;
+        border-radius: 6px;
+        border-left: 3px solid #3498db;
+        margin: 0.5rem 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid #e9ecef;
+    }
+    
+    .compact-metric h5 {
+        margin: 0 0 0.5rem 0;
+        color: #2c3e50;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .compact-metric p {
+        margin: 0.2rem 0;
+        color: #5a6c7d;
+        font-size: 0.85rem;
+        line-height: 1.3;
+    }
+    
+    /* Professional tables */
+    .stDataFrame {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    
+    /* Clean spacing */
+    .stSelectbox > div > div {
+        border-radius: 6px;
+    }
+    
+    .stNumberInput > div > div {
+        border-radius: 6px;
+    }
+    
+    /* Professional button styling */
+    .stButton > button {
+        border-radius: 6px;
+        border: none;
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+        transition: all 0.2s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(52,152,219,0.3);
+    }
+    
+    /* Professional tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 6px 6px 0 0;
+        padding: 0.6rem 1.2rem;
+        font-weight: 500;
+    }
+    
+    /* Clean sidebar */
+    .stSidebar .stSelectbox label,
+    .stSidebar .stNumberInput label {
+        font-weight: 500;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .main-header h1 {
+            font-size: 1.8rem;
+        }
+        
+        .metric-card, .ai-insight-card, .ai-recommendation-card {
+            padding: 1rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1834,6 +1971,9 @@ class OnPremPerformanceAnalyzer:
         network_performance = self._calculate_network_performance(config, os_impact)
         database_performance = self._calculate_database_performance(config, os_impact)
         
+        # Enhanced performance analysis using new metrics
+        current_performance_analysis = self._analyze_current_performance_metrics(config)
+        
         # AI-enhanced overall performance analysis
         overall_performance = self._calculate_ai_enhanced_overall_performance(
             cpu_performance, memory_performance, storage_performance, 
@@ -1846,12 +1986,17 @@ class OnPremPerformanceAnalyzer:
             network_performance, config
         )
         
+        # Resource adequacy analysis
+        resource_adequacy = self._analyze_resource_adequacy(config)
+        
         return {
             'cpu_performance': cpu_performance,
             'memory_performance': memory_performance,
             'storage_performance': storage_performance,
             'network_performance': network_performance,
             'database_performance': database_performance,
+            'current_performance_analysis': current_performance_analysis,
+            'resource_adequacy': resource_adequacy,
             'overall_performance': overall_performance,
             'os_impact': os_impact,
             'bottlenecks': ai_bottlenecks['bottlenecks'],
@@ -1860,6 +2005,80 @@ class OnPremPerformanceAnalyzer:
             'ai_optimization_recommendations': self._generate_ai_optimization_recommendations(
                 overall_performance, os_impact, config
             )
+        }
+    
+    def _analyze_current_performance_metrics(self, config: Dict) -> Dict:
+        """Analyze current performance metrics provided by user"""
+        
+        current_storage = config.get('current_storage_gb', 0)
+        peak_iops = config.get('peak_iops', 0)
+        max_throughput = config.get('max_throughput_mbps', 0)
+        database_size = config.get('database_size_gb', 0)
+        
+        # Storage utilization analysis
+        storage_utilization = (database_size / current_storage) * 100 if current_storage > 0 else 0
+        
+        # IOPS intensity analysis
+        iops_per_gb = peak_iops / database_size if database_size > 0 else 0
+        
+        # Throughput efficiency
+        throughput_per_gb = max_throughput / database_size if database_size > 0 else 0
+        
+        # Performance classification
+        if iops_per_gb > 50:
+            workload_type = "High IOPS (OLTP-intensive)"
+        elif throughput_per_gb > 1:
+            workload_type = "High Throughput (Analytics/Batch)"
+        else:
+            workload_type = "Balanced Workload"
+        
+        return {
+            'storage_utilization_percent': storage_utilization,
+            'iops_per_gb': iops_per_gb,
+            'throughput_per_gb_mbps': throughput_per_gb,
+            'workload_classification': workload_type,
+            'storage_efficiency': min(100, (100 - storage_utilization) + 50),  # Higher efficiency for lower utilization
+            'performance_intensity': min(100, (iops_per_gb * 2) + (throughput_per_gb * 10)),
+            'optimization_priority': "High" if storage_utilization > 80 or iops_per_gb > 100 else "Medium" if storage_utilization > 60 else "Low"
+        }
+    
+    def _analyze_resource_adequacy(self, config: Dict) -> Dict:
+        """Analyze resource adequacy comparing current vs anticipated needs"""
+        
+        current_memory = config.get('ram_gb', 0)
+        anticipated_memory = config.get('anticipated_max_memory_gb', 0)
+        current_cpu = config.get('cpu_cores', 0)
+        anticipated_cpu = config.get('anticipated_max_cpu_cores', 0)
+        
+        # Memory adequacy
+        memory_gap = anticipated_memory - current_memory
+        memory_adequacy_score = (current_memory / anticipated_memory) * 100 if anticipated_memory > 0 else 100
+        
+        # CPU adequacy
+        cpu_gap = anticipated_cpu - current_cpu
+        cpu_adequacy_score = (current_cpu / anticipated_cpu) * 100 if anticipated_cpu > 0 else 100
+        
+        # Overall readiness
+        overall_adequacy = (memory_adequacy_score + cpu_adequacy_score) / 2
+        
+        # Readiness classification
+        if overall_adequacy >= 90:
+            readiness_level = "Excellent - Current resources meet anticipated needs"
+        elif overall_adequacy >= 75:
+            readiness_level = "Good - Minor upgrades may be beneficial"
+        elif overall_adequacy >= 60:
+            readiness_level = "Fair - Moderate upgrades recommended"
+        else:
+            readiness_level = "Poor - Significant upgrades required"
+        
+        return {
+            'memory_gap_gb': memory_gap,
+            'cpu_gap_cores': cpu_gap,
+            'memory_adequacy_score': memory_adequacy_score,
+            'cpu_adequacy_score': cpu_adequacy_score,
+            'overall_adequacy_score': overall_adequacy,
+            'readiness_level': readiness_level,
+            'upgrade_priority': "Immediate" if overall_adequacy < 60 else "Short-term" if overall_adequacy < 75 else "Long-term" if overall_adequacy < 90 else "Optional"
         }
     
     # Keep all original calculation methods but add AI enhancements
@@ -2892,6 +3111,24 @@ def render_enhanced_sidebar_controls():
                                    help="AI analyzes CPU requirements for migration performance")
     cpu_ghz = st.sidebar.selectbox("CPU GHz", [2.0, 2.4, 2.8, 3.2, 3.6, 4.0], index=3)
     
+    # Enhanced Performance Metrics
+    st.sidebar.subheader("📊 Current Performance Metrics")
+    current_storage_gb = st.sidebar.number_input("Current Storage (GB)", 
+                                                min_value=100, max_value=500000, value=2000, step=100,
+                                                help="Current storage capacity in use")
+    peak_iops = st.sidebar.number_input("Peak IOPS", 
+                                       min_value=100, max_value=1000000, value=10000, step=500,
+                                       help="Maximum IOPS observed during peak usage")
+    max_throughput_mbps = st.sidebar.number_input("Max Throughput (MB/s)", 
+                                                 min_value=10, max_value=10000, value=500, step=50,
+                                                 help="Maximum storage throughput observed")
+    anticipated_max_memory_gb = st.sidebar.number_input("Anticipated Max Memory (GB)", 
+                                                       min_value=4, max_value=1024, value=64, step=8,
+                                                       help="Maximum memory usage anticipated for workload")
+    anticipated_max_cpu_cores = st.sidebar.number_input("Anticipated Max CPU Cores", 
+                                                       min_value=1, max_value=128, value=16, step=2,
+                                                       help="Maximum CPU cores anticipated for workload")
+    
     # Network Interface with AI insights
     nic_type = st.sidebar.selectbox(
         "NIC Type",
@@ -3052,7 +3289,12 @@ def render_enhanced_sidebar_controls():
         'dms_agent_size': dms_agent_size,
         'enable_ai_analysis': enable_ai_analysis,
         'ai_analysis_depth': ai_analysis_depth,
-        'use_realtime_pricing': use_realtime_pricing
+        'use_realtime_pricing': use_realtime_pricing,
+        'current_storage_gb': current_storage_gb,
+        'peak_iops': peak_iops,
+        'max_throughput_mbps': max_throughput_mbps,
+        'anticipated_max_memory_gb': anticipated_max_memory_gb,
+        'anticipated_max_cpu_cores': anticipated_max_cpu_cores
     }
 
 def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
@@ -3063,7 +3305,7 @@ def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
     aws_sizing = analysis.get('aws_sizing_recommendations', {})
     ai_analysis = aws_sizing.get('ai_analysis', {})
     
-    # Enhanced Migration Readiness Dashboard
+    # Enhanced Migration Readiness Dashboard with compact design
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -3112,6 +3354,56 @@ def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
             f"{team_size} members",
             delta=f"{specialists} AWS specialists"
         )
+    
+    # Performance Metrics Overview
+    st.markdown("**📊 Current Performance Analysis:**")
+    
+    perf_col1, perf_col2, perf_col3, perf_col4, perf_col5 = st.columns(5)
+    
+    with perf_col1:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>💾 Current Storage</h5>
+            <p><strong>{config.get('current_storage_gb', 0):,} GB</strong></p>
+            <p>Database: {config.get('database_size_gb', 0):,} GB</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col2:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>⚡ Peak IOPS</h5>
+            <p><strong>{config.get('peak_iops', 0):,}</strong></p>
+            <p>Max observed performance</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col3:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>🚀 Max Throughput</h5>
+            <p><strong>{config.get('max_throughput_mbps', 0)} MB/s</strong></p>
+            <p>Storage throughput peak</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col4:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>🧠 Anticipated Memory</h5>
+            <p><strong>{config.get('anticipated_max_memory_gb', 0)} GB</strong></p>
+            <p>Current: {config.get('ram_gb', 0)} GB</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col5:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>⚙️ Anticipated CPU</h5>
+            <p><strong>{config.get('anticipated_max_cpu_cores', 0)} cores</strong></p>
+            <p>Current: {config.get('cpu_cores', 0)} cores</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Detailed Complexity Analysis
     st.markdown("**🔍 Detailed Complexity Analysis:**")
@@ -3762,7 +4054,7 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
     """Render enhanced migration performance dashboard"""
     st.subheader("📊 Enhanced Migration Performance Dashboard")
     
-    # Migration Overview Metrics
+    # Migration Overview Metrics - Compact Design
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -3802,10 +4094,113 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
             delta=analysis.get('ai_overall_assessment', {}).get('risk_level', 'Unknown')
         )
     
+    # Current Performance Metrics Analysis
+    st.markdown("**📊 Current Performance Profile:**")
+    
+    hardware_perf = analysis.get('onprem_performance', {})
+    current_perf = hardware_perf.get('current_performance_analysis', {})
+    resource_adequacy = hardware_perf.get('resource_adequacy', {})
+    
+    perf_col1, perf_col2, perf_col3, perf_col4, perf_col5 = st.columns(5)
+    
+    with perf_col1:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>💾 Storage Analysis</h5>
+            <p><strong>Utilization:</strong> {current_perf.get('storage_utilization_percent', 0):.1f}%</p>
+            <p><strong>Efficiency:</strong> {current_perf.get('storage_efficiency', 0):.1f}%</p>
+            <p><strong>Type:</strong> {current_perf.get('workload_classification', 'Unknown')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col2:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>⚡ IOPS Profile</h5>
+            <p><strong>Peak IOPS:</strong> {config.get('peak_iops', 0):,}</p>
+            <p><strong>IOPS/GB:</strong> {current_perf.get('iops_per_gb', 0):.1f}</p>
+            <p><strong>Intensity:</strong> {current_perf.get('performance_intensity', 0):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col3:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>🚀 Throughput</h5>
+            <p><strong>Max:</strong> {config.get('max_throughput_mbps', 0)} MB/s</p>
+            <p><strong>Per GB:</strong> {current_perf.get('throughput_per_gb_mbps', 0):.2f} MB/s</p>
+            <p><strong>Priority:</strong> {current_perf.get('optimization_priority', 'Unknown')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col4:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>🧠 Memory Readiness</h5>
+            <p><strong>Current:</strong> {config.get('ram_gb', 0)} GB</p>
+            <p><strong>Anticipated:</strong> {config.get('anticipated_max_memory_gb', 0)} GB</p>
+            <p><strong>Adequacy:</strong> {resource_adequacy.get('memory_adequacy_score', 0):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with perf_col5:
+        st.markdown(f"""
+        <div class="compact-metric">
+            <h5>⚙️ CPU Readiness</h5>
+            <p><strong>Current:</strong> {config.get('cpu_cores', 0)} cores</p>
+            <p><strong>Anticipated:</strong> {config.get('anticipated_max_cpu_cores', 0)} cores</p>
+            <p><strong>Adequacy:</strong> {resource_adequacy.get('cpu_adequacy_score', 0):.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Resource Adequacy Analysis
+    st.markdown("**🎯 Resource Adequacy Analysis:**")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        overall_adequacy = resource_adequacy.get('overall_adequacy_score', 0)
+        readiness_level = resource_adequacy.get('readiness_level', 'Unknown')
+        upgrade_priority = resource_adequacy.get('upgrade_priority', 'Unknown')
+        
+        st.markdown(f"""
+        <div class="metric-card">
+            <h4>📈 Overall Resource Assessment</h4>
+            <p><strong>Adequacy Score:</strong> {overall_adequacy:.1f}%</p>
+            <p><strong>Readiness Level:</strong> {readiness_level}</p>
+            <p><strong>Upgrade Priority:</strong> {upgrade_priority}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        memory_gap = resource_adequacy.get('memory_gap_gb', 0)
+        cpu_gap = resource_adequacy.get('cpu_gap_cores', 0)
+        
+        st.markdown(f"""
+        <div class="metric-card">
+            <h4>📊 Resource Gap Analysis</h4>
+            <p><strong>Memory Gap:</strong> {memory_gap:+.0f} GB</p>
+            <p><strong>CPU Gap:</strong> {cpu_gap:+.0f} cores</p>
+            <p><strong>Gap Status:</strong> {"Surplus" if memory_gap <= 0 and cpu_gap <= 0 else "Deficit"}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        workload_class = current_perf.get('workload_classification', 'Unknown')
+        perf_intensity = current_perf.get('performance_intensity', 0)
+        
+        st.markdown(f"""
+        <div class="metric-card">
+            <h4>🔍 Workload Characteristics</h4>
+            <p><strong>Classification:</strong> {workload_class}</p>
+            <p><strong>Performance Intensity:</strong> {perf_intensity:.1f}%</p>
+            <p><strong>Migration Complexity:</strong> {"High" if perf_intensity > 75 else "Medium" if perf_intensity > 50 else "Low"}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
     # Throughput Analysis
     st.markdown("**📊 Throughput Bottleneck Analysis:**")
     
-    hardware_perf = analysis.get('onprem_performance', {})
     network_perf = analysis.get('network_performance', {})
     agent_analysis = analysis.get('agent_analysis', {})
     
@@ -3829,9 +4224,15 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
         color_discrete_map={'Hardware': '#3498db', 'Network': '#2ecc71', 'Agent': '#e74c3c', 'Final': '#9b59b6'}
     )
     
+    fig_throughput.update_layout(
+        height=400,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
     st.plotly_chart(fig_throughput, use_container_width=True)
     
-    # Performance Insights
+    # Performance Insights - Compact Layout
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -3840,7 +4241,7 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
         
         st.markdown(f"""
         <div class="metric-card">
-            <h4>🔍 Performance Analysis</h4>
+            <h4>🔍 Bottleneck Analysis</h4>
             <p><strong>Primary Bottleneck:</strong> {bottleneck_icon} {bottleneck.title()}</p>
             <p><strong>Agent Utilization:</strong> {agent_analysis.get('throughput_impact', 0)*100:.1f}%</p>
             <p><strong>Network Quality:</strong> {network_perf.get('network_quality_score', 0):.1f}/100</p>
@@ -3853,7 +4254,7 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
         
         st.markdown(f"""
         <div class="metric-card">
-            <h4>📈 Performance Comparison</h4>
+            <h4>📈 Performance Baseline</h4>
             <p><strong>On-Premises Score:</strong> {onprem_score:.1f}/100</p>
             <p><strong>Performance Tier:</strong> {hardware_perf.get('overall_performance', {}).get('performance_tier', 'Unknown')}</p>
             <p><strong>OS Efficiency:</strong> {hardware_perf.get('os_impact', {}).get('total_efficiency', 0)*100:.1f}%</p>
@@ -3896,6 +4297,12 @@ def render_enhanced_migration_dashboard(analysis: Dict, config: Dict):
         color='Type',
         title="AI-Recommended Migration Timeline",
         color_discrete_map={'Preparation': '#3498db', 'Execution': '#e74c3c', 'Validation': '#2ecc71'}
+    )
+    
+    fig_timeline.update_layout(
+        height=400,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
     st.plotly_chart(fig_timeline, use_container_width=True)
