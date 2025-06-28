@@ -32,3 +32,13 @@ pytest>=7.4.0
 black>=23.7.0
 flake8>=6.0.0
 reportlab
+
+streamlit
+pandas
+numpy
+plotly
+requests
+boto3
+botocore
+anthropic
+PyYAML
