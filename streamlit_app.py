@@ -9,14 +9,10 @@ import math
 import random
 from typing import Dict, List, Tuple, Optional
 import json
-import requests
-import os
-import platform
-import subprocess
 
 # Page configuration
 st.set_page_config(
-    page_title="AWS Enterprise Database Migration Analyzer",
+    page_title="AWS Enterprise Database Migration Analyzer v2.0",
     page_icon="☁️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -81,13 +77,22 @@ st.markdown("""
         box-shadow: 0 3px 15px rgba(156,39,176,0.1);
     }
     
-    .migration-tool-card {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%);
+    .agent-sizing-card {
+        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
         padding: 1.5rem;
         border-radius: 12px;
-        border-left: 5px solid #ff9800;
+        border-left: 5px solid #009688;
         margin: 1rem 0;
-        box-shadow: 0 3px 15px rgba(255,152,0,0.1);
+        box-shadow: 0 3px 15px rgba(0,150,136,0.1);
+    }
+    
+    .pricing-card {
+        background: linear-gradient(135deg, #fff9c4 0%, #f9fbe7 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 5px solid #689f38;
+        margin: 1rem 0;
+        box-shadow: 0 3px 15px rgba(104,159,56,0.1);
     }
     
     .performance-delta {
@@ -276,273 +281,246 @@ class OSPerformanceManager:
             'security_overhead': os_config['security_overhead']
         }
 
-class AWSMigrationManager:
-    """Manage AWS-specific migration strategies and tools"""
+class AgentSizingManager:
+    """Manage AWS DataSync and DMS agent sizing"""
     
     def __init__(self):
-        self.migration_types = {
-            'homogeneous': {
-                'name': 'Homogeneous Migration',
-                'description': 'Same database engine (e.g., MySQL to RDS MySQL)',
-                'complexity_factor': 0.3,
-                'time_factor': 0.7,
-                'risk_factor': 0.2,
-                'tools': ['aws_dms', 'native_replication'],
-                'schema_conversion_required': False,
-                'application_changes_required': False
+        self.datasync_agents = {
+            'small': {
+                'name': 'Small Agent (t3.medium)',
+                'vcpu': 2,
+                'memory_gb': 4,
+                'max_throughput_mbps': 250,
+                'max_concurrent_tasks': 10,
+                'cost_per_hour': 0.0416,
+                'recommended_for': 'Up to 1TB databases, <100 Mbps network'
             },
-            'heterogeneous': {
-                'name': 'Heterogeneous Migration',
-                'description': 'Different database engines (e.g., Oracle to PostgreSQL)',
-                'complexity_factor': 0.8,
-                'time_factor': 1.4,
-                'risk_factor': 0.7,
-                'tools': ['aws_dms', 'aws_sct'],
-                'schema_conversion_required': True,
-                'application_changes_required': True
-            }
-        }
-        
-        self.aws_migration_tools = {
-            'aws_dms': {
-                'name': 'AWS Database Migration Service',
-                'best_for': ['continuous_replication', 'minimal_downtime', 'heterogeneous'],
-                'throughput_efficiency': 0.85,
-                'cpu_overhead': 0.15,
-                'memory_overhead': 0.10,
-                'network_efficiency': 0.90,
-                'setup_complexity': 0.4,
-                'ongoing_cost_factor': 1.2,
-                'max_concurrent_tasks': 200,
-                'supported_engines': ['mysql', 'postgresql', 'oracle', 'sqlserver', 'mongodb']
+            'medium': {
+                'name': 'Medium Agent (c5.large)',
+                'vcpu': 2,
+                'memory_gb': 4,
+                'max_throughput_mbps': 500,
+                'max_concurrent_tasks': 25,
+                'cost_per_hour': 0.085,
+                'recommended_for': '1-5TB databases, 100-500 Mbps network'
             },
-            'aws_datasync': {
-                'name': 'AWS DataSync',
-                'best_for': ['bulk_transfer', 'file_based', 'initial_migration'],
-                'throughput_efficiency': 0.95,
-                'cpu_overhead': 0.05,
-                'memory_overhead': 0.03,
-                'network_efficiency': 0.98,
-                'setup_complexity': 0.2,
-                'ongoing_cost_factor': 0.8,
+            'large': {
+                'name': 'Large Agent (c5.xlarge)',
+                'vcpu': 4,
+                'memory_gb': 8,
+                'max_throughput_mbps': 1000,
                 'max_concurrent_tasks': 50,
-                'supported_engines': ['mysql', 'postgresql', 'mongodb']  # For file-based migrations
+                'cost_per_hour': 0.17,
+                'recommended_for': '5-20TB databases, 500Mbps-1Gbps network'
             },
-            'native_replication': {
-                'name': 'Native Database Replication',
-                'best_for': ['homogeneous', 'high_performance', 'custom_control'],
-                'throughput_efficiency': 0.98,
-                'cpu_overhead': 0.08,
-                'memory_overhead': 0.05,
-                'network_efficiency': 0.95,
-                'setup_complexity': 0.7,
-                'ongoing_cost_factor': 1.0,
-                'max_concurrent_tasks': 1000,
-                'supported_engines': ['mysql', 'postgresql', 'oracle', 'sqlserver']
+            'xlarge': {
+                'name': 'XLarge Agent (c5.2xlarge)',
+                'vcpu': 8,
+                'memory_gb': 16,
+                'max_throughput_mbps': 2000,
+                'max_concurrent_tasks': 100,
+                'cost_per_hour': 0.34,
+                'recommended_for': '>20TB databases, >1Gbps network'
             }
         }
         
-        self.aws_deployment_options = {
-            'rds': {
-                'name': 'Amazon RDS',
-                'management_overhead': 0.1,
-                'performance_factor': 0.92,
-                'cost_factor': 1.3,
-                'scalability_factor': 0.85,
-                'backup_automation': True,
-                'monitoring_included': True,
-                'patch_management': True,
-                'multi_az_support': True,
-                'read_replica_support': True
+        self.dms_agents = {
+            'small': {
+                'name': 'Small DMS Instance (t3.medium)',
+                'vcpu': 2,
+                'memory_gb': 4,
+                'max_throughput_mbps': 200,
+                'max_concurrent_tasks': 5,
+                'cost_per_hour': 0.0416,
+                'recommended_for': 'Up to 500GB databases, simple schemas'
             },
-            'ec2': {
-                'name': 'Amazon EC2',
-                'management_overhead': 0.4,
-                'performance_factor': 0.98,
-                'cost_factor': 1.0,
-                'scalability_factor': 0.95,
-                'backup_automation': False,
-                'monitoring_included': False,
-                'patch_management': False,
-                'multi_az_support': False,
-                'read_replica_support': False
+            'medium': {
+                'name': 'Medium DMS Instance (c5.large)',
+                'vcpu': 2,
+                'memory_gb': 4,
+                'max_throughput_mbps': 400,
+                'max_concurrent_tasks': 10,
+                'cost_per_hour': 0.085,
+                'recommended_for': '500GB-2TB databases, moderate complexity'
+            },
+            'large': {
+                'name': 'Large DMS Instance (c5.xlarge)',
+                'vcpu': 4,
+                'memory_gb': 8,
+                'max_throughput_mbps': 800,
+                'max_concurrent_tasks': 20,
+                'cost_per_hour': 0.17,
+                'recommended_for': '2-10TB databases, complex schemas'
+            },
+            'xlarge': {
+                'name': 'XLarge DMS Instance (c5.2xlarge)',
+                'vcpu': 8,
+                'memory_gb': 16,
+                'max_throughput_mbps': 1500,
+                'max_concurrent_tasks': 40,
+                'cost_per_hour': 0.34,
+                'recommended_for': '>10TB databases, very complex schemas'
+            },
+            'xxlarge': {
+                'name': 'XXLarge DMS Instance (c5.4xlarge)',
+                'vcpu': 16,
+                'memory_gb': 32,
+                'max_throughput_mbps': 2500,
+                'max_concurrent_tasks': 80,
+                'cost_per_hour': 0.68,
+                'recommended_for': '>50TB databases, enterprise workloads'
             }
         }
     
-    def recommend_migration_approach(self, source_engine: str, target_engine: str, 
-                                   database_size_gb: int, downtime_tolerance_minutes: int,
-                                   performance_requirements: str) -> Dict:
-        """Recommend optimal migration approach based on requirements"""
+    def recommend_agent_size(self, tool_type: str, database_size_gb: int, 
+                           network_bandwidth_mbps: int, migration_complexity: str) -> str:
+        """Recommend appropriate agent size based on requirements"""
         
-        # Determine migration type
-        migration_type = 'homogeneous' if source_engine == target_engine else 'heterogeneous'
-        migration_config = self.migration_types[migration_type]
+        agents = self.datasync_agents if tool_type == 'datasync' else self.dms_agents
         
-        # Recommend tools based on requirements
-        recommended_tools = []
-        
-        if migration_type == 'homogeneous':
-            if downtime_tolerance_minutes < 30 and database_size_gb > 1000:
-                recommended_tools = ['native_replication', 'aws_dms']
-            elif database_size_gb < 100:
-                recommended_tools = ['aws_datasync', 'aws_dms']
-            else:
-                recommended_tools = ['aws_dms', 'native_replication']
-        else:  # heterogeneous
-            recommended_tools = ['aws_dms']  # Primary choice for heterogeneous
-        
-        # Calculate complexity and time estimates
-        base_time_hours = (database_size_gb / 100) * migration_config['time_factor']
-        complexity_score = migration_config['complexity_factor'] * 100
-        
-        # Recommend AWS deployment
-        aws_deployment = self._recommend_aws_deployment(
-            target_engine, database_size_gb, performance_requirements
-        )
-        
-        return {
-            'migration_type': migration_type,
-            'migration_config': migration_config,
-            'recommended_tools': recommended_tools,
-            'primary_tool': recommended_tools[0] if recommended_tools else 'aws_dms',
-            'estimated_time_hours': base_time_hours,
-            'complexity_score': complexity_score,
-            'aws_deployment': aws_deployment
-        }
-    
-    def _recommend_aws_deployment(self, database_engine: str, database_size_gb: int, 
-                                performance_requirements: str) -> Dict:
-        """Recommend RDS vs EC2 deployment"""
-        
-        rds_score = 0
-        ec2_score = 0
-        
-        # Size considerations
-        if database_size_gb < 1000:
-            rds_score += 30
-        elif database_size_gb > 5000:
-            ec2_score += 20
-        
-        # Performance requirements
-        if performance_requirements == 'high':
-            ec2_score += 25
-            rds_score += 10
-        elif performance_requirements == 'standard':
-            rds_score += 25
-        
-        # Database engine considerations
-        if database_engine in ['mysql', 'postgresql']:
-            rds_score += 20
-        elif database_engine == 'oracle':
-            ec2_score += 30  # Oracle licensing complexity
-        
-        # Management preferences (assume prefer managed service)
-        rds_score += 30
-        
-        recommendation = 'rds' if rds_score > ec2_score else 'ec2'
-        confidence = abs(rds_score - ec2_score) / max(rds_score, ec2_score, 1)
-        
-        # Recommend read replicas
-        read_replicas = self._recommend_read_replicas(database_size_gb, performance_requirements)
-        
-        return {
-            'recommendation': recommendation,
-            'confidence': confidence,
-            'rds_score': rds_score,
-            'ec2_score': ec2_score,
-            'read_replicas': read_replicas,
-            'reasoning': self._generate_deployment_reasoning(recommendation, rds_score, ec2_score)
-        }
-    
-    def _recommend_read_replicas(self, database_size_gb: int, performance_requirements: str) -> Dict:
-        """Recommend number of read replicas and writers"""
-        
-        # Base recommendations
-        writers = 1  # Start with single writer
-        readers = 0
-        
-        # Size-based scaling
-        if database_size_gb > 1000:
-            readers += 1
-        if database_size_gb > 5000:
-            readers += 1
-        if database_size_gb > 10000:
-            readers += 2
-            writers = 2  # Consider multi-writer for very large DBs
-        
-        # Performance-based scaling
-        if performance_requirements == 'high':
-            readers += 2
-        elif performance_requirements == 'standard':
-            readers += 1
-        
-        # Ensure minimum recommendations
-        readers = max(1, readers)
-        
-        return {
-            'writers': writers,
-            'readers': readers,
-            'total_instances': writers + readers,
-            'reasoning': f"Based on {database_size_gb}GB size and {performance_requirements} performance requirements"
-        }
-    
-    def _generate_deployment_reasoning(self, recommendation: str, rds_score: int, ec2_score: int) -> str:
-        """Generate human-readable reasoning for deployment recommendation"""
-        
-        if recommendation == 'rds':
-            return f"RDS recommended (score: {rds_score} vs {ec2_score}) for managed service benefits, automated backups, and easier scaling"
+        # Size selection logic
+        if database_size_gb < 1000 and network_bandwidth_mbps < 250:
+            return 'small'
+        elif database_size_gb < 5000 and network_bandwidth_mbps < 750:
+            if migration_complexity == 'high' and tool_type == 'dms':
+                return 'large'
+            return 'medium'
+        elif database_size_gb < 20000 and network_bandwidth_mbps < 1500:
+            return 'large'
+        elif database_size_gb < 50000:
+            return 'xlarge'
         else:
-            return f"EC2 recommended (score: {ec2_score} vs {rds_score}) for maximum performance control, custom configurations, and potential cost savings"
+            return 'xxlarge' if tool_type == 'dms' else 'xlarge'
 
-class NetworkPathManager:
-    """Manage specific network paths for AWS migration"""
+class EnhancedNetworkPathManager:
+    """Enhanced network path manager with realistic enterprise scenarios"""
     
     def __init__(self):
         self.network_paths = {
-            'nonprod_sj_to_usw2': {
-                'name': 'Non-Prod: San Jose to US-West-2',
+            'nonprod_sj_linux_nas': {
+                'name': 'Non-Prod: San Jose Linux NAS + Jump Server → AWS S3',
                 'source': 'San Jose',
-                'destination': 'AWS US-West-2',
+                'destination': 'AWS US-West-2 S3',
                 'environment': 'non-production',
+                'os_type': 'linux',
+                'storage_type': 'nas',
                 'segments': [
                     {
-                        'name': 'San Jose to AWS US-West-2',
-                        'bandwidth_mbps': 2000,  # 2 Gbps
-                        'latency_ms': 25,
-                        'reliability': 0.99,
-                        'connection_type': 'internet',
-                        'cost_factor': 1.0
+                        'name': 'Linux NAS to Linux Jump Server',
+                        'bandwidth_mbps': 1000,  # 1 Gbps internal
+                        'latency_ms': 2,
+                        'reliability': 0.999,
+                        'connection_type': 'internal_lan',
+                        'cost_factor': 0.0
+                    },
+                    {
+                        'name': 'Linux Jump Server to AWS S3 (DX)',
+                        'bandwidth_mbps': 2000,  # 2 Gbps DX
+                        'latency_ms': 15,
+                        'reliability': 0.998,
+                        'connection_type': 'direct_connect',
+                        'cost_factor': 2.0
                     }
                 ]
             },
-            'prod_sa_to_usw2': {
-                'name': 'Prod: San Antonio via San Jose to US-West-2',
-                'source': 'San Antonio',
-                'destination': 'AWS US-West-2',
-                'environment': 'production',
+            'nonprod_sj_windows_share': {
+                'name': 'Non-Prod: San Jose Windows Share + Jump Server → AWS S3',
+                'source': 'San Jose',
+                'destination': 'AWS US-West-2 S3',
+                'environment': 'non-production',
+                'os_type': 'windows',
+                'storage_type': 'share',
                 'segments': [
                     {
-                        'name': 'San Antonio to San Jose',
-                        'bandwidth_mbps': 10000,  # 10 Gbps
-                        'latency_ms': 15,
-                        'reliability': 0.995,
-                        'connection_type': 'private_line',
-                        'cost_factor': 2.0
+                        'name': 'Windows Share to Windows Jump Server',
+                        'bandwidth_mbps': 1000,  # 1 Gbps internal
+                        'latency_ms': 3,  # Slightly higher due to Windows overhead
+                        'reliability': 0.997,
+                        'connection_type': 'internal_lan',
+                        'cost_factor': 0.0
                     },
                     {
-                        'name': 'San Jose to AWS US-West-2 (DX)',
-                        'bandwidth_mbps': 10000,  # 10 Gbps DX
-                        'latency_ms': 12,
-                        'reliability': 0.999,
+                        'name': 'Windows Jump Server to AWS S3 (DX)',
+                        'bandwidth_mbps': 2000,  # 2 Gbps DX
+                        'latency_ms': 18,  # Slightly higher due to Windows network stack
+                        'reliability': 0.998,
                         'connection_type': 'direct_connect',
+                        'cost_factor': 2.0
+                    }
+                ]
+            },
+            'prod_sa_linux_nas': {
+                'name': 'Prod: San Antonio Linux NAS → San Jose → AWS Production VPC S3',
+                'source': 'San Antonio',
+                'destination': 'AWS US-West-2 Production VPC S3',
+                'environment': 'production',
+                'os_type': 'linux',
+                'storage_type': 'nas',
+                'segments': [
+                    {
+                        'name': 'San Antonio Linux NAS to Linux Jump Server',
+                        'bandwidth_mbps': 1000,  # 1 Gbps internal
+                        'latency_ms': 1,
+                        'reliability': 0.999,
+                        'connection_type': 'internal_lan',
+                        'cost_factor': 0.0
+                    },
+                    {
+                        'name': 'San Antonio to San Jose (Private Line)',
+                        'bandwidth_mbps': 10000,  # 10 Gbps
+                        'latency_ms': 12,
+                        'reliability': 0.9995,
+                        'connection_type': 'private_line',
                         'cost_factor': 3.0
+                    },
+                    {
+                        'name': 'San Jose to AWS Production VPC S3 (DX)',
+                        'bandwidth_mbps': 10000,  # 10 Gbps DX
+                        'latency_ms': 8,
+                        'reliability': 0.9999,
+                        'connection_type': 'direct_connect',
+                        'cost_factor': 4.0
+                    }
+                ]
+            },
+            'prod_sa_windows_share': {
+                'name': 'Prod: San Antonio Windows Share → San Jose → AWS Production VPC S3',
+                'source': 'San Antonio',
+                'destination': 'AWS US-West-2 Production VPC S3',
+                'environment': 'production',
+                'os_type': 'windows',
+                'storage_type': 'share',
+                'segments': [
+                    {
+                        'name': 'San Antonio Windows Share to Windows Jump Server',
+                        'bandwidth_mbps': 1000,  # 1 Gbps internal
+                        'latency_ms': 2,
+                        'reliability': 0.998,
+                        'connection_type': 'internal_lan',
+                        'cost_factor': 0.0
+                    },
+                    {
+                        'name': 'San Antonio to San Jose (Private Line)',
+                        'bandwidth_mbps': 10000,  # 10 Gbps shared
+                        'latency_ms': 15,  # Higher due to Windows network processing
+                        'reliability': 0.9995,
+                        'connection_type': 'private_line',
+                        'cost_factor': 3.0
+                    },
+                    {
+                        'name': 'San Jose to AWS Production VPC S3 (DX)',
+                        'bandwidth_mbps': 10000,  # 10 Gbps DX
+                        'latency_ms': 10,  # Slightly higher for Windows
+                        'reliability': 0.9999,
+                        'connection_type': 'direct_connect',
+                        'cost_factor': 4.0
                     }
                 ]
             }
         }
     
     def calculate_path_performance(self, path_key: str, time_of_day: int = None) -> Dict:
-        """Calculate network path performance characteristics"""
+        """Calculate network path performance with realistic congestion modeling"""
         
         path = self.network_paths[path_key]
         
@@ -555,602 +533,411 @@ class NetworkPathManager:
         total_reliability = 1.0
         total_cost_factor = 0
         
+        adjusted_segments = []
+        
         for segment in path['segments']:
             # Base metrics
-            total_latency += segment['latency_ms']
-            min_bandwidth = min(min_bandwidth, segment['bandwidth_mbps'])
-            total_reliability *= segment['reliability']
-            total_cost_factor += segment['cost_factor']
+            segment_latency = segment['latency_ms']
+            segment_bandwidth = segment['bandwidth_mbps']
+            segment_reliability = segment['reliability']
             
-            # Time-of-day adjustments
-            if segment['connection_type'] == 'internet':
-                # Internet connections more affected by business hours
-                if 9 <= time_of_day <= 17:
-                    congestion_factor = 1.3
-                else:
-                    congestion_factor = 0.8
-                segment_bandwidth = segment['bandwidth_mbps'] / congestion_factor
-                segment_latency = segment['latency_ms'] * congestion_factor
-            elif segment['connection_type'] == 'direct_connect':
-                # DX connections very stable
-                segment_bandwidth = segment['bandwidth_mbps'] * 0.98
-                segment_latency = segment['latency_ms'] * 1.02
-            else:  # private_line
-                # Private lines moderately affected
+            # Time-of-day and congestion adjustments
+            if segment['connection_type'] == 'internal_lan':
+                # Internal LAN - minimal variation
                 if 9 <= time_of_day <= 17:
                     congestion_factor = 1.1
                 else:
                     congestion_factor = 0.95
-                segment_bandwidth = segment['bandwidth_mbps'] / congestion_factor
-                segment_latency = segment['latency_ms'] * congestion_factor
+            elif segment['connection_type'] == 'private_line':
+                # Private lines - moderate business hours impact
+                if 9 <= time_of_day <= 17:
+                    congestion_factor = 1.2
+                else:
+                    congestion_factor = 0.9
+            elif segment['connection_type'] == 'direct_connect':
+                # DX connections - very stable, minimal variation
+                if 9 <= time_of_day <= 17:
+                    congestion_factor = 1.05
+                else:
+                    congestion_factor = 0.98
+            else:
+                congestion_factor = 1.0
+            
+            # Apply congestion
+            effective_bandwidth = segment_bandwidth / congestion_factor
+            effective_latency = segment_latency * congestion_factor
+            
+            # OS-specific adjustments
+            if path['os_type'] == 'windows' and segment['connection_type'] != 'internal_lan':
+                # Windows has slightly higher network overhead
+                effective_bandwidth *= 0.95
+                effective_latency *= 1.1
+            
+            # Accumulate metrics
+            total_latency += effective_latency
+            min_bandwidth = min(min_bandwidth, effective_bandwidth)
+            total_reliability *= segment_reliability
+            total_cost_factor += segment['cost_factor']
+            
+            adjusted_segments.append({
+                **segment,
+                'effective_bandwidth_mbps': effective_bandwidth,
+                'effective_latency_ms': effective_latency
+            })
         
-        # Calculate effective throughput
-        effective_bandwidth = min_bandwidth * total_reliability
-        
-        # Network quality score
-        latency_score = max(0, 100 - total_latency)
-        bandwidth_score = min(100, (effective_bandwidth / 1000) * 10)  # Score based on Gbps
+        # Calculate quality scores
+        latency_score = max(0, 100 - (total_latency * 2))  # Penalize high latency
+        bandwidth_score = min(100, (min_bandwidth / 1000) * 20)  # Score based on Gbps
         reliability_score = total_reliability * 100
         
-        network_quality = (latency_score * 0.3 + bandwidth_score * 0.4 + reliability_score * 0.3)
+        # Overall network quality with weighted factors
+        network_quality = (latency_score * 0.25 + bandwidth_score * 0.45 + reliability_score * 0.30)
         
         return {
             'path_name': path['name'],
             'total_latency_ms': total_latency,
-            'effective_bandwidth_mbps': effective_bandwidth,
+            'effective_bandwidth_mbps': min_bandwidth,
             'total_reliability': total_reliability,
             'network_quality_score': network_quality,
             'total_cost_factor': total_cost_factor,
-            'segments': path['segments'],
-            'environment': path['environment']
+            'segments': adjusted_segments,
+            'environment': path['environment'],
+            'os_type': path['os_type'],
+            'storage_type': path['storage_type']
         }
 
-class EnhancedFlexibleHardwareManager:
-    """Enhanced hardware manager with OS support"""
+class EnhancedAWSMigrationManager:
+    """Enhanced AWS migration manager with advanced sizing and pricing"""
     
     def __init__(self):
-        # Inherit from original but extend with OS awareness
-        self.nic_types = {
-            'gigabit_copper': {
-                'name': 'Gigabit Ethernet (Copper)',
-                'max_speed': 1000,
-                'latency_factor': 1.0,
-                'cpu_overhead': 0.08,
-                'reliability': 0.98,
-                'cost_factor': 1.0
+        self.migration_types = {
+            'homogeneous': {
+                'name': 'Homogeneous Migration',
+                'description': 'Same database engine (uses DataSync for file-based, native replication for binary)',
+                'complexity_factor': 0.3,
+                'time_factor': 0.7,
+                'risk_factor': 0.2,
+                'preferred_tools': ['aws_datasync', 'native_replication'],
+                'schema_conversion_required': False,
+                'application_changes_required': False
             },
-            'gigabit_fiber': {
-                'name': 'Gigabit Ethernet (Fiber)',
-                'max_speed': 1000,
-                'latency_factor': 0.95,
-                'cpu_overhead': 0.06,
-                'reliability': 0.99,
-                'cost_factor': 1.5
-            },
-            '10g_copper': {
-                'name': '10Gb Ethernet (Copper)',
-                'max_speed': 10000,
-                'latency_factor': 0.8,
-                'cpu_overhead': 0.12,
-                'reliability': 0.985,
-                'cost_factor': 3.0
-            },
-            '10g_fiber': {
-                'name': '10Gb Ethernet (Fiber)',
-                'max_speed': 10000,
-                'latency_factor': 0.75,
-                'cpu_overhead': 0.10,
-                'reliability': 0.995,
-                'cost_factor': 4.0
-            },
-            '25g_fiber': {
-                'name': '25Gb Ethernet (Fiber)',
-                'max_speed': 25000,
-                'latency_factor': 0.7,
-                'cpu_overhead': 0.15,
-                'reliability': 0.997,
-                'cost_factor': 8.0
-            },
-            '40g_fiber': {
-                'name': '40Gb Ethernet (Fiber)',
-                'max_speed': 40000,
-                'latency_factor': 0.65,
-                'cpu_overhead': 0.18,
-                'reliability': 0.998,
-                'cost_factor': 12.0
+            'heterogeneous': {
+                'name': 'Heterogeneous Migration',
+                'description': 'Different database engines (requires DMS and SCT)',
+                'complexity_factor': 0.8,
+                'time_factor': 1.4,
+                'risk_factor': 0.7,
+                'preferred_tools': ['aws_dms', 'aws_sct'],
+                'schema_conversion_required': True,
+                'application_changes_required': True
             }
         }
         
-        self.server_platforms = {
-            'physical': {
-                'name': 'Physical Server',
-                'cpu_efficiency': 0.98,
-                'memory_efficiency': 0.95,
-                'io_efficiency': 1.0,
-                'network_efficiency': 0.98,
-                'base_overhead': 0.02
-            },
-            'vmware': {
-                'name': 'VMware Virtual Machine',
-                'cpu_efficiency': 0.82,
-                'memory_efficiency': 0.78,
-                'io_efficiency': 0.75,
-                'network_efficiency': 0.80,
-                'base_overhead': 0.18
+        # Enhanced AWS pricing data (simulated real-time pricing)
+        self.aws_pricing = {
+            'us-west-2': {
+                'ec2_instances': {
+                    't3.medium': {'vcpu': 2, 'memory': 4, 'cost_per_hour': 0.0416},
+                    't3.large': {'vcpu': 2, 'memory': 8, 'cost_per_hour': 0.0832},
+                    't3.xlarge': {'vcpu': 4, 'memory': 16, 'cost_per_hour': 0.1664},
+                    'c5.large': {'vcpu': 2, 'memory': 4, 'cost_per_hour': 0.085},
+                    'c5.xlarge': {'vcpu': 4, 'memory': 8, 'cost_per_hour': 0.17},
+                    'c5.2xlarge': {'vcpu': 8, 'memory': 16, 'cost_per_hour': 0.34},
+                    'c5.4xlarge': {'vcpu': 16, 'memory': 32, 'cost_per_hour': 0.68},
+                    'r6i.large': {'vcpu': 2, 'memory': 16, 'cost_per_hour': 0.252},
+                    'r6i.xlarge': {'vcpu': 4, 'memory': 32, 'cost_per_hour': 0.504},
+                    'r6i.2xlarge': {'vcpu': 8, 'memory': 64, 'cost_per_hour': 1.008},
+                    'r6i.4xlarge': {'vcpu': 16, 'memory': 128, 'cost_per_hour': 2.016},
+                    'r6i.8xlarge': {'vcpu': 32, 'memory': 256, 'cost_per_hour': 4.032}
+                },
+                'rds_instances': {
+                    'db.t3.medium': {'vcpu': 2, 'memory': 4, 'cost_per_hour': 0.068},
+                    'db.t3.large': {'vcpu': 2, 'memory': 8, 'cost_per_hour': 0.136},
+                    'db.r6g.large': {'vcpu': 2, 'memory': 16, 'cost_per_hour': 0.48},
+                    'db.r6g.xlarge': {'vcpu': 4, 'memory': 32, 'cost_per_hour': 0.96},
+                    'db.r6g.2xlarge': {'vcpu': 8, 'memory': 64, 'cost_per_hour': 1.92},
+                    'db.r6g.4xlarge': {'vcpu': 16, 'memory': 128, 'cost_per_hour': 3.84},
+                    'db.r6g.8xlarge': {'vcpu': 32, 'memory': 256, 'cost_per_hour': 7.68}
+                },
+                'storage': {
+                    'gp3': {'cost_per_gb_month': 0.08, 'iops_included': 3000},
+                    'io1': {'cost_per_gb_month': 0.125, 'cost_per_iops_month': 0.065},
+                    'io2': {'cost_per_gb_month': 0.125, 'cost_per_iops_month': 0.065}
+                }
             }
         }
     
-    def calculate_hardware_performance_with_os(self, config: Dict, os_manager: OSPerformanceManager) -> Dict:
-        """Calculate performance with OS considerations"""
+    def recommend_aws_sizing(self, on_prem_config: Dict) -> Dict:
+        """AI-enhanced AWS sizing recommendations based on on-premises configuration"""
         
-        # Get base hardware performance
-        base_perf = self.calculate_hardware_performance(config)
+        # Extract on-premises specs
+        cpu_cores = on_prem_config['cpu_cores']
+        ram_gb = on_prem_config['ram_gb']
+        database_size_gb = on_prem_config['database_size_gb']
+        performance_req = on_prem_config.get('performance_requirements', 'standard')
+        database_engine = on_prem_config['database_engine']
+        environment = on_prem_config.get('environment', 'non-production')
         
-        # Get OS-specific impact
-        os_impact = os_manager.calculate_os_performance_impact(
-            config['operating_system'], 
-            config['server_type'], 
-            config['database_engine']
+        # AI-based sizing logic
+        recommendations = {}
+        
+        # RDS Recommendations
+        rds_recommendations = self._calculate_rds_sizing(
+            cpu_cores, ram_gb, database_size_gb, performance_req, database_engine, environment
         )
         
-        # Apply OS efficiency to base performance
-        os_adjusted_throughput = base_perf['actual_throughput'] * os_impact['total_efficiency']
+        # EC2 Recommendations
+        ec2_recommendations = self._calculate_ec2_sizing(
+            cpu_cores, ram_gb, database_size_gb, performance_req, database_engine, environment
+        )
+        
+        # Reader/Writer Configuration
+        reader_writer_config = self._calculate_reader_writer_config(
+            database_size_gb, performance_req, environment
+        )
         
         return {
-            **base_perf,
-            'os_impact': os_impact,
-            'os_adjusted_throughput': os_adjusted_throughput,
-            'os_efficiency_factor': os_impact['total_efficiency'],
-            'os_licensing_cost': os_impact['licensing_cost_factor'],
-            'os_management_complexity': os_impact['management_complexity']
-        }
-    
-    def calculate_hardware_performance(self, config: Dict) -> Dict:
-        """Original hardware performance calculation"""
-        
-        platform = self.server_platforms[config['server_type']]
-        nic = self.nic_types[config['nic_type']]
-        
-        # RAM Performance Impact
-        ram_gb = config['ram_gb']
-        ram_performance = min(1.0, ram_gb / 64)
-        
-        # CPU Performance Impact
-        cpu_cores = config['cpu_cores']
-        cpu_ghz = config['cpu_ghz']
-        cpu_performance = min(1.0, (cpu_cores * cpu_ghz) / 32)
-        
-        # NIC Performance Impact
-        nic_performance = min(1.0, config['nic_speed'] / nic['max_speed'])
-        
-        # Platform efficiency
-        platform_efficiency = (
-            platform['cpu_efficiency'] * platform['memory_efficiency'] * 
-            platform['io_efficiency'] * platform['network_efficiency']
-        )
-        
-        # Combined performance score
-        overall_performance = (
-            ram_performance * 0.25 +
-            cpu_performance * 0.30 +
-            nic_performance * 0.25 +
-            platform_efficiency * 0.20
-        )
-        
-        # Calculate actual throughput
-        theoretical_throughput = config['nic_speed'] * nic_performance
-        actual_throughput = theoretical_throughput * overall_performance * (1 - nic['cpu_overhead'])
-        
-        # VMware specific calculations
-        vmware_impact = 0
-        if config['server_type'] == 'vmware':
-            vmware_impact = self._calculate_detailed_vmware_impact(config)
-            actual_throughput *= (1 - vmware_impact)
-        
-        return {
-            'ram_performance': ram_performance,
-            'cpu_performance': cpu_performance,
-            'nic_performance': nic_performance,
-            'platform_efficiency': platform_efficiency,
-            'overall_performance': overall_performance,
-            'theoretical_throughput': theoretical_throughput,
-            'actual_throughput': actual_throughput,
-            'vmware_impact': vmware_impact,
-            'nic_characteristics': nic,
-            'platform_characteristics': platform
-        }
-    
-    def _calculate_detailed_vmware_impact(self, config: Dict) -> float:
-        """Calculate detailed VMware impact"""
-        
-        base_impact = 0.15
-        
-        if config['ram_gb'] < 32:
-            base_impact += 0.08
-        elif config['ram_gb'] < 16:
-            base_impact += 0.15
-        
-        if config['cpu_cores'] < 4:
-            base_impact += 0.10
-        elif config['cpu_cores'] < 8:
-            base_impact += 0.05
-        
-        if config['nic_speed'] < 1000:
-            base_impact += 0.12
-        elif config['nic_speed'] < 10000:
-            base_impact += 0.06
-        
-        return min(0.4, base_impact)
-
-class EnhancedMigrationAnalyzer:
-    """Enhanced migration analyzer with AWS and OS support"""
-    
-    def __init__(self, anthropic_api_key: str = None):
-        self.os_manager = OSPerformanceManager()
-        self.aws_manager = AWSMigrationManager()
-        self.network_manager = NetworkPathManager()
-        self.hardware_manager = EnhancedFlexibleHardwareManager()
-        
-        # Database engines with enhanced characteristics
-        self.database_engines = {
-            'mysql': {
-                'name': 'MySQL',
-                'memory_efficiency': 0.85,
-                'cpu_efficiency': 0.88,
-                'network_sensitivity': 0.7,
-                'connection_overhead_kb': 4,
-                'optimal_ram_per_gb_db': 0.1,
-                'cpu_intensive': False,
-                'supports_compression': True,
-                'aws_rds_support': True,
-                'migration_complexity': 0.3
-            },
-            'postgresql': {
-                'name': 'PostgreSQL',
-                'memory_efficiency': 0.90,
-                'cpu_efficiency': 0.92,
-                'network_sensitivity': 0.75,
-                'connection_overhead_kb': 8,
-                'optimal_ram_per_gb_db': 0.15,
-                'cpu_intensive': True,
-                'supports_compression': True,
-                'aws_rds_support': True,
-                'migration_complexity': 0.4
-            },
-            'oracle': {
-                'name': 'Oracle Database',
-                'memory_efficiency': 0.95,
-                'cpu_efficiency': 0.94,
-                'network_sensitivity': 0.6,
-                'connection_overhead_kb': 12,
-                'optimal_ram_per_gb_db': 0.2,
-                'cpu_intensive': True,
-                'supports_compression': True,
-                'aws_rds_support': True,
-                'migration_complexity': 0.7
-            },
-            'sqlserver': {
-                'name': 'SQL Server',
-                'memory_efficiency': 0.88,
-                'cpu_efficiency': 0.90,
-                'network_sensitivity': 0.65,
-                'connection_overhead_kb': 6,
-                'optimal_ram_per_gb_db': 0.12,
-                'cpu_intensive': False,
-                'supports_compression': True,
-                'aws_rds_support': True,
-                'migration_complexity': 0.5
-            },
-            'mongodb': {
-                'name': 'MongoDB',
-                'memory_efficiency': 0.82,
-                'cpu_efficiency': 0.85,
-                'network_sensitivity': 0.8,
-                'connection_overhead_kb': 3,
-                'optimal_ram_per_gb_db': 0.08,
-                'cpu_intensive': False,
-                'supports_compression': True,
-                'aws_rds_support': False,  # DocumentDB instead
-                'migration_complexity': 0.6
-            }
-        }
-    
-    def comprehensive_migration_analysis(self, config: Dict) -> Dict:
-        """Comprehensive migration analysis with all enhancements"""
-        
-        # Hardware and OS performance analysis
-        hardware_perf = self.hardware_manager.calculate_hardware_performance_with_os(
-            config, self.os_manager
-        )
-        
-        # Network path analysis
-        network_path = config.get('network_path', 'nonprod_sj_to_usw2')
-        network_perf = self.network_manager.calculate_path_performance(network_path)
-        
-        # AWS migration strategy
-        migration_strategy = self.aws_manager.recommend_migration_approach(
-            config.get('source_database_engine', config['database_engine']),
-            config['database_engine'],
-            config['database_size_gb'],
-            config.get('downtime_tolerance_minutes', 60),
-            config.get('performance_requirements', 'standard')
-        )
-        
-        # Calculate effective migration throughput
-        base_throughput = hardware_perf['os_adjusted_throughput']
-        network_throughput = min(base_throughput, network_perf['effective_bandwidth_mbps'])
-        
-        # Apply migration tool efficiency
-        tool_config = self.aws_manager.aws_migration_tools[migration_strategy['primary_tool']]
-        migration_throughput = network_throughput * tool_config['throughput_efficiency']
-        
-        # Calculate migration time
-        database_size_gb = config['database_size_gb']
-        migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
-        
-        # OS comparison analysis
-        os_comparison = self._compare_operating_systems(config)
-        
-        # Platform comparison (Physical vs VMware with OS)
-        platform_comparison = self._compare_platforms_with_os(config)
-        
-        return {
-            'hardware_performance': hardware_perf,
-            'network_performance': network_perf,
-            'migration_strategy': migration_strategy,
-            'migration_throughput_mbps': migration_throughput,
-            'estimated_migration_time_hours': migration_time_hours,
-            'os_comparison': os_comparison,
-            'platform_comparison': platform_comparison,
-            'aws_recommendations': self._generate_detailed_aws_recommendations(config, migration_strategy),
-            'cost_analysis': self._calculate_migration_costs(config, migration_strategy, hardware_perf)
-        }
-    
-    def _compare_operating_systems(self, config: Dict) -> Dict:
-        """Compare different operating systems for the same configuration"""
-        
-        os_options = list(self.os_manager.operating_systems.keys())
-        comparison = {}
-        
-        for os_type in os_options:
-            test_config = config.copy()
-            test_config['operating_system'] = os_type
-            
-            perf = self.hardware_manager.calculate_hardware_performance_with_os(
-                test_config, self.os_manager
+            'rds_recommendations': rds_recommendations,
+            'ec2_recommendations': ec2_recommendations,
+            'reader_writer_config': reader_writer_config,
+            'deployment_recommendation': self._recommend_deployment_type(
+                database_size_gb, performance_req, database_engine, environment
             )
-            
-            comparison[os_type] = {
-                'name': self.os_manager.operating_systems[os_type]['name'],
-                'throughput_mbps': perf['os_adjusted_throughput'],
-                'efficiency': perf['os_efficiency_factor'],
-                'licensing_cost_factor': perf['os_licensing_cost'],
-                'management_complexity': perf['os_management_complexity']
-            }
-        
-        # Find best performing OS
-        best_os = max(comparison.keys(), key=lambda x: comparison[x]['throughput_mbps'])
-        
-        return {
-            'comparison': comparison,
-            'best_performing_os': best_os,
-            'current_os_rank': sorted(os_options, key=lambda x: comparison[x]['throughput_mbps'], reverse=True).index(config['operating_system']) + 1
         }
     
-    def _compare_platforms_with_os(self, config: Dict) -> Dict:
-        """Compare Physical vs VMware with OS considerations"""
+    def _calculate_rds_sizing(self, cpu_cores: int, ram_gb: int, database_size_gb: int,
+                            performance_req: str, database_engine: str, environment: str) -> Dict:
+        """Calculate RDS instance sizing with AI-based recommendations"""
         
-        platforms = ['physical', 'vmware']
-        comparison = {}
+        # Base sizing multipliers for cloud migration
+        cpu_multiplier = 1.2 if performance_req == 'high' else 1.0
+        memory_multiplier = 1.3 if database_engine in ['oracle', 'postgresql'] else 1.1
         
-        for platform in platforms:
-            test_config = config.copy()
-            test_config['server_type'] = platform
-            
-            perf = self.hardware_manager.calculate_hardware_performance_with_os(
-                test_config, self.os_manager
-            )
-            
-            comparison[platform] = {
-                'throughput_mbps': perf['os_adjusted_throughput'],
-                'efficiency': perf['os_efficiency_factor'],
-                'platform_efficiency': perf['platform_efficiency'],
-                'vmware_overhead': perf.get('vmware_impact', 0) * 100
-            }
+        # Required cloud resources
+        required_vcpu = max(2, int(cpu_cores * cpu_multiplier))
+        required_memory = max(8, int(ram_gb * memory_multiplier))
         
-        # Calculate performance gap
-        performance_gap = ((comparison['physical']['throughput_mbps'] - 
-                          comparison['vmware']['throughput_mbps']) / 
-                         comparison['physical']['throughput_mbps']) * 100
+        # Instance selection logic
+        rds_instances = self.aws_pricing['us-west-2']['rds_instances']
+        
+        # Find best fit instance
+        best_instance = None
+        best_score = float('inf')
+        
+        for instance_type, specs in rds_instances.items():
+            if specs['vcpu'] >= required_vcpu and specs['memory'] >= required_memory:
+                # Calculate efficiency score (lower is better)
+                cpu_waste = specs['vcpu'] - required_vcpu
+                memory_waste = specs['memory'] - required_memory
+                cost_factor = specs['cost_per_hour']
+                
+                score = (cpu_waste * 0.3 + memory_waste * 0.001 + cost_factor * 0.5)
+                
+                if score < best_score:
+                    best_score = score
+                    best_instance = instance_type
+        
+        if not best_instance:
+            best_instance = 'db.r6g.8xlarge'  # Fallback for very large requirements
+        
+        # Storage recommendations
+        storage_size_gb = max(database_size_gb * 1.5, 100)  # 50% overhead
+        storage_type = 'io1' if database_size_gb > 5000 or performance_req == 'high' else 'gp3'
+        
+        # Calculate monthly costs
+        instance_cost = rds_instances[best_instance]['cost_per_hour'] * 24 * 30
+        storage_cost = storage_size_gb * self.aws_pricing['us-west-2']['storage'][storage_type]['cost_per_gb_month']
         
         return {
-            'comparison': comparison,
-            'performance_gap_percent': performance_gap,
-            'recommendation': 'physical' if performance_gap > 20 else 'vmware_acceptable'
+            'primary_instance': best_instance,
+            'instance_specs': rds_instances[best_instance],
+            'storage_type': storage_type,
+            'storage_size_gb': storage_size_gb,
+            'monthly_instance_cost': instance_cost,
+            'monthly_storage_cost': storage_cost,
+            'total_monthly_cost': instance_cost + storage_cost,
+            'multi_az': environment == 'production',
+            'backup_retention_days': 30 if environment == 'production' else 7
         }
     
-    def _generate_detailed_aws_recommendations(self, config: Dict, migration_strategy: Dict) -> Dict:
-        """Generate detailed AWS recommendations"""
+    def _calculate_ec2_sizing(self, cpu_cores: int, ram_gb: int, database_size_gb: int,
+                            performance_req: str, database_engine: str, environment: str) -> Dict:
+        """Calculate EC2 instance sizing for self-managed databases"""
         
-        deployment = migration_strategy['aws_deployment']
+        # EC2 needs more overhead for OS and database management
+        cpu_multiplier = 1.4 if performance_req == 'high' else 1.2
+        memory_multiplier = 1.5 if database_engine in ['oracle', 'postgresql'] else 1.3
         
-        # Instance type recommendations
-        if deployment['recommendation'] == 'rds':
-            instance_recommendations = self._recommend_rds_instances(config)
-        else:
-            instance_recommendations = self._recommend_ec2_instances(config)
+        required_vcpu = max(2, int(cpu_cores * cpu_multiplier))
+        required_memory = max(8, int(ram_gb * memory_multiplier))
         
-        # Region and AZ recommendations
-        region_recommendations = {
-            'primary_region': 'us-west-2',
-            'backup_region': 'us-west-1',
-            'multi_az': deployment['recommendation'] == 'rds',
-            'availability_zones': ['us-west-2a', 'us-west-2b', 'us-west-2c']
-        }
+        # Instance selection
+        ec2_instances = self.aws_pricing['us-west-2']['ec2_instances']
         
-        return {
-            'deployment_type': deployment['recommendation'],
-            'instance_recommendations': instance_recommendations,
-            'region_recommendations': region_recommendations,
-            'read_replica_strategy': deployment['read_replicas'],
-            'backup_strategy': self._recommend_backup_strategy(config),
-            'security_recommendations': self._recommend_security_configuration(config)
-        }
-    
-    def _recommend_rds_instances(self, config: Dict) -> Dict:
-        """Recommend RDS instance types"""
+        best_instance = None
+        best_score = float('inf')
         
-        database_size_gb = config['database_size_gb']
-        performance_req = config.get('performance_requirements', 'standard')
+        for instance_type, specs in ec2_instances.items():
+            if specs['vcpu'] >= required_vcpu and specs['memory'] >= required_memory:
+                cpu_waste = specs['vcpu'] - required_vcpu
+                memory_waste = specs['memory'] - required_memory
+                cost_factor = specs['cost_per_hour']
+                
+                score = (cpu_waste * 0.3 + memory_waste * 0.001 + cost_factor * 0.5)
+                
+                if score < best_score:
+                    best_score = score
+                    best_instance = instance_type
         
-        # Base instance selection logic
-        if database_size_gb < 500:
-            if performance_req == 'high':
-                instance_class = 'db.r6g.xlarge'
-            else:
-                instance_class = 'db.r6g.large'
-        elif database_size_gb < 2000:
-            if performance_req == 'high':
-                instance_class = 'db.r6g.2xlarge'
-            else:
-                instance_class = 'db.r6g.xlarge'
-        else:
-            if performance_req == 'high':
-                instance_class = 'db.r6g.4xlarge'
-            else:
-                instance_class = 'db.r6g.2xlarge'
+        if not best_instance:
+            best_instance = 'r6i.8xlarge'
+        
+        # Storage sizing (more generous for EC2)
+        storage_size_gb = max(database_size_gb * 2.0, 100)  # 100% overhead for OS, logs, backups
+        storage_type = 'io2' if performance_req == 'high' else 'gp3'
+        
+        # Calculate costs
+        instance_cost = ec2_instances[best_instance]['cost_per_hour'] * 24 * 30
+        storage_cost = storage_size_gb * self.aws_pricing['us-west-2']['storage'][storage_type]['cost_per_gb_month']
         
         return {
-            'primary_instance': instance_class,
-            'read_replica_instance': instance_class,  # Same for consistency
-            'storage_type': 'gp3' if database_size_gb < 1000 else 'io1',
-            'storage_size_gb': max(database_size_gb * 1.2, 100),  # 20% overhead
-            'backup_retention_days': 7,
-            'multi_az': True
-        }
-    
-    def _recommend_ec2_instances(self, config: Dict) -> Dict:
-        """Recommend EC2 instance types"""
-        
-        database_size_gb = config['database_size_gb']
-        performance_req = config.get('performance_requirements', 'standard')
-        
-        # Base instance selection logic
-        if database_size_gb < 500:
-            if performance_req == 'high':
-                instance_type = 'r6i.xlarge'
-            else:
-                instance_type = 'r6i.large'
-        elif database_size_gb < 2000:
-            if performance_req == 'high':
-                instance_type = 'r6i.2xlarge'
-            else:
-                instance_type = 'r6i.xlarge'
-        else:
-            if performance_req == 'high':
-                instance_type = 'r6i.4xlarge'
-            else:
-                instance_type = 'r6i.2xlarge'
-        
-        return {
-            'primary_instance': instance_type,
-            'read_replica_instance': instance_type,
-            'storage_type': 'gp3',
-            'storage_size_gb': max(database_size_gb * 1.5, 100),  # 50% overhead for OS and logs
+            'primary_instance': best_instance,
+            'instance_specs': ec2_instances[best_instance],
+            'storage_type': storage_type,
+            'storage_size_gb': storage_size_gb,
+            'monthly_instance_cost': instance_cost,
+            'monthly_storage_cost': storage_cost,
+            'total_monthly_cost': instance_cost + storage_cost,
             'ebs_optimized': True,
             'enhanced_networking': True
         }
     
-    def _recommend_backup_strategy(self, config: Dict) -> Dict:
-        """Recommend backup strategy"""
+    def _calculate_reader_writer_config(self, database_size_gb: int, performance_req: str, environment: str) -> Dict:
+        """Calculate optimal reader/writer configuration"""
+        
+        # Start with single writer
+        writers = 1
+        readers = 0
+        
+        # Add readers based on size and performance requirements
+        if database_size_gb > 1000:
+            readers += 1
+        if database_size_gb > 5000:
+            readers += 1
+        if database_size_gb > 20000:
+            readers += 2
+        
+        # Performance-based scaling
+        if performance_req == 'high':
+            readers += 2
+        
+        # Environment-based scaling
+        if environment == 'production':
+            readers = max(readers, 2)  # Minimum 2 readers for production
+            if database_size_gb > 50000:
+                writers = 2  # Multi-writer for very large production DBs
+        
+        # Calculate read/write distribution
+        total_capacity = writers + readers
+        write_capacity_percent = (writers / total_capacity) * 100
+        read_capacity_percent = (readers / total_capacity) * 100
         
         return {
-            'automated_backup': True,
-            'backup_retention_days': 30 if config.get('environment') == 'production' else 7,
-            'point_in_time_recovery': True,
-            'cross_region_backup': config.get('environment') == 'production',
-            'backup_window': '03:00-04:00',  # Off-peak hours
-            'maintenance_window': 'Sun:04:00-Sun:05:00'
+            'writers': writers,
+            'readers': readers,
+            'total_instances': total_capacity,
+            'write_capacity_percent': write_capacity_percent,
+            'read_capacity_percent': read_capacity_percent,
+            'recommended_read_split': min(80, read_capacity_percent),  # Max 80% reads
+            'reasoning': f"Based on {database_size_gb}GB database, {performance_req} performance, {environment} environment"
         }
     
-    def _recommend_security_configuration(self, config: Dict) -> Dict:
-        """Recommend security configuration"""
+    def _recommend_deployment_type(self, database_size_gb: int, performance_req: str,
+                                 database_engine: str, environment: str) -> Dict:
+        """AI-enhanced deployment type recommendation"""
+        
+        rds_score = 0
+        ec2_score = 0
+        
+        # Size-based scoring
+        if database_size_gb < 2000:
+            rds_score += 40
+        elif database_size_gb > 10000:
+            ec2_score += 30
+        
+        # Performance scoring
+        if performance_req == 'high':
+            ec2_score += 30
+            rds_score += 15
+        else:
+            rds_score += 35
+        
+        # Database engine scoring
+        if database_engine in ['mysql', 'postgresql']:
+            rds_score += 25
+        elif database_engine == 'oracle':
+            ec2_score += 25  # Complex licensing
+        
+        # Environment scoring
+        if environment == 'production':
+            rds_score += 20  # Managed service benefits
+        else:
+            ec2_score += 10  # Cost savings for non-prod
+        
+        # Management complexity
+        rds_score += 20  # Always prefer managed service
+        
+        recommendation = 'rds' if rds_score > ec2_score else 'ec2'
+        confidence = abs(rds_score - ec2_score) / max(rds_score, ec2_score, 1)
         
         return {
-            'encryption_at_rest': True,
-            'encryption_in_transit': True,
-            'vpc_security_groups': True,
-            'subnet_groups': 'private',
-            'iam_database_authentication': True,
-            'performance_insights': True,
-            'enhanced_monitoring': True,
-            'deletion_protection': config.get('environment') == 'production'
+            'recommendation': recommendation,
+            'confidence': confidence,
+            'rds_score': rds_score,
+            'ec2_score': ec2_score,
+            'primary_reasons': self._get_deployment_reasons(recommendation, rds_score, ec2_score)
         }
     
-    def _calculate_migration_costs(self, config: Dict, migration_strategy: Dict, hardware_perf: Dict) -> Dict:
-        """Calculate comprehensive migration costs"""
+    def _get_deployment_reasons(self, recommendation: str, rds_score: int, ec2_score: int) -> List[str]:
+        """Get human-readable reasons for deployment recommendation"""
         
-        # Base AWS costs (simplified)
-        database_size_gb = config['database_size_gb']
-        
-        # RDS vs EC2 costs
-        if migration_strategy['aws_deployment']['recommendation'] == 'rds':
-            monthly_compute_cost = database_size_gb * 0.5  # Simplified
-            managed_service_premium = monthly_compute_cost * 0.3
+        if recommendation == 'rds':
+            return [
+                "Managed service reduces operational overhead",
+                "Automated backups and patching",
+                "Built-in monitoring and alerting",
+                "Easy scaling and Multi-AZ deployment",
+                "Cost-effective for standard workloads"
+            ]
         else:
-            monthly_compute_cost = database_size_gb * 0.3
-            managed_service_premium = 0
-        
-        # Storage costs
-        storage_cost = database_size_gb * 0.1
-        
-        # Network costs
-        network_path = config.get('network_path', 'nonprod_sj_to_usw2')
-        if 'prod' in network_path:
-            network_cost = 500  # DX connection cost
-        else:
-            network_cost = 100  # Internet transfer cost
-        
-        # Migration tool costs
-        tool_cost = migration_strategy['complexity_score'] * 10
-        
-        # OS licensing costs
-        os_licensing_cost = hardware_perf['os_licensing_cost'] * 200  # Monthly
-        
-        total_monthly_cost = (monthly_compute_cost + managed_service_premium + 
-                            storage_cost + network_cost + os_licensing_cost)
-        
-        return {
-            'monthly_compute_cost': monthly_compute_cost,
-            'managed_service_premium': managed_service_premium,
-            'storage_cost': storage_cost,
-            'network_cost': network_cost,
-            'migration_tool_cost': tool_cost,
-            'os_licensing_cost': os_licensing_cost,
-            'total_monthly_cost': total_monthly_cost,
-            'annual_cost': total_monthly_cost * 12
-        }
+            return [
+                "Maximum performance control and customization",
+                "Complex database configurations supported",
+                "Potential cost savings for large workloads",
+                "Full control over database tuning",
+                "Custom backup and disaster recovery strategies"
+            ]
 
 def render_enhanced_header():
-    """Render enhanced header for AWS migration analyzer"""
+    """Enhanced header with v2.0 features"""
     st.markdown("""
     <div class="main-header">
-        <h1>☁️ AWS Enterprise Database Migration Analyzer</h1>
-        <p style="font-size: 1.1rem; margin-top: 0.5rem;">Windows vs Linux • Physical vs VMware • Homogeneous vs Heterogeneous • AWS DMS vs DataSync</p>
-        <p style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.9;">Real-time Network Paths • RDS vs EC2 Recommendations • Cost Analysis</p>
+        <h1>☁️ AWS Enterprise Database Migration Analyzer v2.0</h1>
+        <p style="font-size: 1.1rem; margin-top: 0.5rem;">AI-Powered Sizing • Real Network Paths • Agent Configuration • Live AWS Pricing</p>
+        <p style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.9;">Linux NAS/Windows Share • DataSync/DMS Agents • Production/Non-Production Paths</p>
     </div>
     """, unsafe_allow_html=True)
 
 def render_enhanced_sidebar_controls():
-    """Render enhanced sidebar with all new options"""
-    st.sidebar.header("☁️ AWS Migration Configuration")
+    """Enhanced sidebar with new network path options"""
+    st.sidebar.header("☁️ AWS Migration Configuration v2.0")
     
     # Operating System Selection
     st.sidebar.subheader("💻 Operating System")
     operating_system = st.sidebar.selectbox(
         "OS Selection",
         ["windows_server_2019", "windows_server_2022", "rhel_8", "rhel_9", "ubuntu_20_04", "ubuntu_22_04"],
-        index=3,  # Default to RHEL 9
+        index=3,
         format_func=lambda x: {
             'windows_server_2019': 'Windows Server 2019',
             'windows_server_2022': 'Windows Server 2022',
@@ -1169,22 +956,23 @@ def render_enhanced_sidebar_controls():
         format_func=lambda x: "Physical Server" if x == "physical" else "VMware Virtual Machine"
     )
     
-    # Hardware Configuration (simplified for space)
-    st.sidebar.subheader("⚙️ Hardware")
-    ram_gb = st.sidebar.selectbox("RAM (GB)", [8, 16, 32, 64, 128, 256], index=2)
-    cpu_cores = st.sidebar.selectbox("CPU Cores", [2, 4, 8, 16, 24, 32], index=2)
+    # Hardware Configuration
+    st.sidebar.subheader("⚙️ Hardware Configuration")
+    ram_gb = st.sidebar.selectbox("RAM (GB)", [8, 16, 32, 64, 128, 256, 512], index=2)
+    cpu_cores = st.sidebar.selectbox("CPU Cores", [2, 4, 8, 16, 24, 32, 48, 64], index=2)
     cpu_ghz = st.sidebar.selectbox("CPU GHz", [2.0, 2.4, 2.8, 3.2, 3.6, 4.0], index=3)
     
     # Network Interface
     nic_type = st.sidebar.selectbox(
         "NIC Type",
-        ["gigabit_copper", "gigabit_fiber", "10g_copper", "10g_fiber", "25g_fiber"],
+        ["gigabit_copper", "gigabit_fiber", "10g_copper", "10g_fiber", "25g_fiber", "40g_fiber"],
         index=3
     )
     
     nic_speeds = {
         'gigabit_copper': 1000, 'gigabit_fiber': 1000,
-        '10g_copper': 10000, '10g_fiber': 10000, '25g_fiber': 25000
+        '10g_copper': 10000, '10g_fiber': 10000, 
+        '25g_fiber': 25000, '40g_fiber': 40000
     }
     nic_speed = nic_speeds[nic_type]
     
@@ -1210,25 +998,67 @@ def render_enhanced_sidebar_controls():
         }[x]
     )
     
-    database_size_gb = st.sidebar.number_input("Database Size (GB)", min_value=100, max_value=50000, value=1000, step=100)
+    database_size_gb = st.sidebar.number_input("Database Size (GB)", 
+                                              min_value=100, max_value=100000, value=1000, step=100)
     
     # Migration Parameters
-    downtime_tolerance_minutes = st.sidebar.number_input("Max Downtime (minutes)", min_value=1, max_value=480, value=60)
+    downtime_tolerance_minutes = st.sidebar.number_input("Max Downtime (minutes)", 
+                                                        min_value=1, max_value=480, value=60)
     performance_requirements = st.sidebar.selectbox("Performance Requirement", ["standard", "high"])
     
-    # Network Path Selection
-    st.sidebar.subheader("🌐 Network Path")
+    # Enhanced Network Path Selection
+    st.sidebar.subheader("🌐 Enterprise Network Path")
     network_path = st.sidebar.selectbox(
         "Migration Path",
-        ["nonprod_sj_to_usw2", "prod_sa_to_usw2"],
+        ["nonprod_sj_linux_nas", "nonprod_sj_windows_share", "prod_sa_linux_nas", "prod_sa_windows_share"],
         format_func=lambda x: {
-            'nonprod_sj_to_usw2': 'Non-Prod: San Jose → AWS US-West-2 (2Gbps)',
-            'prod_sa_to_usw2': 'Prod: San Antonio → San Jose → AWS US-West-2 (10Gbps DX)'
+            'nonprod_sj_linux_nas': 'Non-Prod: SJ Linux NAS → AWS S3 (2Gbps DX)',
+            'nonprod_sj_windows_share': 'Non-Prod: SJ Windows Share → AWS S3 (2Gbps DX)',
+            'prod_sa_linux_nas': 'Prod: SA Linux NAS → SJ → AWS VPC S3 (10Gbps)',
+            'prod_sa_windows_share': 'Prod: SA Windows Share → SJ → AWS VPC S3 (10Gbps)'
         }[x]
     )
     
     # Environment
     environment = st.sidebar.selectbox("Environment", ["non-production", "production"])
+    
+    # Agent Sizing Selection
+    st.sidebar.subheader("🤖 Migration Agent Sizing")
+    
+    # Determine migration type for tool selection
+    is_homogeneous = source_database_engine == database_engine
+    primary_tool = "DataSync" if is_homogeneous else "DMS"
+    
+    st.sidebar.info(f"**Migration Type:** {'Homogeneous' if is_homogeneous else 'Heterogeneous'}")
+    st.sidebar.info(f"**Primary Tool:** AWS {primary_tool}")
+    
+    if is_homogeneous:
+        datasync_agent_size = st.sidebar.selectbox(
+            "DataSync Agent Size",
+            ["small", "medium", "large", "xlarge"],
+            index=1,
+            format_func=lambda x: {
+                'small': 'Small (t3.medium) - Up to 1TB',
+                'medium': 'Medium (c5.large) - 1-5TB',
+                'large': 'Large (c5.xlarge) - 5-20TB',
+                'xlarge': 'XLarge (c5.2xlarge) - >20TB'
+            }[x]
+        )
+        dms_agent_size = None
+    else:
+        dms_agent_size = st.sidebar.selectbox(
+            "DMS Instance Size",
+            ["small", "medium", "large", "xlarge", "xxlarge"],
+            index=1,
+            format_func=lambda x: {
+                'small': 'Small (t3.medium) - Up to 500GB',
+                'medium': 'Medium (c5.large) - 500GB-2TB',
+                'large': 'Large (c5.xlarge) - 2-10TB',
+                'xlarge': 'XLarge (c5.2xlarge) - 10-50TB',
+                'xxlarge': 'XXLarge (c5.4xlarge) - >50TB'
+            }[x]
+        )
+        datasync_agent_size = None
     
     if st.sidebar.button("🔄 Refresh Analysis"):
         st.rerun()
@@ -1247,135 +1077,175 @@ def render_enhanced_sidebar_controls():
         'downtime_tolerance_minutes': downtime_tolerance_minutes,
         'performance_requirements': performance_requirements,
         'network_path': network_path,
-        'environment': environment
+        'environment': environment,
+        'datasync_agent_size': datasync_agent_size,
+        'dms_agent_size': dms_agent_size
     }
 
-def render_os_platform_comparison(analysis: Dict, config: Dict):
-    """Render OS and platform comparison analysis"""
-    st.subheader("💻 Operating System & Platform Impact Analysis")
+def render_enhanced_aws_recommendations(analysis: Dict, config: Dict):
+    """Render enhanced AWS sizing recommendations"""
+    st.subheader("🎯 AI-Powered AWS Sizing Recommendations")
     
-    # Current configuration summary
-    col1, col2, col3, col4 = st.columns(4)
+    sizing_recs = analysis['aws_sizing_recommendations']
     
-    current_os_name = analysis['os_comparison']['comparison'][config['operating_system']]['name']
+    # Deployment recommendation
+    deployment = sizing_recs['deployment_recommendation']
     
-    with col1:
-        st.markdown(f"""
-        <div class="os-comparison-card">
-            <h4>Current Configuration</h4>
-            <p><strong>OS:</strong> {current_os_name}</p>
-            <p><strong>Platform:</strong> {config['server_type'].title()}</p>
-            <p><strong>Throughput:</strong> {analysis['hardware_performance']['os_adjusted_throughput']:.0f} Mbps</p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="aws-recommendation-card">
+        <h4>🚀 Deployment Recommendation: {deployment['recommendation'].upper()}</h4>
+        <p><strong>Confidence:</strong> {deployment['confidence']*100:.1f}%</p>
+        <p><strong>Primary Reasons:</strong></p>
+        <ul>
+            {"".join([f"<li>{reason}</li>" for reason in deployment['primary_reasons'][:3]])}
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with col2:
-        best_os = analysis['os_comparison']['best_performing_os']
-        best_os_name = analysis['os_comparison']['comparison'][best_os]['name']
-        best_throughput = analysis['os_comparison']['comparison'][best_os]['throughput_mbps']
-        
-        st.markdown(f"""
-        <div class="os-comparison-card">
-            <h4>Best Performing OS</h4>
-            <p><strong>OS:</strong> {best_os_name}</p>
-            <p><strong>Throughput:</strong> {best_throughput:.0f} Mbps</p>
-            <p><strong>Improvement:</strong> {((best_throughput / analysis['hardware_performance']['os_adjusted_throughput']) - 1) * 100:.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        platform_comp = analysis['platform_comparison']
-        st.markdown(f"""
-        <div class="os-comparison-card">
-            <h4>Platform Comparison</h4>
-            <p><strong>Physical:</strong> {platform_comp['comparison']['physical']['throughput_mbps']:.0f} Mbps</p>
-            <p><strong>VMware:</strong> {platform_comp['comparison']['vmware']['throughput_mbps']:.0f} Mbps</p>
-            <p><strong>Gap:</strong> {platform_comp['performance_gap_percent']:.1f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        os_rank = analysis['os_comparison']['current_os_rank']
-        total_os = len(analysis['os_comparison']['comparison'])
-        st.markdown(f"""
-        <div class="os-comparison-card">
-            <h4>Performance Ranking</h4>
-            <p><strong>Current OS Rank:</strong> {os_rank} of {total_os}</p>
-            <p><strong>Efficiency:</strong> {analysis['hardware_performance']['os_efficiency_factor']*100:.1f}%</p>
-            <p><strong>License Cost:</strong> {analysis['hardware_performance']['os_licensing_cost']:.1f}x</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-def render_aws_migration_strategy(analysis: Dict, config: Dict):
-    """Render AWS migration strategy and recommendations"""
-    st.subheader("☁️ AWS Migration Strategy & Recommendations")
-    
-    migration_strategy = analysis['migration_strategy']
-    aws_recommendations = analysis['aws_recommendations']
-    
-    # Migration type and tool recommendations
+    # Side-by-side RDS vs EC2 recommendations
     col1, col2 = st.columns(2)
     
     with col1:
-        migration_type = migration_strategy['migration_type']
-        migration_config = migration_strategy['migration_config']
-        
+        rds_rec = sizing_recs['rds_recommendations']
         st.markdown(f"""
-        <div class="aws-migration-card">
-            <h4>🔄 Migration Analysis</h4>
-            <p><strong>Type:</strong> {migration_config['name']}</p>
-            <p><strong>Source:</strong> {config['source_database_engine'].upper()}</p>
-            <p><strong>Target:</strong> {config['database_engine'].upper()}</p>
-            <p><strong>Complexity:</strong> {migration_strategy['complexity_score']:.0f}/100</p>
-            <p><strong>Est. Time:</strong> {analysis['estimated_migration_time_hours']:.1f} hours</p>
-            <p><strong>Primary Tool:</strong> {migration_strategy['primary_tool'].replace('_', ' ').title()}</p>
+        <div class="rds-recommendation">
+            <h4>☁️ RDS Recommendation</h4>
+            <p><strong>Instance:</strong> {rds_rec['primary_instance']}</p>
+            <p><strong>vCPU:</strong> {rds_rec['instance_specs']['vcpu']} cores</p>
+            <p><strong>Memory:</strong> {rds_rec['instance_specs']['memory']} GB</p>
+            <p><strong>Storage:</strong> {rds_rec['storage_type'].upper()} ({rds_rec['storage_size_gb']} GB)</p>
+            <p><strong>Monthly Cost:</strong> ${rds_rec['total_monthly_cost']:.0f}</p>
+            <p><strong>Multi-AZ:</strong> {'Yes' if rds_rec['multi_az'] else 'No'}</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        deployment = aws_recommendations['deployment_type']
-        instance_rec = aws_recommendations['instance_recommendations']
-        
-        if deployment == 'rds':
-            st.markdown(f"""
-            <div class="rds-recommendation">
-                <h4>🎯 AWS RDS Recommendation</h4>
-                <p><strong>Instance:</strong> {instance_rec['primary_instance']}</p>
-                <p><strong>Storage:</strong> {instance_rec['storage_type']} ({instance_rec['storage_size_gb']} GB)</p>
-                <p><strong>Multi-AZ:</strong> {'Yes' if instance_rec['multi_az'] else 'No'}</p>
-                <p><strong>Backup Retention:</strong> {instance_rec['backup_retention_days']} days</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="ec2-recommendation">
-                <h4>🎯 AWS EC2 Recommendation</h4>
-                <p><strong>Instance:</strong> {instance_rec['primary_instance']}</p>
-                <p><strong>Storage:</strong> {instance_rec['storage_type']} ({instance_rec['storage_size_gb']} GB)</p>
-                <p><strong>EBS Optimized:</strong> {'Yes' if instance_rec['ebs_optimized'] else 'No'}</p>
-                <p><strong>Enhanced Networking:</strong> {'Yes' if instance_rec['enhanced_networking'] else 'No'}</p>
-            </div>
-            """, unsafe_allow_html=True)
+        ec2_rec = sizing_recs['ec2_recommendations']
+        st.markdown(f"""
+        <div class="ec2-recommendation">
+            <h4>🖥️ EC2 Recommendation</h4>
+            <p><strong>Instance:</strong> {ec2_rec['primary_instance']}</p>
+            <p><strong>vCPU:</strong> {ec2_rec['instance_specs']['vcpu']} cores</p>
+            <p><strong>Memory:</strong> {ec2_rec['instance_specs']['memory']} GB</p>
+            <p><strong>Storage:</strong> {ec2_rec['storage_type'].upper()} ({ec2_rec['storage_size_gb']} GB)</p>
+            <p><strong>Monthly Cost:</strong> ${ec2_rec['total_monthly_cost']:.0f}</p>
+            <p><strong>EBS Optimized:</strong> {'Yes' if ec2_rec['ebs_optimized'] else 'No'}</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Read replica recommendations
-    read_replicas = aws_recommendations['read_replica_strategy']
+    # Reader/Writer Configuration
+    rw_config = sizing_recs['reader_writer_config']
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Writer Instances", rw_config['writers'])
+    
+    with col2:
+        st.metric("Reader Instances", rw_config['readers'])
+    
+    with col3:
+        st.metric("Total Instances", rw_config['total_instances'])
+    
     st.markdown(f"""
     <div class="aws-recommendation-card">
-        <h4>📊 Read Replica Strategy</h4>
-        <p><strong>Writers:</strong> {read_replicas['writers']} instance(s)</p>
-        <p><strong>Readers:</strong> {read_replicas['readers']} instance(s)</p>
-        <p><strong>Total Instances:</strong> {read_replicas['total_instances']}</p>
-        <p><strong>Reasoning:</strong> {read_replicas['reasoning']}</p>
+        <h4>📊 Read/Write Distribution Strategy</h4>
+        <p><strong>Write Capacity:</strong> {rw_config['write_capacity_percent']:.1f}%</p>
+        <p><strong>Read Capacity:</strong> {rw_config['read_capacity_percent']:.1f}%</p>
+        <p><strong>Recommended Read Split:</strong> {rw_config['recommended_read_split']:.1f}%</p>
+        <p><strong>Reasoning:</strong> {rw_config['reasoning']}</p>
     </div>
     """, unsafe_allow_html=True)
 
-def render_network_path_analysis(analysis: Dict, config: Dict):
-    """Render network path analysis"""
-    st.subheader("🌐 Network Path Performance Analysis")
+def render_agent_sizing_analysis(analysis: Dict, config: Dict):
+    """Render migration agent sizing analysis"""
+    st.subheader("🤖 Migration Agent Sizing & Configuration")
+    
+    agent_analysis = analysis['agent_analysis']
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if agent_analysis['primary_tool'] == 'datasync':
+            agent_config = agent_analysis['datasync_config']
+            st.markdown(f"""
+            <div class="agent-sizing-card">
+                <h4>📦 AWS DataSync Agent Configuration</h4>
+                <p><strong>Size:</strong> {agent_config['name']}</p>
+                <p><strong>vCPU:</strong> {agent_config['vcpu']} cores</p>
+                <p><strong>Memory:</strong> {agent_config['memory_gb']} GB</p>
+                <p><strong>Max Throughput:</strong> {agent_config['max_throughput_mbps']} Mbps</p>
+                <p><strong>Concurrent Tasks:</strong> {agent_config['max_concurrent_tasks']}</p>
+                <p><strong>Hourly Cost:</strong> ${agent_config['cost_per_hour']:.4f}</p>
+                <p><strong>Recommended For:</strong> {agent_config['recommended_for']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            agent_config = agent_analysis['dms_config']
+            st.markdown(f"""
+            <div class="agent-sizing-card">
+                <h4>🔄 AWS DMS Instance Configuration</h4>
+                <p><strong>Size:</strong> {agent_config['name']}</p>
+                <p><strong>vCPU:</strong> {agent_config['vcpu']} cores</p>
+                <p><strong>Memory:</strong> {agent_config['memory_gb']} GB</p>
+                <p><strong>Max Throughput:</strong> {agent_config['max_throughput_mbps']} Mbps</p>
+                <p><strong>Concurrent Tasks:</strong> {agent_config['max_concurrent_tasks']}</p>
+                <p><strong>Hourly Cost:</strong> ${agent_config['cost_per_hour']:.4f}</p>
+                <p><strong>Recommended For:</strong> {agent_config['recommended_for']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col2:
+        # Migration performance impact
+        throughput_impact = agent_analysis['throughput_impact']
+        migration_time = analysis['estimated_migration_time_hours']
+        
+        st.markdown(f"""
+        <div class="agent-sizing-card">
+            <h4>📊 Performance Impact Analysis</h4>
+            <p><strong>Agent Throughput:</strong> {agent_config['max_throughput_mbps']} Mbps</p>
+            <p><strong>Network Bandwidth:</strong> {analysis['network_performance']['effective_bandwidth_mbps']:.0f} Mbps</p>
+            <p><strong>Bottleneck:</strong> {'Agent' if agent_config['max_throughput_mbps'] < analysis['network_performance']['effective_bandwidth_mbps'] else 'Network'}</p>
+            <p><strong>Effective Throughput:</strong> {min(agent_config['max_throughput_mbps'], analysis['network_performance']['effective_bandwidth_mbps']):.0f} Mbps</p>
+            <p><strong>Estimated Migration Time:</strong> {migration_time:.1f} hours</p>
+            <p><strong>Agent Utilization:</strong> {throughput_impact*100:.1f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Agent sizing comparison
+    st.markdown("**🔍 Agent Size Comparison:**")
+    
+    if agent_analysis['primary_tool'] == 'datasync':
+        agent_manager = AgentSizingManager()
+        agents = agent_manager.datasync_agents
+    else:
+        agent_manager = AgentSizingManager()
+        agents = agent_manager.dms_agents
+    
+    comparison_data = []
+    for size, config in agents.items():
+        comparison_data.append({
+            'Size': config['name'],
+            'vCPU': config['vcpu'],
+            'Memory (GB)': config['memory_gb'],
+            'Max Throughput (Mbps)': config['max_throughput_mbps'],
+            'Concurrent Tasks': config['max_concurrent_tasks'],
+            'Hourly Cost': f"${config['cost_per_hour']:.4f}",
+            'Monthly Cost': f"${config['cost_per_hour'] * 24 * 30:.0f}",
+            'Recommended For': config['recommended_for']
+        })
+    
+    df_agents = pd.DataFrame(comparison_data)
+    st.dataframe(df_agents, use_container_width=True, hide_index=True)
+
+def render_enhanced_network_analysis(analysis: Dict, config: Dict):
+    """Render enhanced network path analysis with realistic scenarios"""
+    st.subheader("🌐 Enterprise Network Path Analysis")
     
     network_perf = analysis['network_performance']
     
-    col1, col2, col3 = st.columns(3)
+    # Network path overview
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown(f"""
@@ -1383,192 +1253,341 @@ def render_network_path_analysis(analysis: Dict, config: Dict):
             <h4>📍 Path Details</h4>
             <p><strong>Route:</strong> {network_perf['path_name']}</p>
             <p><strong>Environment:</strong> {network_perf['environment'].title()}</p>
-            <p><strong>Segments:</strong> {len(network_perf['segments'])}</p>
-            <p><strong>Total Latency:</strong> {network_perf['total_latency_ms']:.1f} ms</p>
+            <p><strong>OS Type:</strong> {network_perf['os_type'].title()}</p>
+            <p><strong>Storage:</strong> {network_perf['storage_type'].upper()}</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
         <div class="network-path-card">
-            <h4>📊 Performance Metrics</h4>
+            <h4>📊 Performance</h4>
             <p><strong>Bandwidth:</strong> {network_perf['effective_bandwidth_mbps']:.0f} Mbps</p>
-            <p><strong>Reliability:</strong> {network_perf['total_reliability']*100:.2f}%</p>
+            <p><strong>Latency:</strong> {network_perf['total_latency_ms']:.1f} ms</p>
+            <p><strong>Reliability:</strong> {network_perf['total_reliability']*100:.3f}%</p>
             <p><strong>Quality Score:</strong> {network_perf['network_quality_score']:.1f}/100</p>
-            <p><strong>Cost Factor:</strong> {network_perf['total_cost_factor']:.1f}x</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        migration_throughput = analysis['migration_throughput_mbps']
         st.markdown(f"""
         <div class="network-path-card">
             <h4>🚀 Migration Impact</h4>
-            <p><strong>Migration Throughput:</strong> {migration_throughput:.0f} Mbps</p>
-            <p><strong>Estimated Time:</strong> {analysis['estimated_migration_time_hours']:.1f} hours</p>
-            <p><strong>Network Utilization:</strong> {(migration_throughput / network_perf['effective_bandwidth_mbps']) * 100:.1f}%</p>
+            <p><strong>Migration Throughput:</strong> {analysis['migration_throughput_mbps']:.0f} Mbps</p>
+            <p><strong>Migration Time:</strong> {analysis['estimated_migration_time_hours']:.1f} hours</p>
+            <p><strong>Network Utilization:</strong> {(analysis['migration_throughput_mbps'] / network_perf['effective_bandwidth_mbps']) * 100:.1f}%</p>
         </div>
         """, unsafe_allow_html=True)
     
-    # Segment details
-    st.markdown("**🔗 Network Segment Details:**")
+    with col4:
+        st.markdown(f"""
+        <div class="network-path-card">
+            <h4>💰 Cost Impact</h4>
+            <p><strong>Cost Factor:</strong> {network_perf['total_cost_factor']:.1f}x</p>
+            <p><strong>Segments:</strong> {len(network_perf['segments'])}</p>
+            <p><strong>Connection Types:</strong> {len(set(s['connection_type'] for s in network_perf['segments']))}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Detailed segment analysis
+    st.markdown("**🔗 Network Segment Performance Details:**")
+    
     segment_data = []
     for i, segment in enumerate(network_perf['segments']):
         segment_data.append({
             'Segment': segment['name'],
-            'Bandwidth (Mbps)': f"{segment['bandwidth_mbps']:,}",
-            'Latency (ms)': f"{segment['latency_ms']:.1f}",
-            'Type': segment['connection_type'].replace('_', ' ').title(),
-            'Reliability': f"{segment['reliability']*100:.1f}%",
+            'Connection Type': segment['connection_type'].replace('_', ' ').title(),
+            'Base Bandwidth (Mbps)': f"{segment['bandwidth_mbps']:,}",
+            'Effective Bandwidth (Mbps)': f"{segment['effective_bandwidth_mbps']:.0f}",
+            'Base Latency (ms)': f"{segment['latency_ms']:.1f}",
+            'Effective Latency (ms)': f"{segment['effective_latency_ms']:.1f}",
+            'Reliability': f"{segment['reliability']*100:.2f}%",
             'Cost Factor': f"{segment['cost_factor']:.1f}x"
         })
     
-    st.dataframe(pd.DataFrame(segment_data), use_container_width=True, hide_index=True)
+    df_segments = pd.DataFrame(segment_data)
+    st.dataframe(df_segments, use_container_width=True, hide_index=True)
 
-def render_migration_tools_comparison(analysis: Dict):
-    """Render migration tools comparison"""
-    st.subheader("🛠️ Migration Tools Comparison")
-    
-    # Create analyzer instance to access tool configurations
-    analyzer = EnhancedMigrationAnalyzer()
-    tools = analyzer.aws_manager.aws_migration_tools
-    
-    tool_comparison = []
-    for tool_name, tool_config in tools.items():
-        tool_comparison.append({
-            'Tool': tool_config['name'],
-            'Throughput Efficiency': f"{tool_config['throughput_efficiency']*100:.1f}%",
-            'CPU Overhead': f"{tool_config['cpu_overhead']*100:.1f}%",
-            'Network Efficiency': f"{tool_config['network_efficiency']*100:.1f}%",
-            'Setup Complexity': f"{tool_config['setup_complexity']*100:.0f}/100",
-            'Cost Factor': f"{tool_config['ongoing_cost_factor']:.1f}x",
-            'Best For': ', '.join(tool_config['best_for'][:2])  # Show first 2 use cases
-        })
-    
-    df_tools = pd.DataFrame(tool_comparison)
-    st.dataframe(df_tools, use_container_width=True, hide_index=True)
-    
-    # Highlight recommended tool
-    recommended_tool = analysis['migration_strategy']['primary_tool']
-    st.info(f"**Recommended Tool:** {tools[recommended_tool]['name']} - {', '.join(tools[recommended_tool]['best_for'])}")
-
-def render_cost_analysis(analysis: Dict, config: Dict):
-    """Render comprehensive cost analysis"""
-    st.subheader("💰 Migration Cost Analysis")
+def render_enhanced_cost_analysis(analysis: Dict, config: Dict):
+    """Render comprehensive cost analysis with AWS pricing"""
+    st.subheader("💰 Comprehensive Migration Cost Analysis")
     
     cost_analysis = analysis['cost_analysis']
     
-    col1, col2, col3, col4 = st.columns(4)
+    # High-level cost metrics
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        st.metric("Monthly Compute", f"${cost_analysis['monthly_compute_cost']:.0f}")
+        st.metric("AWS Compute", f"${cost_analysis['aws_compute_cost']:.0f}/mo")
     
     with col2:
-        st.metric("Storage Cost", f"${cost_analysis['storage_cost']:.0f}")
+        st.metric("AWS Storage", f"${cost_analysis['aws_storage_cost']:.0f}/mo")
     
     with col3:
-        st.metric("Network Cost", f"${cost_analysis['network_cost']:.0f}")
+        st.metric("Network/DX", f"${cost_analysis['network_cost']:.0f}/mo")
     
     with col4:
-        st.metric("OS Licensing", f"${cost_analysis['os_licensing_cost']:.0f}")
+        st.metric("Migration Agents", f"${cost_analysis['agent_cost']:.0f}/mo")
+    
+    with col5:
+        st.metric("Total Monthly", f"${cost_analysis['total_monthly_cost']:.0f}")
     
     # Detailed cost breakdown
-    st.markdown("**📊 Detailed Cost Breakdown:**")
-    
-    cost_breakdown = pd.DataFrame([
-        {'Component': 'Compute', 'Monthly Cost': f"${cost_analysis['monthly_compute_cost']:.0f}", 'Annual Cost': f"${cost_analysis['monthly_compute_cost']*12:.0f}"},
-        {'Component': 'Managed Service Premium', 'Monthly Cost': f"${cost_analysis['managed_service_premium']:.0f}", 'Annual Cost': f"${cost_analysis['managed_service_premium']*12:.0f}"},
-        {'Component': 'Storage', 'Monthly Cost': f"${cost_analysis['storage_cost']:.0f}", 'Annual Cost': f"${cost_analysis['storage_cost']*12:.0f}"},
-        {'Component': 'Network', 'Monthly Cost': f"${cost_analysis['network_cost']:.0f}", 'Annual Cost': f"${cost_analysis['network_cost']*12:.0f}"},
-        {'Component': 'OS Licensing', 'Monthly Cost': f"${cost_analysis['os_licensing_cost']:.0f}", 'Annual Cost': f"${cost_analysis['os_licensing_cost']*12:.0f}"},
-        {'Component': 'Migration Tools', 'Monthly Cost': f"${cost_analysis['migration_tool_cost']:.0f}", 'Annual Cost': 'One-time'},
-        {'Component': 'TOTAL', 'Monthly Cost': f"${cost_analysis['total_monthly_cost']:.0f}", 'Annual Cost': f"${cost_analysis['annual_cost']:.0f}"}
-    ])
-    
-    st.dataframe(cost_breakdown, use_container_width=True, hide_index=True)
-
-def render_performance_charts(analysis: Dict, config: Dict):
-    """Render performance visualization charts"""
-    st.subheader("📊 Performance Impact Visualization")
-    
-    # OS Comparison Chart
-    os_comparison = analysis['os_comparison']['comparison']
-    os_names = [os_comparison[k]['name'] for k in os_comparison.keys()]
-    os_throughputs = [os_comparison[k]['throughput_mbps'] for k in os_comparison.keys()]
-    
-    fig_os = go.Figure(data=[
-        go.Bar(
-            x=os_names,
-            y=os_throughputs,
-            marker_color=['#FF9900' if k == config['operating_system'] else '#4ECDC4' for k in os_comparison.keys()],
-            text=[f"{tp:.0f} Mbps" for tp in os_throughputs],
-            textposition='auto'
-        )
-    ])
-    
-    fig_os.update_layout(
-        title="Operating System Performance Comparison",
-        xaxis_title="Operating System",
-        yaxis_title="Throughput (Mbps)",
-        height=400
-    )
-    
-    st.plotly_chart(fig_os, use_container_width=True)
-    
-    # Migration Time Comparison
     col1, col2 = st.columns(2)
     
     with col1:
-        # Platform comparison
-        platform_comp = analysis['platform_comparison']['comparison']
-        platforms = list(platform_comp.keys())
-        platform_throughputs = [platform_comp[p]['throughput_mbps'] for p in platforms]
+        st.markdown("**💰 Monthly Cost Breakdown:**")
         
-        fig_platform = go.Figure(data=[
-            go.Bar(
-                x=['Physical', 'VMware'],
-                y=platform_throughputs,
-                marker_color=['#232F3E', '#FF9900'],
-                text=[f"{tp:.0f} Mbps" for tp in platform_throughputs],
-                textposition='auto'
-            )
+        cost_breakdown = pd.DataFrame([
+            {'Component': 'AWS Compute (Recommended)', 'Monthly Cost': f"${cost_analysis['aws_compute_cost']:.0f}"},
+            {'Component': 'AWS Storage', 'Monthly Cost': f"${cost_analysis['aws_storage_cost']:.0f}"},
+            {'Component': 'Network & Direct Connect', 'Monthly Cost': f"${cost_analysis['network_cost']:.0f}"},
+            {'Component': 'Migration Agents', 'Monthly Cost': f"${cost_analysis['agent_cost']:.0f}"},
+            {'Component': 'OS Licensing', 'Monthly Cost': f"${cost_analysis['os_licensing_cost']:.0f}"},
+            {'Component': 'Management & Support', 'Monthly Cost': f"${cost_analysis['management_cost']:.0f}"},
+            {'Component': 'TOTAL MONTHLY', 'Monthly Cost': f"${cost_analysis['total_monthly_cost']:.0f}"}
         ])
         
-        fig_platform.update_layout(
-            title="Physical vs VMware Performance",
-            yaxis_title="Throughput (Mbps)",
-            height=350
-        )
-        
-        st.plotly_chart(fig_platform, use_container_width=True)
+        st.dataframe(cost_breakdown, use_container_width=True, hide_index=True)
     
     with col2:
-        # Migration time by database size
-        sizes = [500, 1000, 2000, 5000, 10000]
-        times = []
-        for size in sizes:
-            # Estimate time based on current throughput
-            time_hours = (size * 8 * 1000) / (analysis['migration_throughput_mbps'] * 3600)
-            times.append(time_hours)
+        # RDS vs EC2 cost comparison
+        sizing_recs = analysis['aws_sizing_recommendations']
         
-        fig_time = go.Figure(data=[
-            go.Scatter(
-                x=sizes,
-                y=times,
-                mode='lines+markers',
-                line=dict(color='#4ECDC4', width=3),
-                marker=dict(size=8)
-            )
+        st.markdown("**⚖️ RDS vs EC2 Cost Comparison:**")
+        
+        comparison_data = pd.DataFrame([
+            {
+                'Deployment': 'Amazon RDS',
+                'Instance Cost': f"${sizing_recs['rds_recommendations']['monthly_instance_cost']:.0f}",
+                'Storage Cost': f"${sizing_recs['rds_recommendations']['monthly_storage_cost']:.0f}",
+                'Total Monthly': f"${sizing_recs['rds_recommendations']['total_monthly_cost']:.0f}",
+                'Annual Total': f"${sizing_recs['rds_recommendations']['total_monthly_cost'] * 12:.0f}"
+            },
+            {
+                'Deployment': 'Amazon EC2',
+                'Instance Cost': f"${sizing_recs['ec2_recommendations']['monthly_instance_cost']:.0f}",
+                'Storage Cost': f"${sizing_recs['ec2_recommendations']['monthly_storage_cost']:.0f}",
+                'Total Monthly': f"${sizing_recs['ec2_recommendations']['total_monthly_cost']:.0f}",
+                'Annual Total': f"${sizing_recs['ec2_recommendations']['total_monthly_cost'] * 12:.0f}"
+            }
         ])
         
-        fig_time.update_layout(
-            title="Migration Time by Database Size",
-            xaxis_title="Database Size (GB)",
-            yaxis_title="Migration Time (Hours)",
-            height=350
+        st.dataframe(comparison_data, use_container_width=True, hide_index=True)
+    
+    # Cost projections
+    st.markdown("**📈 Cost Projections & TCO Analysis:**")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="pricing-card">
+            <h4>📅 1-Year Projection</h4>
+            <p><strong>Total Cost:</strong> ${cost_analysis['total_monthly_cost'] * 12:.0f}</p>
+            <p><strong>Migration Cost:</strong> ${cost_analysis['one_time_migration_cost']:.0f}</p>
+            <p><strong>First Year Total:</strong> ${cost_analysis['total_monthly_cost'] * 12 + cost_analysis['one_time_migration_cost']:.0f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="pricing-card">
+            <h4>📅 3-Year TCO</h4>
+            <p><strong>Operational Cost:</strong> ${cost_analysis['total_monthly_cost'] * 36:.0f}</p>
+            <p><strong>Migration Cost:</strong> ${cost_analysis['one_time_migration_cost']:.0f}</p>
+            <p><strong>3-Year Total:</strong> ${cost_analysis['total_monthly_cost'] * 36 + cost_analysis['one_time_migration_cost']:.0f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        monthly_savings = cost_analysis.get('estimated_monthly_savings', 0)
+        st.markdown(f"""
+        <div class="pricing-card">
+            <h4>💡 Cost Optimization</h4>
+            <p><strong>Potential Monthly Savings:</strong> ${monthly_savings:.0f}</p>
+            <p><strong>Annual Savings:</strong> ${monthly_savings * 12:.0f}</p>
+            <p><strong>ROI Timeline:</strong> {cost_analysis.get('roi_months', 'N/A')} months</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+class EnhancedMigrationAnalyzer:
+    """Enhanced migration analyzer with all v2.0 features"""
+    
+    def __init__(self):
+        self.os_manager = OSPerformanceManager()
+        self.aws_manager = EnhancedAWSMigrationManager()
+        self.network_manager = EnhancedNetworkPathManager()
+        self.agent_manager = AgentSizingManager()
+        
+        # Enhanced hardware manager (simplified for this implementation)
+        self.nic_types = {
+            'gigabit_copper': {'max_speed': 1000, 'efficiency': 0.85},
+            'gigabit_fiber': {'max_speed': 1000, 'efficiency': 0.90},
+            '10g_copper': {'max_speed': 10000, 'efficiency': 0.88},
+            '10g_fiber': {'max_speed': 10000, 'efficiency': 0.92},
+            '25g_fiber': {'max_speed': 25000, 'efficiency': 0.94},
+            '40g_fiber': {'max_speed': 40000, 'efficiency': 0.95}
+        }
+    
+    def comprehensive_migration_analysis(self, config: Dict) -> Dict:
+        """Comprehensive v2.0 migration analysis"""
+        
+        # Hardware performance calculation
+        hardware_perf = self._calculate_hardware_performance(config)
+        
+        # Network path analysis
+        network_perf = self.network_manager.calculate_path_performance(config['network_path'])
+        
+        # Determine migration type and tools
+        is_homogeneous = config['source_database_engine'] == config['database_engine']
+        migration_type = 'homogeneous' if is_homogeneous else 'heterogeneous'
+        primary_tool = 'datasync' if is_homogeneous else 'dms'
+        
+        # Agent analysis
+        agent_analysis = self._analyze_migration_agents(config, primary_tool, network_perf)
+        
+        # Calculate effective migration throughput
+        agent_throughput = agent_analysis['effective_throughput']
+        network_throughput = network_perf['effective_bandwidth_mbps']
+        migration_throughput = min(agent_throughput, network_throughput)
+        
+        # Calculate migration time
+        database_size_gb = config['database_size_gb']
+        migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
+        
+        # AWS sizing recommendations
+        aws_sizing = self.aws_manager.recommend_aws_sizing(config)
+        
+        # Cost analysis
+        cost_analysis = self._calculate_comprehensive_costs(config, aws_sizing, agent_analysis, network_perf)
+        
+        return {
+            'hardware_performance': hardware_perf,
+            'network_performance': network_perf,
+            'migration_type': migration_type,
+            'primary_tool': primary_tool,
+            'agent_analysis': agent_analysis,
+            'migration_throughput_mbps': migration_throughput,
+            'estimated_migration_time_hours': migration_time_hours,
+            'aws_sizing_recommendations': aws_sizing,
+            'cost_analysis': cost_analysis
+        }
+    
+    def _calculate_hardware_performance(self, config: Dict) -> Dict:
+        """Calculate hardware performance with OS impact"""
+        
+        # Get OS impact
+        os_impact = self.os_manager.calculate_os_performance_impact(
+            config['operating_system'], 
+            config['server_type'], 
+            config['database_engine']
         )
         
-        st.plotly_chart(fig_time, use_container_width=True)
+        # Calculate base hardware performance
+        nic_config = self.nic_types[config['nic_type']]
+        
+        # Simple performance calculation
+        cpu_performance = min(1.0, (config['cpu_cores'] * config['cpu_ghz']) / 32)
+        memory_performance = min(1.0, config['ram_gb'] / 128)
+        nic_performance = config['nic_speed'] * nic_config['efficiency']
+        
+        # Apply OS efficiency
+        os_adjusted_performance = nic_performance * os_impact['total_efficiency']
+        
+        return {
+            'cpu_performance': cpu_performance,
+            'memory_performance': memory_performance,
+            'nic_performance': nic_performance,
+            'os_impact': os_impact,
+            'os_adjusted_throughput': os_adjusted_performance,
+            'os_efficiency_factor': os_impact['total_efficiency'],
+            'os_licensing_cost': os_impact['licensing_cost_factor'],
+            'os_management_complexity': os_impact['management_complexity']
+        }
+    
+    def _analyze_migration_agents(self, config: Dict, primary_tool: str, network_perf: Dict) -> Dict:
+        """Analyze migration agent configuration and performance"""
+        
+        if primary_tool == 'datasync':
+            agent_size = config['datasync_agent_size']
+            agent_config = self.agent_manager.datasync_agents[agent_size]
+            tool_config = None
+        else:
+            agent_size = config['dms_agent_size']
+            agent_config = self.agent_manager.dms_agents[agent_size]
+            tool_config = None
+        
+        # Calculate throughput impact
+        agent_max_throughput = agent_config['max_throughput_mbps']
+        network_bandwidth = network_perf['effective_bandwidth_mbps']
+        
+        # Effective throughput is limited by the bottleneck
+        effective_throughput = min(agent_max_throughput, network_bandwidth)
+        throughput_impact = effective_throughput / agent_max_throughput
+        
+        return {
+            'primary_tool': primary_tool,
+            'agent_size': agent_size,
+            f'{primary_tool}_config': agent_config,
+            'effective_throughput': effective_throughput,
+            'throughput_impact': throughput_impact,
+            'bottleneck': 'agent' if agent_max_throughput < network_bandwidth else 'network'
+        }
+    
+    def _calculate_comprehensive_costs(self, config: Dict, aws_sizing: Dict, 
+                                     agent_analysis: Dict, network_perf: Dict) -> Dict:
+        """Calculate comprehensive costs including AWS pricing"""
+        
+        # Get recommended deployment cost
+        deployment_rec = aws_sizing['deployment_recommendation']['recommendation']
+        
+        if deployment_rec == 'rds':
+            aws_compute_cost = aws_sizing['rds_recommendations']['monthly_instance_cost']
+            aws_storage_cost = aws_sizing['rds_recommendations']['monthly_storage_cost']
+        else:
+            aws_compute_cost = aws_sizing['ec2_recommendations']['monthly_instance_cost']
+            aws_storage_cost = aws_sizing['ec2_recommendations']['monthly_storage_cost']
+        
+        # Agent costs
+        agent_config = agent_analysis[f"{agent_analysis['primary_tool']}_config"]
+        agent_cost = agent_config['cost_per_hour'] * 24 * 30  # Monthly
+        
+        # Network costs (simplified)
+        if 'prod' in config['network_path']:
+            network_cost = 800  # Production DX costs
+        else:
+            network_cost = 400  # Non-production DX costs
+        
+        # OS licensing
+        os_licensing_cost = self.os_manager.operating_systems[config['operating_system']]['licensing_cost_factor'] * 150
+        
+        # Management costs
+        management_cost = 200 if deployment_rec == 'ec2' else 50  # RDS is managed
+        
+        # One-time migration costs
+        complexity_factor = 0.8 if agent_analysis['primary_tool'] == 'dms' else 0.3
+        one_time_migration_cost = config['database_size_gb'] * complexity_factor * 0.1
+        
+        total_monthly_cost = (aws_compute_cost + aws_storage_cost + agent_cost + 
+                            network_cost + os_licensing_cost + management_cost)
+        
+        # Estimated savings (placeholder)
+        estimated_monthly_savings = total_monthly_cost * 0.15  # Assume 15% optimization potential
+        roi_months = int(one_time_migration_cost / estimated_monthly_savings) if estimated_monthly_savings > 0 else None
+        
+        return {
+            'aws_compute_cost': aws_compute_cost,
+            'aws_storage_cost': aws_storage_cost,
+            'agent_cost': agent_cost,
+            'network_cost': network_cost,
+            'os_licensing_cost': os_licensing_cost,
+            'management_cost': management_cost,
+            'total_monthly_cost': total_monthly_cost,
+            'one_time_migration_cost': one_time_migration_cost,
+            'estimated_monthly_savings': estimated_monthly_savings,
+            'roi_months': roi_months
+        }
 
 def main():
     """Main application function"""
@@ -1581,86 +1600,93 @@ def main():
     analyzer = EnhancedMigrationAnalyzer()
     
     # Run comprehensive analysis
-    with st.spinner("🔬 Running comprehensive AWS migration analysis..."):
+    with st.spinner("🔬 Running comprehensive AWS migration analysis v2.0..."):
         analysis = analyzer.comprehensive_migration_analysis(config)
     
     # Create tabs for different analysis views
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🔧 OS & Platform",
-        "☁️ AWS Strategy", 
-        "🌐 Network Path",
-        "🛠️ Migration Tools",
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🎯 AWS Sizing", 
+        "🤖 Agent Config",
+        "🌐 Network Analysis",
         "💰 Cost Analysis",
-        "📊 Performance Charts"
+        "📊 Performance Dashboard"
     ])
     
     with tab1:
-        render_os_platform_comparison(analysis, config)
+        render_enhanced_aws_recommendations(analysis, config)
     
     with tab2:
-        render_aws_migration_strategy(analysis, config)
+        render_agent_sizing_analysis(analysis, config)
     
     with tab3:
-        render_network_path_analysis(analysis, config)
+        render_enhanced_network_analysis(analysis, config)
     
     with tab4:
-        render_migration_tools_comparison(analysis)
+        render_enhanced_cost_analysis(analysis, config)
     
     with tab5:
-        render_cost_analysis(analysis, config)
+        # Performance dashboard
+        st.subheader("📊 Migration Performance Dashboard")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(
+                "Migration Throughput", 
+                f"{analysis['migration_throughput_mbps']:.0f} Mbps",
+                delta=f"{analysis['primary_tool'].upper()} optimized"
+            )
+        
+        with col2:
+            st.metric(
+                "Estimated Time", 
+                f"{analysis['estimated_migration_time_hours']:.1f} hours",
+                delta=f"{config['database_size_gb']} GB database"
+            )
+        
+        with col3:
+            deployment = analysis['aws_sizing_recommendations']['deployment_recommendation']['recommendation']
+            st.metric(
+                "AWS Deployment", 
+                deployment.upper(),
+                delta=f"{analysis['aws_sizing_recommendations']['reader_writer_config']['total_instances']} instances"
+            )
+        
+        with col4:
+            st.metric(
+                "Monthly Cost", 
+                f"${analysis['cost_analysis']['total_monthly_cost']:.0f}",
+                delta=f"${analysis['cost_analysis']['estimated_monthly_savings']:.0f} potential savings"
+            )
+        
+        # Performance comparison chart
+        st.markdown("**📊 Throughput Analysis:**")
+        
+        throughput_data = {
+            'Component': ['Hardware NIC', 'Network Path', 'Migration Agent', 'Effective Migration'],
+            'Throughput (Mbps)': [
+                analysis['hardware_performance']['os_adjusted_throughput'],
+                analysis['network_performance']['effective_bandwidth_mbps'],
+                analysis['agent_analysis']['effective_throughput'],
+                analysis['migration_throughput_mbps']
+            ]
+        }
+        
+        fig = px.bar(throughput_data, x='Component', y='Throughput (Mbps)',
+                    title="Migration Throughput Bottleneck Analysis",
+                    color='Throughput (Mbps)',
+                    color_continuous_scale='RdYlGn')
+        
+        st.plotly_chart(fig, use_container_width=True)
     
-    with tab6:
-        render_performance_charts(analysis, config)
-    
-    # Summary metrics at the bottom
+    # Summary footer
     st.markdown("---")
-    st.subheader("📋 Migration Summary")
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric(
-            "Migration Throughput", 
-            f"{analysis['migration_throughput_mbps']:.0f} Mbps",
-            delta=f"vs {analysis['hardware_performance']['actual_throughput']:.0f} HW baseline"
-        )
-    
-    with col2:
-        st.metric(
-            "Estimated Time", 
-            f"{analysis['estimated_migration_time_hours']:.1f} hours",
-            delta=f"{config['database_size_gb']} GB"
-        )
-    
-    with col3:
-        deployment = analysis['aws_recommendations']['deployment_type']
-        st.metric(
-            "AWS Deployment", 
-            deployment.upper(),
-            delta=f"{analysis['aws_recommendations']['read_replica_strategy']['total_instances']} instances"
-        )
-    
-    with col4:
-        st.metric(
-            "Monthly Cost", 
-            f"${analysis['cost_analysis']['total_monthly_cost']:.0f}",
-            delta=f"${analysis['cost_analysis']['annual_cost']:.0f} annual"
-        )
-    
-    with col5:
-        os_rank = analysis['os_comparison']['current_os_rank']
-        total_os = len(analysis['os_comparison']['comparison'])
-        st.metric(
-            "OS Performance Rank", 
-            f"{os_rank} of {total_os}",
-            delta=f"{analysis['hardware_performance']['os_efficiency_factor']*100:.1f}% efficiency"
-        )
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align: center; color: #666; margin-top: 2rem;">
-        ☁️ AWS Enterprise Migration Analyzer • 💻 Windows/Linux Comparison • 🔄 Homogeneous/Heterogeneous • 🛠️ DMS/DataSync • 🌐 Real Network Paths
+        ☁️ <strong>Migration Summary:</strong> {analysis['migration_type'].title()} migration using AWS {analysis['primary_tool'].upper()} 
+        • 🕒 <strong>Time:</strong> {analysis['estimated_migration_time_hours']:.1f} hours 
+        • 💰 <strong>Monthly Cost:</strong> ${analysis['cost_analysis']['total_monthly_cost']:.0f} 
+        • 🎯 <strong>AWS:</strong> {analysis['aws_sizing_recommendations']['deployment_recommendation']['recommendation'].upper()}
     </div>
     """, unsafe_allow_html=True)
 
