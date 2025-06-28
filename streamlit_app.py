@@ -5150,7 +5150,7 @@ def render_api_status_sidebar():
             st.sidebar.info("💡 Configure AWS credentials for real-time pricing data")
 
 def render_enhanced_sidebar_controls():
-    """Enhanced sidebar with AI-powered recommendations, agent scaling, and FSx destination selection"""
+    """Enhanced sidebar with AI-powered recommendations, agent scaling, and FSx destination selection - FIXED VERSION"""
     
     st.sidebar.header("🤖 AI-Powered Migration Configuration v3.0 with FSx Analysis")
     
@@ -7692,73 +7692,7 @@ async def main():
     """Enhanced main function with all implemented tabs"""
     render_enhanced_header()
     
-    # Get configuration
-    config = render_enhanced_sidebar_controls()
-    
-    # Initialize enhanced analyzer
-    analyzer = EnhancedMigrationAnalyzer()
-    
-    # Run analysis
-    analysis_placeholder = st.empty()
-    
-    with analysis_placeholder.container():
-        if config['enable_ai_analysis']:
-            with st.spinner("🧠 Running comprehensive AI-powered migration analysis with agent scaling optimization and FSx destination analysis..."):
-                try:
-                    analysis = await analyzer.comprehensive_ai_migration_analysis(config)
-                except Exception as e:
-                    st.error(f"Analysis error: {str(e)}")
-                    # Fallback to simplified analysis
-                    analysis = {
-                        'api_status': APIStatus(anthropic_connected=False, aws_pricing_connected=False),
-                        'onprem_performance': {'performance_score': 75, 'os_impact': {'total_efficiency': 0.85}},
-                        'network_performance': {'network_quality_score': 80, 'effective_bandwidth_mbps': 1000, 'segments': [], 'destination_storage': config.get('destination_storage_type', 'S3')},
-                        'migration_type': 'homogeneous' if config['source_database_engine'] == config['database_engine'] else 'heterogeneous',
-                        'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
-                        'agent_analysis': {
-                            'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
-                            'number_of_agents': config.get('number_of_agents', 1),
-                            'destination_storage': config.get('destination_storage_type', 'S3'),
-                            'total_effective_throughput': 500 * config.get('number_of_agents', 1),
-                            'scaling_efficiency': 0.95 if config.get('number_of_agents', 1) <= 3 else 0.85,
-                            'storage_performance_multiplier': {'S3': 1.0, 'FSx_Windows': 1.15, 'FSx_Lustre': 1.4}.get(config.get('destination_storage_type', 'S3'), 1.0),
-                            'monthly_cost': 150 * config.get('number_of_agents', 1)
-                        },
-                        'migration_throughput_mbps': 500,
-                        'estimated_migration_time_hours': 8,
-                        'aws_sizing_recommendations': {'deployment_recommendation': {'recommendation': 'rds'}},
-                        'cost_analysis': {'total_monthly_cost': 1500, 'destination_storage_type': config.get('destination_storage_type', 'S3'), 'destination_storage_cost': 200},
-                        'fsx_comparisons': {},
-                        'ai_overall_assessment': {'migration_readiness_score': 75, 'risk_level': 'Medium'}
-                    }
-        else:
-            with st.spinner("🔬 Running standard migration analysis with agent scaling and FSx destination analysis..."):
-                # Simplified analysis without AI
-                analysis = {
-                    'api_status': APIStatus(anthropic_connected=False, aws_pricing_connected=False),
-                    'onprem_performance': {'performance_score': 75, 'os_impact': {'total_efficiency': 0.85}},
-                    'network_performance': {'network_quality_score': 80, 'effective_bandwidth_mbps': 1000, 'segments': [], 'destination_storage': config.get('destination_storage_type', 'S3')},
-                    'migration_type': 'homogeneous' if config['source_database_engine'] == config['database_engine'] else 'heterogeneous',
-                    'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
-                    'agent_analysis': {
-                        'primary_tool': 'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
-                        'number_of_agents': config.get('number_of_agents', 1),
-                        'destination_storage': config.get('destination_storage_type', 'S3'),
-                        'total_effective_throughput': 500 * config.get('number_of_agents', 1),
-                        'scaling_efficiency': 0.95 if config.get('number_of_agents', 1) <= 3 else 0.85,
-                        'storage_performance_multiplier': {'S3': 1.0, 'FSx_Windows': 1.15, 'FSx_Lustre': 1.4}.get(config.get('destination_storage_type', 'S3'), 1.0),
-                        'monthly_cost': 150 * config.get('number_of_agents', 1)
-                    },
-                    'migration_throughput_mbps': 500,
-                    'estimated_migration_time_hours': 8,
-                    'aws_sizing_recommendations': {'deployment_recommendation': {'recommendation': 'rds'}},
-                    'cost_analysis': {'total_monthly_cost': 1500, 'destination_storage_type': config.get('destination_storage_type', 'S3'), 'destination_storage_cost': 200},
-                    'fsx_comparisons': {},
-                    'ai_overall_assessment': {'migration_readiness_score': 75, 'risk_level': 'Medium'}
-                }
-    
-    analysis_placeholder.empty()
-    
+     
     # Enhanced tabs with all implementations
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "🧠 AI Insights & Analysis", 
@@ -7819,8 +7753,3 @@ if __name__ == "__main__":
 
 
 
-
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
