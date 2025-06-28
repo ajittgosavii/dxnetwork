@@ -5165,6 +5165,7 @@ def render_enhanced_sidebar_controls():
         "OS Selection",
         ["windows_server_2019", "windows_server_2022", "rhel_8", "rhel_9", "ubuntu_20_04", "ubuntu_22_04"],
         index=3,
+        key="os_selection",  # Added unique key
         format_func=lambda x: {
             'windows_server_2019': '🔵 Windows Server 2019',
             'windows_server_2022': '🔵 Windows Server 2022 (Latest)',
@@ -5189,34 +5190,55 @@ def render_enhanced_sidebar_controls():
     server_type = st.sidebar.selectbox(
         "Platform Type",
         ["physical", "vmware"],
+        key="server_type_selection",  # Added unique key
         format_func=lambda x: "🏢 Physical Server" if x == "physical" else "☁️ VMware Virtual Machine",
         help="Physical vs Virtual performance analysis with AI optimization"
     )
     
     # Hardware Configuration with AI recommendations
     st.sidebar.subheader("⚙️ Hardware Configuration")
-    ram_gb = st.sidebar.selectbox("RAM (GB)", [8, 16, 32, 64, 128, 256, 512], index=2, 
-                                 help="AI calculates optimal memory for database workload")
-    cpu_cores = st.sidebar.selectbox("CPU Cores", [2, 4, 8, 16, 24, 32, 48, 64], index=2,
-                                   help="AI analyzes CPU requirements for migration performance")
-    cpu_ghz = st.sidebar.selectbox("CPU GHz", [2.0, 2.4, 2.8, 3.2, 3.6, 4.0], index=3)
+    ram_gb = st.sidebar.selectbox(
+        "RAM (GB)", 
+        [8, 16, 32, 64, 128, 256, 512], 
+        index=2,
+        key="ram_selection",  # Added unique key
+        help="AI calculates optimal memory for database workload"
+    )
+    cpu_cores = st.sidebar.selectbox(
+        "CPU Cores", 
+        [2, 4, 8, 16, 24, 32, 48, 64], 
+        index=2,
+        key="cpu_cores_selection",  # Added unique key
+        help="AI analyzes CPU requirements for migration performance"
+    )
+    cpu_ghz = st.sidebar.selectbox(
+        "CPU GHz", 
+        [2.0, 2.4, 2.8, 3.2, 3.6, 4.0], 
+        index=3,
+        key="cpu_ghz_selection"  # Added unique key
+    )
     
     # Enhanced Performance Metrics
     st.sidebar.subheader("📊 Current Performance Metrics")
     current_storage_gb = st.sidebar.number_input("Current Storage (GB)", 
                                                 min_value=100, max_value=500000, value=2000, step=100,
+                                                key="current_storage_input",  # Added unique key
                                                 help="Current storage capacity in use")
     peak_iops = st.sidebar.number_input("Peak IOPS", 
                                        min_value=100, max_value=1000000, value=10000, step=500,
+                                       key="peak_iops_input",  # Added unique key
                                        help="Maximum IOPS observed during peak usage")
     max_throughput_mbps = st.sidebar.number_input("Max Throughput (MB/s)", 
                                                  min_value=10, max_value=10000, value=500, step=50,
+                                                 key="max_throughput_input",  # Added unique key
                                                  help="Maximum storage throughput observed")
     anticipated_max_memory_gb = st.sidebar.number_input("Anticipated Max Memory (GB)", 
                                                        min_value=4, max_value=1024, value=64, step=8,
+                                                       key="anticipated_memory_input",  # Added unique key
                                                        help="Maximum memory usage anticipated for workload")
     anticipated_max_cpu_cores = st.sidebar.number_input("Anticipated Max CPU Cores", 
                                                        min_value=1, max_value=128, value=16, step=2,
+                                                       key="anticipated_cpu_input",  # Added unique key
                                                        help="Maximum CPU cores anticipated for workload")
     
     # Network Interface with AI insights
@@ -5224,6 +5246,7 @@ def render_enhanced_sidebar_controls():
         "NIC Type",
         ["gigabit_copper", "gigabit_fiber", "10g_copper", "10g_fiber", "25g_fiber", "40g_fiber"],
         index=3,
+        key="nic_type_selection",  # Added unique key
         format_func=lambda x: {
             'gigabit_copper': '🔶 1Gbps Copper',
             'gigabit_fiber': '🟡 1Gbps Fiber',
@@ -5249,6 +5272,7 @@ def render_enhanced_sidebar_controls():
     source_database_engine = st.sidebar.selectbox(
         "Source Database",
         ["mysql", "postgresql", "oracle", "sqlserver", "mongodb"],
+        key="source_db_selection",  # Added unique key
         format_func=lambda x: {
             'mysql': '🐬 MySQL', 'postgresql': '🐘 PostgreSQL', 'oracle': '🏛️ Oracle',
             'sqlserver': '🪟 SQL Server', 'mongodb': '🍃 MongoDB'
@@ -5259,6 +5283,7 @@ def render_enhanced_sidebar_controls():
     database_engine = st.sidebar.selectbox(
         "Target Database (AWS)",
         ["mysql", "postgresql", "oracle", "sqlserver", "mongodb"],
+        key="target_db_selection",  # Added unique key
         format_func=lambda x: {
             'mysql': '☁️ RDS MySQL', 'postgresql': '☁️ RDS PostgreSQL', 'oracle': '☁️ RDS Oracle',
             'sqlserver': '☁️ RDS SQL Server', 'mongodb': '☁️ DocumentDB'
@@ -5273,20 +5298,27 @@ def render_enhanced_sidebar_controls():
     
     database_size_gb = st.sidebar.number_input("Database Size (GB)", 
                                               min_value=100, max_value=100000, value=1000, step=100,
+                                              key="database_size_input",  # Added unique key
                                               help="AI calculates migration time and resource requirements")
     
     # Migration Parameters
     downtime_tolerance_minutes = st.sidebar.number_input("Max Downtime (minutes)", 
                                                         min_value=1, max_value=480, value=60,
+                                                        key="downtime_tolerance_input",  # Added unique key
                                                         help="AI optimizes migration strategy for downtime window")
-    performance_requirements = st.sidebar.selectbox("Performance Requirement", ["standard", "high"],
-                                                   help="AI adjusts AWS sizing recommendations")
+    performance_requirements = st.sidebar.selectbox(
+        "Performance Requirement", 
+        ["standard", "high"],
+        key="performance_req_selection",  # Added unique key
+        help="AI adjusts AWS sizing recommendations"
+    )
     
     # NEW: Destination Storage Selection
     st.sidebar.subheader("🗄️ Destination Storage (Enhanced Analysis)")
     destination_storage_type = st.sidebar.selectbox(
         "AWS Destination Storage",
         ["S3", "FSx_Windows", "FSx_Lustre"],
+        key="destination_storage_selection",  # Added unique key
         format_func=lambda x: {
             'S3': '☁️ Amazon S3 (Standard)',
             'FSx_Windows': '🪟 Amazon FSx for Windows File Server',
@@ -5326,8 +5358,12 @@ def render_enhanced_sidebar_controls():
             """)
     
     # Environment
-    environment = st.sidebar.selectbox("Environment", ["non-production", "production"],
-                                     help="AI adjusts reliability and performance requirements")
+    environment = st.sidebar.selectbox(
+        "Environment", 
+        ["non-production", "production"],
+        key="environment_selection",  # Added unique key
+        help="AI adjusts reliability and performance requirements"
+    )
     
     # Enhanced Agent Sizing Section with AI recommendations
     st.sidebar.subheader("🤖 Migration Agent Configuration (AI-Optimized)")
@@ -5346,6 +5382,7 @@ def render_enhanced_sidebar_controls():
         max_value=10,
         value=2,
         step=1,
+        key="number_of_agents_input",  # Added unique key
         help="Configure the number of agents for parallel migration processing"
     )
     
@@ -5364,6 +5401,7 @@ def render_enhanced_sidebar_controls():
             "DataSync Agent Size",
             ["small", "medium", "large", "xlarge"],
             index=1,
+            key="datasync_agent_size_selection",  # Added unique key
             format_func=lambda x: {
                 'small': '📦 Small (t3.medium) - 250 Mbps/agent',
                 'medium': '📦 Medium (c5.large) - 500 Mbps/agent',
@@ -5378,6 +5416,7 @@ def render_enhanced_sidebar_controls():
             "DMS Instance Size",
             ["small", "medium", "large", "xlarge", "xxlarge"],
             index=1,
+            key="dms_agent_size_selection",  # Added unique key
             format_func=lambda x: {
                 'small': '🔄 Small (t3.medium) - 200 Mbps/agent',
                 'medium': '🔄 Medium (c5.large) - 400 Mbps/agent',
@@ -5411,23 +5450,32 @@ def render_enhanced_sidebar_controls():
     # AI Configuration Section
     st.sidebar.subheader("🧠 AI Configuration")
     
-    enable_ai_analysis = st.sidebar.checkbox("Enable AI Analysis", value=True,
-                                           help="Use Anthropic AI for intelligent recommendations")
+    enable_ai_analysis = st.sidebar.checkbox(
+        "Enable AI Analysis", 
+        value=True,
+        key="enable_ai_checkbox",  # Added unique key
+        help="Use Anthropic AI for intelligent recommendations"
+    )
     
     if enable_ai_analysis:
         ai_analysis_depth = st.sidebar.selectbox(
             "AI Analysis Depth",
             ["standard", "comprehensive"],
+            key="ai_analysis_depth_selection",  # Added unique key
             help="Comprehensive analysis provides more detailed AI insights"
         )
     else:
         ai_analysis_depth = "standard"
     
     # Real-time AWS Pricing
-    use_realtime_pricing = st.sidebar.checkbox("Real-time AWS Pricing", value=True,
-                                             help="Fetch current AWS pricing via API")
+    use_realtime_pricing = st.sidebar.checkbox(
+        "Real-time AWS Pricing", 
+        value=True,
+        key="realtime_pricing_checkbox",  # Added unique key
+        help="Fetch current AWS pricing via API"
+    )
     
-    if st.sidebar.button("🔄 Refresh AI Analysis", type="primary"):
+    if st.sidebar.button("🔄 Refresh AI Analysis", type="primary", key="refresh_analysis_button"):  # Added unique key
         st.rerun()
     
     return {
