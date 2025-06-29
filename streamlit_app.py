@@ -6293,6 +6293,8 @@ def render_network_intelligence_tab(analysis: Dict, config: Dict):
         st.info("Network appears optimally configured for current requirements")
 
 
+# Fix for the PyArrow serialization error in render_cost_pricing_tab function
+
 def render_cost_pricing_tab(analysis: Dict, config: Dict):
     """Render comprehensive cost and pricing analysis tab using native components"""
     st.subheader("💰 Live AWS Pricing & Cost Analysis")
@@ -6470,7 +6472,7 @@ def render_cost_pricing_tab(analysis: Dict, config: Dict):
     else:
         st.warning("⚠️ Using fallback pricing data - AWS API not available")
     
-    # Create pricing comparison table
+    # Create pricing comparison table with FIXED DATA TYPES
     if pricing_data:
         tab1, tab2, tab3 = st.tabs(["🖥️ EC2 Instances", "🗄️ RDS Instances", "💾 Storage Types"])
         
@@ -6481,8 +6483,8 @@ def render_cost_pricing_tab(analysis: Dict, config: Dict):
                 for instance, specs in ec2_instances.items():
                     ec2_data.append({
                         'Instance Type': instance,
-                        'vCPU': specs.get('vcpu', 'N/A'),
-                        'Memory (GB)': specs.get('memory', 'N/A'),
+                        'vCPU': str(specs.get('vcpu', 'N/A')),  # Convert to string
+                        'Memory (GB)': str(specs.get('memory', 'N/A')),  # Convert to string
                         'Cost per Hour': f"${specs.get('cost_per_hour', 0):.4f}",
                         'Monthly Cost': f"${specs.get('cost_per_hour', 0) * 24 * 30:.0f}"
                     })
@@ -6497,8 +6499,8 @@ def render_cost_pricing_tab(analysis: Dict, config: Dict):
                 for instance, specs in rds_instances.items():
                     rds_data.append({
                         'Instance Type': instance,
-                        'vCPU': specs.get('vcpu', 'N/A'),
-                        'Memory (GB)': specs.get('memory', 'N/A'),
+                        'vCPU': str(specs.get('vcpu', 'N/A')),  # Convert to string
+                        'Memory (GB)': str(specs.get('memory', 'N/A')),  # Convert to string
                         'Cost per Hour': f"${specs.get('cost_per_hour', 0):.4f}",
                         'Monthly Cost': f"${specs.get('cost_per_hour', 0) * 24 * 30:.0f}"
                     })
@@ -6511,11 +6513,24 @@ def render_cost_pricing_tab(analysis: Dict, config: Dict):
             if storage:
                 storage_data = []
                 for storage_type, specs in storage.items():
+                    # FIX: Convert all values to strings to ensure consistent data types
+                    iops_included = specs.get('iops_included', 'N/A')
+                    if isinstance(iops_included, (int, float)):
+                        iops_included_str = f"{int(iops_included):,}"
+                    else:
+                        iops_included_str = str(iops_included)
+                    
+                    cost_per_iops = specs.get('cost_per_iops_month', 0)
+                    if cost_per_iops and cost_per_iops > 0:
+                        cost_per_iops_str = f"${cost_per_iops:.3f}"
+                    else:
+                        cost_per_iops_str = "N/A"
+                    
                     storage_data.append({
                         'Storage Type': storage_type.upper(),
                         'Cost per GB/Month': f"${specs.get('cost_per_gb_month', 0):.3f}",
-                        'IOPS Included': specs.get('iops_included', 'N/A'),
-                        'Cost per IOPS/Month': f"${specs.get('cost_per_iops_month', 0):.3f}" if specs.get('cost_per_iops_month') else 'N/A'
+                        'IOPS Included': iops_included_str,  # Now consistently string
+                        'Cost per IOPS/Month': cost_per_iops_str  # Now consistently string
                     })
                 
                 df_storage = pd.DataFrame(storage_data)
