@@ -4731,7 +4731,7 @@ class EnhancedMigrationAnalyzer:
         
         return comparisons
     async def _generate_corrected_fsx_destination_comparisons(self, config: Dict) -> Dict:
-    """Generate FSx comparisons with corrected architecture understanding"""
+        """Generate FSx comparisons with corrected architecture understanding"""
     
     comparisons = {}
     destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
