@@ -6863,9 +6863,17 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
     
     df_matrix = pd.DataFrame(matrix_data)
     st.dataframe(df_matrix, use_container_width=True)
-def render_agent_scaling_tab(analysis: Dict, config: Dict):
-    """Render dedicated agent scaling analysis tab using native Streamlit components"""
-    st.subheader("🤖 Agent Scaling Analysis & Optimization with Storage Destinations")
+def render_agent_scaling_tab(analysis, config):
+    # Guard clause to handle None or invalid analysis
+    if analysis is None:
+        analysis = {}
+    if config is None:
+        config = {}
+    
+    # Ensure analysis is a dictionary
+    if not isinstance(analysis, dict):
+        st.error("Invalid analysis data provided. Please check your data source.")
+        return
     
     agent_analysis = analysis.get('agent_analysis', {})
     optimal_recommendations = agent_analysis.get('optimal_recommendations', {})
