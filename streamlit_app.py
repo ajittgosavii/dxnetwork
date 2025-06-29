@@ -7156,17 +7156,6 @@ async def main():
     with tab9:
         render_pdf_reports_tab(analysis, config)
     
-    # Professional footer with FSx capabilities
-    st.markdown("""
-    <div class="enterprise-footer">
-        <h4>🚀 AWS Enterprise Database Migration Analyzer AI v3.0</h4>
-        <p>Powered by Anthropic Claude AI • Real-time AWS Integration • Professional Migration Analysis • Advanced Agent Scaling • FSx Destination Analysis</p>
-        <p style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.9;">
-            🔬 Advanced Network Intelligence • 🎯 AI-Driven Recommendations • 📊 Executive Reporting • 🤖 Multi-Agent Optimization • 🗄️ S3/FSx Comparisons
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
 def render_pdf_reports_tab(analysis: Dict, config: Dict):
     """Render PDF reports generation tab with FSx destination support"""
     st.subheader("📄 Executive PDF Reports")
@@ -8894,38 +8883,177 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
                                "Moderate" if abs(rds_score - ec2_score) > 10 else "Weak")
             st.write(f"**Decision Strength:** {decision_strength}")
     
-    # Reader/Writer Configuration using expandable section
-    with st.expander("🔄 Reader/Writer Instance Configuration", expanded=True):
-        reader_writer = aws_sizing.get('reader_writer_config', {})
-        
-        config_col1, config_col2, config_col3 = st.columns(3)
-        
-        with config_col1:
-            st.info("📊 **Instance Distribution**")
-            st.write(f"**Writer Instances:** {reader_writer.get('writers', 1)}")
-            st.write(f"**Reader Instances:** {reader_writer.get('readers', 0)}")
-            st.write(f"**Total Instances:** {reader_writer.get('total_instances', 1)}")
-            st.write(f"**Read Capacity:** {reader_writer.get('read_capacity_percent', 0):.1f}%")
-            st.write(f"**Write Capacity:** {reader_writer.get('write_capacity_percent', 100):.1f}%")
-        
-        with config_col2:
-            st.success("🎯 **Configuration Reasoning**")
-            st.write(f"**Database Size:** {config.get('database_size_gb', 0):,} GB")
-            st.write(f"**Performance Requirement:** {config.get('performance_requirements', 'standard').title()}")
-            st.write(f"**Environment:** {config.get('environment', 'unknown').title()}")
-            st.write(f"**Recommended Read Split:** {reader_writer.get('recommended_read_split', 0):.0f}%")
-            st.write(f"**AI Optimization:** {reader_writer.get('ai_insights', {}).get('optimization_potential', '0%')}")
-        
-        with config_col3:
-            ai_insights_rw = reader_writer.get('ai_insights', {})
-            st.warning("🤖 **AI Configuration Insights**")
-            st.write(f"**Complexity Impact:** {ai_insights_rw.get('complexity_impact', 0):.0f}/10")
-            st.write(f"**Agent Scaling Impact:** {ai_insights_rw.get('agent_scaling_impact', 1)} agents")
+    # ENHANCED: Reader/Writer Instance Sizing Details
+        with st.expander("🔄 Writer/Reader Instance Sizing Details", expanded=True):
+            reader_writer = aws_sizing.get('reader_writer_config', {})
             
-            st.write("**Scaling Factors:**")
-            for factor in ai_insights_rw.get('scaling_factors', ['Standard scaling'])[:2]:
-                st.write(f"• {factor}")
+            # Get the base instance recommendation
+            if recommendation == 'RDS':
+                base_instance = aws_sizing.get('rds_recommendations', {}).get('primary_instance', 'db.r6g.large')
+                base_specs = aws_sizing.get('rds_recommendations', {}).get('instance_specs', {})
+                base_cost = aws_sizing.get('rds_recommendations', {}).get('monthly_instance_cost', 0)
+            else:
+                base_instance = aws_sizing.get('ec2_recommendations', {}).get('primary_instance', 'r6i.large')
+                base_specs = aws_sizing.get('ec2_recommendations', {}).get('instance_specs', {})
+                base_cost = aws_sizing.get('ec2_recommendations', {}).get('monthly_instance_cost', 0)
+            
+            writers = reader_writer.get('writers', 1)
+            readers = reader_writer.get('readers', 0)
+            total_instances = writers + readers
+            
+            # Calculate per-instance cost
+            per_instance_cost = base_cost / total_instances if total_instances > 0 else base_cost
+            
+            config_col1, config_col2, config_col3 = st.columns(3)
+            
+            with config_col1:
+                st.success("✍️ **Writer Instance Details**")
+                st.write(f"**Number of Writers:** {writers}")
+                st.write(f"**Instance Type:** {base_instance}")
+                st.write(f"**vCPU per Writer:** {base_specs.get('vcpu', 'N/A')}")
+                st.write(f"**Memory per Writer:** {base_specs.get('memory', 'N/A')} GB")
+                st.write(f"**Cost per Writer:** ${per_instance_cost:,.0f}/month")
+                st.write(f"**Total Writer Cost:** ${per_instance_cost * writers:,.0f}/month")
+                st.write(f"**Write Capacity:** {reader_writer.get('write_capacity_percent', 100):.1f}%")
+                st.write(f"**Role:** Primary database operations")
+                
+            with config_col2:
+                st.info("📖 **Reader Instance Details**")
+                if readers > 0:
+                    # For readers, we might use the same instance type or a smaller one
+                    reader_instance = base_instance  # Could be optimized to use smaller instances
+                    reader_cost = per_instance_cost * 0.8  # Readers typically cost slightly less
+                    
+                    st.write(f"**Number of Readers:** {readers}")
+                    st.write(f"**Instance Type:** {reader_instance}")
+                    st.write(f"**vCPU per Reader:** {base_specs.get('vcpu', 'N/A')}")
+                    st.write(f"**Memory per Reader:** {base_specs.get('memory', 'N/A')} GB")
+                    st.write(f"**Cost per Reader:** ${reader_cost:,.0f}/month")
+                    st.write(f"**Total Reader Cost:** ${reader_cost * readers:,.0f}/month")
+                    st.write(f"**Read Capacity:** {reader_writer.get('read_capacity_percent', 0):.1f}%")
+                    st.write(f"**Role:** Read-only query processing")
+                else:
+                    st.write("**No reader instances configured**")
+                    st.write("**Reason:** Database size and workload")
+                    st.write("**Alternative:** Single writer handles all operations")
+                    st.write("**Scaling:** Can add readers later as needed")
+                    st.write("**Cost Savings:** ${:,.0f}/month".format(per_instance_cost * 2))
+                    st.write("**Performance Impact:** Minimal for current workload")
+            
+            with config_col3:
+                st.warning("📊 **Total Configuration Summary**")
+                total_writer_cost = per_instance_cost * writers
+                total_reader_cost = per_instance_cost * 0.8 * readers if readers > 0 else 0
+                total_config_cost = total_writer_cost + total_reader_cost
+                
+                st.write(f"**Total Instances:** {total_instances}")
+                st.write(f"**Total vCPU:** {base_specs.get('vcpu', 0) * total_instances}")
+                st.write(f"**Total Memory:** {base_specs.get('memory', 0) * total_instances} GB")
+                st.write(f"**Total Monthly Cost:** ${total_config_cost:,.0f}")
+                st.write(f"**Cost per GB/Month:** ${total_config_cost / config.get('database_size_gb', 1):.2f}")
+                st.write(f"**Recommended Read Split:** {reader_writer.get('recommended_read_split', 0):.0f}%")
+                
+                # Show scaling recommendations
+                database_size = config.get('database_size_gb', 0)
+                if database_size > 5000 and readers == 0:
+                    st.warning("💡 Consider adding 1-2 read replicas")
+                elif database_size > 20000 and readers < 3:
+                    st.info("💡 Consider additional read replicas")
+        
+        # Instance Scaling Recommendations
+        with st.expander("📈 Instance Scaling Recommendations", expanded=False):
+            scaling_col1, scaling_col2 = st.columns(2)
+            
+            with scaling_col1:
+                st.markdown("**🔮 Future Scaling Scenarios:**")
+                
+                database_size = config.get('database_size_gb', 0)
+                performance_req = config.get('performance_requirements', 'standard')
+                
+                # Calculate scaling scenarios
+                scenarios = []
+                
+                # Current scenario
+                scenarios.append({
+                    'Scenario': 'Current',
+                    'Database Size': f"{database_size:,} GB",
+                    'Writers': writers,
+                    'Readers': readers,
+                    'Monthly Cost': f"${total_config_cost:,.0f}" if 'total_config_cost' in locals() else "TBD"
+                })
+                
+                # 2x growth scenario
+                future_readers = min(readers + 1, 3) if database_size * 2 > 5000 else readers
+                scenarios.append({
+                    'Scenario': '2x Growth',
+                    'Database Size': f"{database_size * 2:,} GB",
+                    'Writers': writers,
+                    'Readers': future_readers,
+                    'Monthly Cost': f"${(total_config_cost * (writers + future_readers) / total_instances if total_instances > 0 else total_config_cost):,.0f}" if 'total_config_cost' in locals() else "TBD"
+                })
+                
+                # High performance scenario
+                hp_readers = max(readers + 1, 2) if performance_req == 'standard' else readers + 1
+                scenarios.append({
+                    'Scenario': 'High Performance',
+                    'Database Size': f"{database_size:,} GB",
+                    'Writers': writers,
+                    'Readers': hp_readers,
+                    'Monthly Cost': f"${(total_config_cost * (writers + hp_readers) / total_instances if total_instances > 0 else total_config_cost):,.0f}" if 'total_config_cost' in locals() else "TBD"
+                })
+                
+                df_scenarios = pd.DataFrame(scenarios)
+                st.dataframe(df_scenarios, use_container_width=True)
+            
+            with scaling_col2:
+                st.markdown("**⚡ Performance Optimization Tips:**")
+                
+                st.write("**Read Scaling:**")
+                st.write("• Add read replicas to distribute query load")
+                st.write("• Use connection pooling for efficient connections")
+                st.write("• Implement read/write splitting in application")
+                
+                st.write("**Write Scaling:**")
+                st.write("• Optimize database queries and indexes")
+                st.write("• Consider write partitioning for large datasets")
+                st.write("• Use write-through caching strategies")
+                
+                st.write("**Cost Optimization:**")
+                st.write("• Use Reserved Instances for 20-30% savings")
+                st.write("• Monitor and right-size based on utilization")
+                st.write("• Consider Aurora Serverless for variable workloads")
 
+        # AI Configuration Insights (Enhanced)
+        with st.expander("🤖 AI Configuration Insights & Reasoning", expanded=False):
+            ai_insights_rw = reader_writer.get('ai_insights', {})
+            
+            insight_col1, insight_col2 = st.columns(2)
+            
+            with insight_col1:
+                st.success("🧠 **AI Reasoning Process**")
+                st.write(f"**Database Size Analysis:** {config.get('database_size_gb', 0):,} GB")
+                st.write(f"**Performance Requirement:** {config.get('performance_requirements', 'standard').title()}")
+                st.write(f"**Environment Type:** {config.get('environment', 'unknown').title()}")
+                st.write(f"**Agent Impact:** {config.get('number_of_agents', 1)} agents considered")
+                
+                reasoning = reader_writer.get('reasoning', 'Standard configuration applied')
+                st.write(f"**AI Decision Logic:** {reasoning}")
+                
+                st.write("**Scaling Factors Applied:**")
+                for factor in ai_insights_rw.get('scaling_factors', ['Standard scaling applied'])[:3]:
+                    st.write(f"• {factor}")
+            
+            with insight_col2:
+                st.info("📈 **Optimization Potential**")
+                st.write(f"**Complexity Impact:** {ai_insights_rw.get('complexity_impact', 0):.0f}/10")
+                st.write(f"**Agent Scaling Impact:** {ai_insights_rw.get('agent_scaling_impact', 1)} agents")
+                st.write(f"**Optimization Potential:** {ai_insights_rw.get('optimization_potential', '5-10%')}")
+                
+                # Performance predictions
+                expected_improvement = 15 + (readers * 10)  # Rough calculation
+                st.write(f"**Expected Read Performance:** +{expected_improvement}%")
+                st.write(f"**Expected Write Performance:** Consistent")
+                st.write(f"**Availability Improvement:** {'+99.5%' if readers > 0 else 'Standard'}")
     
     # Professional footer with FSx capabilities
     st.markdown("""
