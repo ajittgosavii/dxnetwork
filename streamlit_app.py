@@ -3452,7 +3452,7 @@ class EnhancedAgentSizingManager:
         }
 
     def get_actual_migration_architecture(self, agent_type: str, destination_storage: str, config: Dict) -> Dict:
-    """Determine the actual migration architecture based on destination storage"""
+        """Determine the actual migration architecture based on destination storage"""
     
     database_size_gb = config.get('database_size_gb', 1000)
     
