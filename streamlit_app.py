@@ -4622,7 +4622,7 @@ class EnhancedMigrationAnalyzer:
         }
     
     def _get_network_path_key(self, config: Dict) -> str:
-    """Get network path key with corrected FSx routing"""
+        """Get network path key with corrected FSx routing"""
     
     # Determine OS type
     os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
