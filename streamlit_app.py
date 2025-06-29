@@ -3218,30 +3218,30 @@ class EnhancedAgentSizingManager:
     management_overhead_factor = 1.0 + (number_of_agents - 1) * 0.05
     storage_overhead = self._get_storage_management_overhead(destination_storage)
     
-    return {
-        'agent_type': agent_type,
-        'agent_size': agent_size,
-        'number_of_agents': number_of_agents,
-        'destination_storage': destination_storage,
-        'migration_architecture': architecture,  # NEW: Architecture details
-        'per_agent_spec': agent_spec,
-        'total_vcpu': agent_spec['vcpu'] * number_of_agents,
-        'total_memory_gb': agent_spec['memory_gb'] * number_of_agents,
-        'max_throughput_mbps_per_agent': agent_spec['max_throughput_mbps_per_agent'],
-        'total_max_throughput_mbps': total_throughput,
-        'effective_throughput_mbps': total_throughput,
-        'total_concurrent_tasks': total_concurrent_tasks,
-        'cost_per_hour_per_agent': agent_spec['cost_per_hour_per_agent'],
-        'total_cost_per_hour': total_cost_per_hour,
-        'total_monthly_cost': total_cost_per_hour * 24 * 30,
-        'scaling_efficiency': scaling_efficiency,
-        'storage_performance_multiplier': fsx_multiplier if architecture['agent_targets_destination'] else 1.0,
-        'management_overhead_factor': management_overhead_factor,
-        'storage_management_overhead': storage_overhead,
-        'effective_cost_per_hour': total_cost_per_hour * management_overhead_factor * storage_overhead,
-        'ai_optimization_tips': agent_spec['ai_optimization_tips'],
-        'scaling_recommendations': self._get_scaling_recommendations(agent_size, number_of_agents, destination_storage),
-        'optimal_configuration': self._assess_configuration_optimality(agent_size, number_of_agents, destination_storage)
+        return {
+            'agent_type': agent_type,
+            'agent_size': agent_size,
+            'number_of_agents': number_of_agents,
+            'destination_storage': destination_storage,
+            'migration_architecture': architecture,  # NEW: Architecture details
+            'per_agent_spec': agent_spec,
+            'total_vcpu': agent_spec['vcpu'] * number_of_agents,
+            'total_memory_gb': agent_spec['memory_gb'] * number_of_agents,
+            'max_throughput_mbps_per_agent': agent_spec['max_throughput_mbps_per_agent'],
+            'total_max_throughput_mbps': total_throughput,
+            'effective_throughput_mbps': total_throughput,
+            'total_concurrent_tasks': total_concurrent_tasks,
+            'cost_per_hour_per_agent': agent_spec['cost_per_hour_per_agent'],
+            'total_cost_per_hour': total_cost_per_hour,
+            'total_monthly_cost': total_cost_per_hour * 24 * 30,
+            'scaling_efficiency': scaling_efficiency,
+            'storage_performance_multiplier': fsx_multiplier if architecture['agent_targets_destination'] else 1.0,
+            'management_overhead_factor': management_overhead_factor,
+            'storage_management_overhead': storage_overhead,
+            'effective_cost_per_hour': total_cost_per_hour * management_overhead_factor * storage_overhead,
+            'ai_optimization_tips': agent_spec['ai_optimization_tips'],
+            'scaling_recommendations': self._get_scaling_recommendations(agent_size, number_of_agents, destination_storage),
+            'optimal_configuration': self._assess_configuration_optimality(agent_size, number_of_agents, destination_storage)
     }
     
     def _get_storage_performance_multiplier(self, destination_storage: str) -> float:
