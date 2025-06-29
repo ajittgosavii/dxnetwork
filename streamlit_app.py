@@ -3178,7 +3178,7 @@ class EnhancedAgentSizingManager:
         }
     
     def calculate_agent_configuration(self, agent_type: str, agent_size: str, number_of_agents: int, destination_storage: str = 'S3') -> Dict:
-    """Calculate agent configuration with corrected FSx architecture"""
+        """Calculate agent configuration with corrected FSx architecture"""
     
     if agent_type == 'datasync':
         agent_spec = self.datasync_agent_specs[agent_size]
