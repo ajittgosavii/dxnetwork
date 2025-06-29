@@ -4653,22 +4653,30 @@ class EnhancedMigrationAnalyzer:
         # Get destination storage type
         destination_storage = config.get('destination_storage_type', 'S3').lower()
         
-        # CORRECTED: FSx destinations use different network paths
+        # FIXED: Proper FSx destination path mapping
         if environment in ['non_production', 'nonprod', 'dev', 'test', 'staging']:
             if destination_storage == 's3':
                 return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+            elif destination_storage == 'fsx_windows':
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
+            elif destination_storage == 'fsx_lustre':
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
             else:
-                # FSx destinations route differently - typically through EC2 infrastructure
-                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
+                # Fallback for unknown FSx types
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
         
         elif environment in ['production', 'prod']:
             if destination_storage == 's3':
                 return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+            elif destination_storage == 'fsx_windows':
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
+            elif destination_storage == 'fsx_lustre':
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
             else:
-                # FSx destinations route through production EC2 infrastructure
-                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
+                # Fallback for unknown FSx types
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
         
-        # Default fallback (moved to method level)
+        # Default fallback
         return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
     
     
