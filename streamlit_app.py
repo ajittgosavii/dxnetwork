@@ -4231,34 +4231,34 @@ class EnhancedMigrationAnalyzer:
     
     def _get_network_path_key(self, config: Dict) -> str:
         """Get the appropriate network path key based on configuration"""
-    
-    # Determine OS type from operating system config
-    os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
-    
-    # Clean environment name
-    environment = config['environment'].replace('-', '_')
-    
-    # Get destination storage type
-    destination_storage = config.get('destination_storage_type', 'S3').lower()
-    
-    # Construct path key
-    if environment == 'non_production':
-        if destination_storage == 's3':
-            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
-        elif destination_storage == 'fsx_windows':
-            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
-        elif destination_storage == 'fsx_lustre':
-            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
-    else:  # production
-        if destination_storage == 's3':
-            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
-        elif destination_storage == 'fsx_windows':
-            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
-        elif destination_storage == 'fsx_lustre':
-            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
-    
-    # Default fallback
-    return "nonprod_sj_linux_nas_s3"
+        
+        # Determine OS type from operating system config
+        os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
+        
+        # Clean environment name
+        environment = config['environment'].replace('-', '_')
+        
+        # Get destination storage type
+        destination_storage = config.get('destination_storage_type', 'S3').lower()
+        
+        # Construct path key
+        if environment == 'non_production':
+            if destination_storage == 's3':
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+            elif destination_storage == 'fsx_windows':
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
+            elif destination_storage == 'fsx_lustre':
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
+        else:  # production
+            if destination_storage == 's3':
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+            elif destination_storage == 'fsx_windows':
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
+            elif destination_storage == 'fsx_lustre':
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
+        
+        # Default fallback
+        return "nonprod_sj_linux_nas_s3"
     
     async def _generate_fsx_destination_comparisons(self, config: Dict) -> Dict:
         """Generate comprehensive FSx destination comparisons"""
