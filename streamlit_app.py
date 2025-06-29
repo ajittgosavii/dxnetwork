@@ -6147,6 +6147,312 @@ def render_pdf_reports_tab(analysis: Dict, config: Dict):
         complexity_score = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {}).get('ai_complexity_score', 6)
         st.metric("🎯 AI Complexity", f"{complexity_score}/10", delta="Migration difficulty")
 
+# Add this function after the PDFReportGenerator class and before the render_network_intelligence_tab function
+
+def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
+    """Render enhanced AI insights and analysis tab using native Streamlit components"""
+    st.subheader("🧠 AI-Powered Migration Insights & Analysis")
+    
+    ai_analysis = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {})
+    ai_assessment = analysis.get('ai_overall_assessment', {})
+    
+    # AI Analysis Overview
+    st.markdown("**🤖 AI Analysis Overview:**")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        complexity_score = ai_analysis.get('ai_complexity_score', 6)
+        st.metric(
+            "🎯 AI Complexity Score",
+            f"{complexity_score:.1f}/10",
+            delta=ai_analysis.get('confidence_level', 'medium').title()
+        )
+    
+    with col2:
+        readiness_score = ai_assessment.get('migration_readiness_score', 0)
+        st.metric(
+            "📊 Migration Readiness",
+            f"{readiness_score:.0f}/100",
+            delta=ai_assessment.get('risk_level', 'Unknown')
+        )
+    
+    with col3:
+        success_probability = ai_assessment.get('success_probability', 0)
+        st.metric(
+            "🎯 Success Probability",
+            f"{success_probability:.0f}%",
+            delta=f"Confidence: {ai_analysis.get('confidence_level', 'medium').title()}"
+        )
+    
+    with col4:
+        num_agents = config.get('number_of_agents', 1)
+        agent_efficiency = analysis.get('agent_analysis', {}).get('scaling_efficiency', 1.0)
+        st.metric(
+            "🤖 Agent Efficiency",
+            f"{agent_efficiency*100:.1f}%",
+            delta=f"{num_agents} agents"
+        )
+    
+    with col5:
+        destination_storage = config.get('destination_storage_type', 'S3')
+        storage_multiplier = analysis.get('agent_analysis', {}).get('storage_performance_multiplier', 1.0)
+        st.metric(
+            "🗄️ Storage Performance",
+            f"{storage_multiplier:.1f}x",
+            delta=destination_storage
+        )
+    
+    # AI Risk Assessment and Factors
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**⚠️ AI-Identified Risk Factors:**")
+        
+        risk_factors = ai_analysis.get('risk_factors', [])
+        risk_percentages = ai_analysis.get('risk_percentages', {})
+        
+        with st.container():
+            st.warning("Risk Assessment")
+            
+            if risk_factors:
+                st.write("**Identified Risks:**")
+                for i, risk in enumerate(risk_factors[:4], 1):
+                    st.write(f"{i}. {risk}")
+                
+                if risk_percentages:
+                    st.write("**Risk Probabilities:**")
+                    for risk_type, percentage in list(risk_percentages.items())[:3]:
+                        risk_name = risk_type.replace('_', ' ').title()
+                        st.write(f"• {risk_name}: {percentage}%")
+            else:
+                st.write("No significant risks identified by AI analysis")
+                st.write("Migration appears to be low-risk with current configuration")
+    
+    with col2:
+        st.markdown("**🛡️ AI-Recommended Mitigation Strategies:**")
+        
+        mitigation_strategies = ai_analysis.get('mitigation_strategies', [])
+        
+        with st.container():
+            st.success("Mitigation Recommendations")
+            
+            if mitigation_strategies:
+                for i, strategy in enumerate(mitigation_strategies[:4], 1):
+                    st.write(f"{i}. {strategy}")
+            else:
+                st.write("• Continue with standard migration best practices")
+                st.write("• Implement comprehensive testing procedures")
+                st.write("• Monitor performance throughout migration")
+    
+    # AI Performance Recommendations
+    st.markdown("**🚀 AI Performance Optimization Recommendations:**")
+    
+    performance_recommendations = ai_analysis.get('performance_recommendations', [])
+    performance_improvements = ai_analysis.get('performance_improvements', {})
+    
+    if performance_recommendations:
+        for i, recommendation in enumerate(performance_recommendations, 1):
+            impact = "High" if i <= 2 else "Medium" if i <= 4 else "Low"
+            complexity = "Low" if i <= 2 else "Medium" if i <= 4 else "High"
+            
+            with st.expander(f"Recommendation {i}: {recommendation}", expanded=(i <= 2)):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if impact == "High":
+                        st.success(f"**Expected Impact:** {impact}")
+                    elif impact == "Medium":
+                        st.warning(f"**Expected Impact:** {impact}")
+                    else:
+                        st.info(f"**Expected Impact:** {impact}")
+                
+                with col2:
+                    st.write(f"**Implementation Complexity:** {complexity}")
+                
+                with col3:
+                    # Try to find corresponding improvement percentage
+                    improvement_key = recommendation.lower().replace(' ', '_')[:20]
+                    improvement = None
+                    for key, value in performance_improvements.items():
+                        if any(word in key.lower() for word in improvement_key.split('_')[:2]):
+                            improvement = value
+                            break
+                    
+                    if improvement:
+                        st.write(f"**Expected Improvement:** {improvement}")
+                    else:
+                        expected_improvement = "15-25%" if impact == "High" else "5-15%" if impact == "Medium" else "2-10%"
+                        st.write(f"**Expected Improvement:** {expected_improvement}")
+    else:
+        st.info("Current configuration appears well-optimized. Continue with standard best practices.")
+    
+    # AI Timeline and Resource Recommendations
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📅 AI-Enhanced Timeline Suggestions:**")
+        
+        timeline_suggestions = ai_analysis.get('timeline_suggestions', [])
+        
+        with st.container():
+            st.info("Project Timeline Recommendations")
+            
+            if timeline_suggestions:
+                for suggestion in timeline_suggestions:
+                    st.write(f"• {suggestion}")
+            else:
+                st.write("• Phase 1: Assessment and Planning (2-3 weeks)")
+                st.write("• Phase 2: Environment Setup (2-4 weeks)")
+                st.write("• Phase 3: Testing and Validation (1-2 weeks)")
+                st.write("• Phase 4: Migration Execution (1-3 days)")
+                st.write("• Phase 5: Post-Migration Optimization (1 week)")
+            
+            # Add agent-specific timeline considerations
+            num_agents = config.get('number_of_agents', 1)
+            if num_agents > 1:
+                st.write(f"• Agent Coordination Setup: +{num_agents} hours for {num_agents} agents")
+            
+            destination_storage = config.get('destination_storage_type', 'S3')
+            if destination_storage != 'S3':
+                setup_time = {"FSx_Windows": "4-8 hours", "FSx_Lustre": "8-16 hours"}.get(destination_storage, "2-4 hours")
+                st.write(f"• {destination_storage} Setup: {setup_time}")
+    
+    with col2:
+        st.markdown("**👥 AI-Recommended Resource Allocation:**")
+        
+        resource_allocation = ai_analysis.get('resource_allocation', {})
+        
+        with st.container():
+            st.success("Team & Resource Requirements")
+            
+            if resource_allocation:
+                st.write(f"**Migration Team Size:** {resource_allocation.get('migration_team_size', 3)} people")
+                st.write(f"**AWS Specialists:** {resource_allocation.get('aws_specialists_needed', 1)} required")
+                st.write(f"**Database Experts:** {resource_allocation.get('database_experts_required', 1)} required")
+                st.write(f"**Testing Resources:** {resource_allocation.get('testing_resources', 'Standard')}")
+                st.write(f"**Infrastructure:** {resource_allocation.get('infrastructure_requirements', 'Standard setup')}")
+                
+                # Agent-specific resources
+                if resource_allocation.get('agent_management_overhead'):
+                    st.write(f"**Agent Management:** {resource_allocation.get('agent_management_overhead')}")
+                
+                # Storage-specific resources
+                if resource_allocation.get('storage_specialists', 0) > 0:
+                    st.write(f"**Storage Specialists:** {resource_allocation.get('storage_specialists')} required")
+            else:
+                st.write("**Migration Team Size:** 3-4 people")
+                st.write("**AWS Specialists:** 1 required")
+                st.write("**Database Experts:** 1-2 required")
+                st.write("**Testing Resources:** 2 weeks dedicated testing")
+    
+    # AI Best Practices and Testing Strategy
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**🎯 AI-Recommended Best Practices:**")
+        
+        best_practices = ai_analysis.get('best_practices', [])
+        
+        with st.container():
+            st.success("Migration Best Practices")
+            
+            if best_practices:
+                for practice in best_practices[:5]:
+                    st.write(f"• {practice}")
+            else:
+                st.write("• Implement comprehensive backup strategy")
+                st.write("• Use AWS Migration Hub for tracking")
+                st.write("• Establish detailed communication plan")
+                st.write("• Create detailed runbook procedures")
+                st.write("• Implement automated testing pipelines")
+    
+    with col2:
+        st.markdown("**🧪 AI-Enhanced Testing Strategy:**")
+        
+        testing_strategy = ai_analysis.get('testing_strategy', [])
+        
+        with st.container():
+            st.info("Testing & Validation Strategy")
+            
+            if testing_strategy:
+                for test in testing_strategy[:5]:
+                    st.write(f"• {test}")
+            else:
+                st.write("• Unit Testing: Validate migration components")
+                st.write("• Integration Testing: End-to-end workflow")
+                st.write("• Performance Testing: AWS environment validation")
+                st.write("• Data Integrity Testing: Consistency verification")
+                st.write("• Security Testing: Access controls and encryption")
+    
+    # AI Post-Migration Monitoring
+    st.markdown("**📊 AI Post-Migration Monitoring Recommendations:**")
+    
+    monitoring_recommendations = ai_analysis.get('post_migration_monitoring', [])
+    
+    if monitoring_recommendations:
+        monitor_col1, monitor_col2, monitor_col3 = st.columns(3)
+        
+        # Split recommendations into columns
+        rec_per_col = len(monitoring_recommendations) // 3
+        
+        with monitor_col1:
+            st.success("**Performance Monitoring**")
+            for rec in monitoring_recommendations[:rec_per_col]:
+                st.write(f"• {rec}")
+        
+        with monitor_col2:
+            st.info("**Operational Monitoring**")
+            for rec in monitoring_recommendations[rec_per_col:rec_per_col*2]:
+                st.write(f"• {rec}")
+        
+        with monitor_col3:
+            st.warning("**Cost & Optimization Monitoring**")
+            for rec in monitoring_recommendations[rec_per_col*2:]:
+                st.write(f"• {rec}")
+    else:
+        st.info("Standard CloudWatch monitoring recommended for all database and application metrics")
+    
+    # AI Overall Assessment Summary
+    st.markdown("**🎯 AI Overall Assessment Summary:**")
+    
+    detailed_assessment = ai_analysis.get('detailed_assessment', {})
+    
+    if detailed_assessment:
+        assess_col1, assess_col2, assess_col3 = st.columns(3)
+        
+        with assess_col1:
+            overall_readiness = detailed_assessment.get('overall_readiness', 'needs_preparation')
+            if overall_readiness == 'ready':
+                st.success("**Migration Readiness: READY**")
+            elif overall_readiness == 'needs_preparation':
+                st.warning("**Migration Readiness: NEEDS PREPARATION**")
+            else:
+                st.error("**Migration Readiness: SIGNIFICANT PREPARATION REQUIRED**")
+            
+            st.write(f"**Success Probability:** {detailed_assessment.get('success_probability', 75)}%")
+            st.write(f"**Recommended Approach:** {detailed_assessment.get('recommended_approach', 'staged_migration').replace('_', ' ').title()}")
+        
+        with assess_col2:
+            st.info("**Critical Success Factors**")
+            critical_factors = detailed_assessment.get('critical_success_factors', [])
+            for factor in critical_factors[:4]:
+                st.write(f"• {factor}")
+        
+        with assess_col3:
+            st.warning("**Key Action Items**")
+            next_steps = ai_assessment.get('recommended_next_steps', [])
+            for step in next_steps[:4]:
+                st.write(f"• {step}")
+    
+    # Raw AI Response (for debugging/transparency)
+    with st.expander("🔍 Raw AI Analysis Response", expanded=False):
+        raw_response = ai_analysis.get('raw_ai_response', 'No raw AI response available')
+        st.text_area("AI Analysis Details", raw_response, height=200, help="Complete AI analysis response for technical review")
+
+
+
+
 def render_network_intelligence_tab(analysis: Dict, config: Dict):
     """Render network intelligence analysis tab with AI insights using native components"""
     st.subheader("🌐 Network Intelligence & Path Optimization")
