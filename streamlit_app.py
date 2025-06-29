@@ -3454,56 +3454,62 @@ class EnhancedAgentSizingManager:
 
     def get_actual_migration_architecture(self, agent_type: str, destination_storage: str, config: Dict) -> Dict:
         """Determine the actual migration architecture based on destination storage"""
-    
-    database_size_gb = config.get('database_size_gb', 1000)
-    
-    if destination_storage == 'S3':
-        # Direct migration to S3
-        return {
-            'primary_target': 'S3',
-            'secondary_target': None,
-            'agent_targets_destination': True,
-            'architecture_type': 'direct_cloud_storage',
-            'bandwidth_calculation': 'direct',
-            'description': f'{agent_type.upper()} agents transfer directly to S3'
-        }
-    
-    elif destination_storage == 'FSx_Windows':
-        # Hybrid architecture
-        return {
-            'primary_target': 'EC2_EBS',  # Database goes to EC2 + EBS
-            'secondary_target': 'FSx_Windows',  # File data goes to FSx Windows
-            'agent_targets_destination': False,  # Agents don't directly target FSx
-            'architecture_type': 'hybrid_storage',
-            'bandwidth_calculation': 'split_workload',
-            'database_percentage': 80,  # 80% database, 20% file data
-            'file_percentage': 20,
-            'description': f'{agent_type.upper()} for database → EC2+EBS; DataSync for files → FSx Windows'
-        }
-    
-    elif destination_storage == 'FSx_Lustre':
-        # HPC architecture
-        return {
-            'primary_target': 'EC2_EBS',  # Database still goes to EC2 + EBS
-            'secondary_target': 'FSx_Lustre',  # HPC data goes to FSx Lustre
-            'agent_targets_destination': False,
-            'architecture_type': 'hpc_hybrid',
-            'bandwidth_calculation': 'split_workload',
-            'database_percentage': 70,  # 70% database, 30% HPC file data
-            'file_percentage': 30,
-            'description': f'{agent_type.upper()} for database → EC2+EBS; DataSync for HPC data → FSx Lustre'
-        }
-    
-    else:
-        # Fallback
-        return {
-            'primary_target': destination_storage,
-            'secondary_target': None,
-            'agent_targets_destination': True,
-            'architecture_type': 'standard',
-            'bandwidth_calculation': 'direct',
-            'description': f'{agent_type.upper()} agents transfer to {destination_storage}'
-        }
+
+        database_size_gb = config.get('database_size_gb', 1000)
+        
+        if destination_storage == 'S3':
+            # Direct migration to S3
+            return {
+                'primary_target': 'S3',
+                'secondary_target': None,
+                'agent_targets_destination': True,
+                'architecture_type': 'direct_cloud_storage',
+                'bandwidth_calculation': 'direct',
+                'description': f'{agent_type.upper()} agents transfer directly to S3'
+            }
+        
+        elif destination_storage == 'FSx_Windows':
+            # Hybrid architecture - adjust percentages based on database size
+            db_percentage = min(90, max(60, 80 - (database_size_gb - 1000) // 1000 * 5))
+            file_percentage = 100 - db_percentage
+            
+            return {
+                'primary_target': 'EC2_EBS',  # Database goes to EC2 + EBS
+                'secondary_target': 'FSx_Windows',  # File data goes to FSx Windows
+                'agent_targets_destination': False,  # Agents don't directly target FSx
+                'architecture_type': 'hybrid_storage',
+                'bandwidth_calculation': 'split_workload',
+                'database_percentage': db_percentage,
+                'file_percentage': file_percentage,
+                'description': f'{agent_type.upper()} for database → EC2+EBS; DataSync for files → FSx Windows'
+            }
+        
+        elif destination_storage == 'FSx_Lustre':
+            # HPC architecture - adjust percentages based on database size
+            db_percentage = min(85, max(50, 70 - (database_size_gb - 1000) // 1000 * 5))
+            file_percentage = 100 - db_percentage
+            
+            return {
+                'primary_target': 'EC2_EBS',  # Database still goes to EC2 + EBS
+                'secondary_target': 'FSx_Lustre',  # HPC data goes to FSx Lustre
+                'agent_targets_destination': False,
+                'architecture_type': 'hpc_hybrid',
+                'bandwidth_calculation': 'split_workload',
+                'database_percentage': db_percentage,
+                'file_percentage': file_percentage,
+                'description': f'{agent_type.upper()} for database → EC2+EBS; DataSync for HPC data → FSx Lustre'
+            }
+        
+        else:
+            # Fallback
+            return {
+                'primary_target': destination_storage,
+                'secondary_target': None,
+                'agent_targets_destination': True,
+                'architecture_type': 'standard',
+                'bandwidth_calculation': 'direct',
+                'description': f'{agent_type.upper()} agents transfer to {destination_storage}'
+            }
     
 class EnhancedAWSMigrationManager:
     """Enhanced AWS migration manager with AI and real-time pricing"""
