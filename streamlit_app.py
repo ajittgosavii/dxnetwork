@@ -7751,28 +7751,35 @@ def create_fallback_analysis_with_proper_readers_writers(config):
         'effective_bandwidth_mbps': 2000,
         'total_latency_ms': 15,
         'total_reliability': 0.998,
+        'total_cost_factor': 2.0,
         'storage_performance_bonus': 5 if config.get('destination_storage_type') == 'FSx_Lustre' else 0,
         'ai_optimization_potential': 15,
+        'environment': config.get('environment', 'non-production'),
+        'os_type': 'linux' if 'linux' in config.get('operating_system', '') or 'ubuntu' in config.get('operating_system', '') or 'rhel' in config.get('operating_system', '') else 'windows',
+        'storage_type': 'nas',
         'segments': [
             {
                 'name': 'Source to intermediate',
                 'effective_bandwidth_mbps': 1000,
                 'effective_latency_ms': 8,
                 'reliability': 0.999,
-                'connection_type': 'internal_lan'
+                'connection_type': 'internal_lan',
+                'cost_factor': 0.0
             },
             {
                 'name': f'Intermediate to AWS {config.get("destination_storage_type", "S3")}',
                 'effective_bandwidth_mbps': 2000,
                 'effective_latency_ms': 7,
                 'reliability': 0.998,
-                'connection_type': 'direct_connect'
+                'connection_type': 'direct_connect',
+                'cost_factor': 2.0
             }
         ],
         'ai_insights': {
             'performance_bottlenecks': ['Standard network considerations'],
             'optimization_opportunities': ['Network optimization available'],
-            'recommended_improvements': ['Standard network best practices']
+            'recommended_improvements': ['Standard network best practices'],
+            'risk_factors': ['No significant network risks identified']
         }
     }
     
