@@ -2572,7 +2572,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'Linux NAS to Linux Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 2,
                         'reliability': 0.999,
                         'connection_type': 'internal_lan',
@@ -2607,7 +2607,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'Linux NAS to Linux Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 2,
                         'reliability': 0.999,
                         'connection_type': 'internal_lan',
@@ -2642,7 +2642,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'Linux NAS to Linux Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 2,
                         'reliability': 0.999,
                         'connection_type': 'internal_lan',
@@ -2677,7 +2677,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'Windows Share to Windows Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 3,
                         'reliability': 0.997,
                         'connection_type': 'internal_lan',
@@ -2712,7 +2712,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'Windows Share to Windows Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 3,
                         'reliability': 0.997,
                         'connection_type': 'internal_lan',
@@ -2747,7 +2747,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'Windows Share to Windows Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 3,
                         'reliability': 0.997,
                         'connection_type': 'internal_lan',
@@ -2782,7 +2782,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'San Antonio Linux NAS to Linux Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 1,
                         'reliability': 0.999,
                         'connection_type': 'internal_lan',
@@ -2826,7 +2826,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'San Antonio Linux NAS to Linux Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 1,
                         'reliability': 0.999,
                         'connection_type': 'internal_lan',
@@ -2870,7 +2870,7 @@ class EnhancedNetworkIntelligenceManager:
                 'segments': [
                     {
                         'name': 'San Antonio Linux NAS to Linux Jump Server',
-                        'bandwidth_mbps': 1000,
+                        'bandwidth_mbps': 10000,
                         'latency_ms': 1,
                         'reliability': 0.999,
                         'connection_type': 'internal_lan',
