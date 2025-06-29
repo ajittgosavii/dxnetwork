@@ -4671,87 +4671,8 @@ class EnhancedMigrationAnalyzer:
         # Default fallback (moved to method level)
         return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
     
-    async def _generate_fsx_destination_comparisons(self, config: Dict) -> Dict:
-        """Generate comprehensive FSx destination comparisons"""
-        
-        comparisons = {}
-        destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
-        
-        for dest_type in destination_types:
-            # Create temporary config for this destination
-            temp_config = config.copy()
-            temp_config['destination_storage_type'] = dest_type
-            
-            # Get network path for this destination
-            network_path_key = self._get_network_path_key(temp_config)
-            
-            try:
-                # Calculate network performance
-                network_perf = self.network_manager.calculate_ai_enhanced_path_performance(network_path_key)
-                
-                # Calculate agent configuration for this destination
-                is_homogeneous = config['source_database_engine'] == config['database_engine']
-                primary_tool = 'datasync' if is_homogeneous else 'dms'
-                agent_size = config.get('datasync_agent_size' if is_homogeneous else 'dms_agent_size', 'medium')
-                num_agents = config.get('number_of_agents', 1)
-                
-                agent_config = self.agent_manager.calculate_agent_configuration(
-                    primary_tool, agent_size, num_agents, dest_type
-                )
-                
-                # Calculate migration time
-                agent_throughput = agent_config['total_max_throughput_mbps']
-                network_throughput = network_perf['effective_bandwidth_mbps']
-                migration_throughput = min(agent_throughput, network_throughput)
-                
-                database_size_gb = config['database_size_gb']
-                migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
-                
-                # Apply complexity factors
-                if config['source_database_engine'] != config['database_engine']:
-                    migration_time_hours *= 1.3
-                if 'windows' in config['operating_system']:
-                    migration_time_hours *= 1.1
-                if config['server_type'] == 'vmware':
-                    migration_time_hours *= 1.05
-                
-                # Calculate costs (basic estimation)
-                storage_multiplier = {
-                    'S3': 1.0,
-                    'FSx_Windows': 2.5,
-                    'FSx_Lustre': 4.0
-                }.get(dest_type, 1.0)
-                
-                base_storage_cost = database_size_gb * 0.023  # S3 standard pricing
-                estimated_storage_cost = base_storage_cost * storage_multiplier
-                
-                comparisons[dest_type] = {
-                    'destination_type': dest_type,
-                    'network_performance': network_perf,
-                    'agent_configuration': agent_config,
-                    'migration_throughput_mbps': migration_throughput,
-                    'estimated_migration_time_hours': migration_time_hours,
-                    'estimated_monthly_storage_cost': estimated_storage_cost,
-                    'performance_rating': self._calculate_destination_performance_rating(dest_type, network_perf, agent_config),
-                    'cost_rating': self._calculate_destination_cost_rating(dest_type, estimated_storage_cost),
-                    'complexity_rating': self._calculate_destination_complexity_rating(dest_type, config),
-                    'recommendations': self._get_destination_recommendations(dest_type, config, network_perf)
-                }
-                
-            except Exception as e:
-                logger.warning(f"Failed to analyze destination {dest_type}: {e}")
-                # Provide fallback data
-                comparisons[dest_type] = {
-                    'destination_type': dest_type,
-                    'error': str(e),
-                    'estimated_migration_time_hours': 24,
-                    'performance_rating': 'Unknown',
-                    'cost_rating': 'Unknown',
-                    'complexity_rating': 'Unknown'
-                }
-        
-        return comparisons
-   async def _generate_corrected_fsx_destination_comparisons(self, config: Dict) -> Dict:
+    
+    async def _generate_corrected_fsx_destination_comparisons(self, config: Dict) -> Dict:
         """Generate FSx comparisons with corrected architecture understanding"""
 
         comparisons = {}
@@ -4788,6 +4709,12 @@ class EnhancedMigrationAnalyzer:
                 complexity_factor = 1.5
                 setup_complexity = "High"
             
+            else:
+                # Fallback for unknown destination types
+                migration_description = f"Migration to {dest_type}"
+                complexity_factor = 1.2
+                setup_complexity = "Medium"
+            
             # Network path calculation
             network_path_key = self._get_network_path_key(temp_config)
             network_perf = self.network_manager.calculate_ai_enhanced_path_performance(network_path_key)
@@ -4805,14 +4732,20 @@ class EnhancedMigrationAnalyzer:
             # Migration time calculation with architecture consideration
             database_size_gb = config['database_size_gb']
             
-            # Initialize migration_throughput variable
+            # Initialize variables
             migration_throughput = 0
+            migration_time_hours = 0
             
             if architecture['agent_targets_destination']:
                 # Direct migration
                 migration_throughput = min(agent_config['total_max_throughput_mbps'], 
                                         network_perf['effective_bandwidth_mbps'])
-                migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
+                
+                # Prevent division by zero
+                if migration_throughput > 0:
+                    migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
+                else:
+                    migration_time_hours = float('inf')  # Infinite time if no throughput
             else:
                 # Split workload
                 db_size = database_size_gb * (architecture.get('database_percentage', 80) / 100)
@@ -4822,19 +4755,26 @@ class EnhancedMigrationAnalyzer:
                 base_throughput = min(agent_config['total_max_throughput_mbps'], 
                                     network_perf['effective_bandwidth_mbps'])
                 
-                # Database migration throughput (no FSx multiplier)
-                db_throughput = base_throughput
-                db_migration_time = (db_size * 8 * 1000) / (db_throughput * 3600)
-                
-                # File migration throughput (with FSx multiplier if applicable)
-                file_throughput = base_throughput * agent_config.get('storage_performance_multiplier', 1.0)
-                file_migration_time = (file_size * 8 * 1000) / (file_throughput * 3600)
-                
-                # Total time (can run in parallel, so take the max)
-                migration_time_hours = max(db_migration_time, file_migration_time) * complexity_factor
-                
-                # Use the effective combined throughput for reporting
-                migration_throughput = (database_size_gb * 8 * 1000) / (migration_time_hours * 3600)
+                if base_throughput > 0:
+                    # Database migration throughput (no FSx multiplier)
+                    db_throughput = base_throughput
+                    db_migration_time = (db_size * 8 * 1000) / (db_throughput * 3600)
+                    
+                    # File migration throughput (with FSx multiplier if applicable)
+                    file_throughput = base_throughput * agent_config.get('storage_performance_multiplier', 1.0)
+                    file_migration_time = (file_size * 8 * 1000) / (file_throughput * 3600)
+                    
+                    # Total time (can run in parallel, so take the max)
+                    migration_time_hours = max(db_migration_time, file_migration_time) * complexity_factor
+                    
+                    # Use the effective combined throughput for reporting
+                    if migration_time_hours > 0:
+                        migration_throughput = (database_size_gb * 8 * 1000) / (migration_time_hours * 3600)
+                    else:
+                        migration_throughput = base_throughput
+                else:
+                    migration_time_hours = float('inf')
+                    migration_throughput = 0
             
             # Cost calculation
             base_storage_cost = database_size_gb * {
