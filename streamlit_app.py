@@ -8033,6 +8033,119 @@ def create_fallback_analysis_with_proper_readers_writers(config):
     writers = 1
     total_instances = writers + readers
     
+    # FIXED: Create network performance analysis - DYNAMIC based on environment
+    environment = config.get('environment', 'non-production')
+    destination_storage = config.get('destination_storage_type', 'S3')
+    
+    # Determine bandwidth based on environment (matching actual network paths)
+    if environment == 'production':
+        # Production: Multi-hop high-bandwidth path (no bottleneck)
+        effective_bandwidth = 10000  # Full 10Gbps throughput
+        total_latency = 21  # SA → SJ → AWS
+        total_reliability = 0.999 * 0.9995 * 0.9999  # Product of all segments
+        network_quality_score = 90
+        ai_enhanced_quality_score = 95
+        cost_factor = 7.0  # Higher cost for production path
+        segments = [
+            {
+                'name': 'San Antonio Linux NAS to Jump Server',
+                'effective_bandwidth_mbps': 10000,
+                'effective_latency_ms': 1,
+                'reliability': 0.999,
+                'connection_type': 'internal_lan',
+                'cost_factor': 0.0
+            },
+            {
+                'name': 'San Antonio to San Jose (Private Line)',
+                'effective_bandwidth_mbps': 10000,
+                'effective_latency_ms': 12,
+                'reliability': 0.9995,
+                'connection_type': 'private_line',
+                'cost_factor': 3.0
+            },
+            {
+                'name': f'San Jose to AWS {destination_storage} (DX)',
+                'effective_bandwidth_mbps': 10000,
+                'effective_latency_ms': 8,
+                'reliability': 0.9999,
+                'connection_type': 'direct_connect',
+                'cost_factor': 4.0
+            }
+        ]
+    else:
+        # Non-production: DX connection bottleneck at 2Gbps
+        effective_bandwidth = 2000  # Bottlenecked by DX connection
+        total_latency = 17  # SJ local → AWS
+        total_reliability = 0.999 * 0.998  # Product of segments
+        network_quality_score = 80
+        ai_enhanced_quality_score = 85
+        cost_factor = 2.0  # Lower cost for non-prod
+        segments = [
+            {
+                'name': 'San Jose Linux NAS to Jump Server',
+                'effective_bandwidth_mbps': 10000,
+                'effective_latency_ms': 2,
+                'reliability': 0.999,
+                'connection_type': 'internal_lan',
+                'cost_factor': 0.0
+            },
+            {
+                'name': f'San Jose to AWS {destination_storage} (DX)',
+                'effective_bandwidth_mbps': 2000,  # This is the bottleneck!
+                'effective_latency_ms': 15,
+                'reliability': 0.998,
+                'connection_type': 'direct_connect',
+                'cost_factor': 2.0
+            }
+        ]
+    
+    # Apply destination storage bonuses
+    storage_bonus = 0
+    if destination_storage == 'FSx_Windows':
+        storage_bonus = 10
+        ai_enhanced_quality_score += storage_bonus
+        # Adjust latency for FSx Windows (better performance)
+        total_latency *= 0.9
+        for segment in segments:
+            if 'AWS' in segment['name']:
+                segment['effective_latency_ms'] *= 0.9
+    elif destination_storage == 'FSx_Lustre':
+        storage_bonus = 20
+        ai_enhanced_quality_score += storage_bonus
+        # Adjust latency for FSx Lustre (much better performance)
+        total_latency *= 0.7
+        for segment in segments:
+            if 'AWS' in segment['name']:
+                segment['effective_latency_ms'] *= 0.7
+    
+    # Ensure quality scores don't exceed 100
+    ai_enhanced_quality_score = min(100, ai_enhanced_quality_score)
+    
+    # Create network performance analysis - NOW FULLY DYNAMIC
+    network_performance = {
+        'path_name': f'{environment.title()}: Network path to AWS {destination_storage}',
+        'destination_storage': destination_storage,
+        'network_quality_score': network_quality_score,
+        'ai_enhanced_quality_score': ai_enhanced_quality_score,
+        'effective_bandwidth_mbps': effective_bandwidth,  # NOW DYNAMIC!
+        'total_latency_ms': total_latency,
+        'total_reliability': total_reliability,
+        'total_cost_factor': cost_factor,
+        'storage_performance_bonus': storage_bonus,
+        'ai_optimization_potential': 15,
+        'environment': environment,
+        'os_type': 'linux' if any(os_name in config.get('operating_system', '') for os_name in ['linux', 'ubuntu', 'rhel']) else 'windows',
+        'storage_type': 'nas',
+        'segments': segments,
+        'ai_insights': {
+            'performance_bottlenecks': [f'{environment.title()} network path analysis'] + 
+                                     (['DX connection bandwidth limit'] if environment != 'production' else ['No significant bottlenecks']),
+            'optimization_opportunities': ['Network path optimization available', f'{destination_storage} performance tuning'],
+            'recommended_improvements': [f'{environment.title()} network best practices', f'Optimize for {destination_storage}'],
+            'risk_factors': ['No significant network risks identified']
+        }
+    }
+    
     # Generate comprehensive AWS sizing recommendations
     def get_fallback_rds_sizing():
         # Determine instance size based on database size and requirements
@@ -8293,52 +8406,10 @@ def create_fallback_analysis_with_proper_readers_writers(config):
         'ai_insights': ['System appears well-configured for migration']
     }
     
-    # Create network performance analysis
-    network_performance = {
-        'path_name': f'Network path for {config.get("environment", "non-production")} environment',
-        'destination_storage': config.get('destination_storage_type', 'S3'),
-        'network_quality_score': 80,
-        'ai_enhanced_quality_score': 85,
-        'effective_bandwidth_mbps': 2000,
-        'total_latency_ms': 15,
-        'total_reliability': 0.998,
-        'total_cost_factor': 2.0,
-        'storage_performance_bonus': 5 if config.get('destination_storage_type') == 'FSx_Lustre' else 0,
-        'ai_optimization_potential': 15,
-        'environment': config.get('environment', 'non-production'),
-        'os_type': 'linux' if 'linux' in config.get('operating_system', '') or 'ubuntu' in config.get('operating_system', '') or 'rhel' in config.get('operating_system', '') else 'windows',
-        'storage_type': 'nas',
-        'segments': [
-            {
-                'name': 'Source to intermediate',
-                'effective_bandwidth_mbps': 1000,
-                'effective_latency_ms': 8,
-                'reliability': 0.999,
-                'connection_type': 'internal_lan',
-                'cost_factor': 0.0
-            },
-            {
-                'name': f'Intermediate to AWS {config.get("destination_storage_type", "S3")}',
-                'effective_bandwidth_mbps': 2000,
-                'effective_latency_ms': 7,
-                'reliability': 0.998,
-                'connection_type': 'direct_connect',
-                'cost_factor': 2.0
-            }
-        ],
-        'ai_insights': {
-            'performance_bottlenecks': ['Standard network considerations'],
-            'optimization_opportunities': ['Network optimization available'],
-            'recommended_improvements': ['Standard network best practices'],
-            'risk_factors': ['No significant network risks identified']
-        }
-    }
-    
     # Create agent analysis
     is_homogeneous = source_engine == target_engine
     primary_tool = 'datasync' if is_homogeneous else 'dms'
     num_agents = config.get('number_of_agents', 1)
-    destination_storage = config.get('destination_storage_type', 'S3')
     
     # Calculate agent throughput
     base_throughput_per_agent = 500 if primary_tool == 'datasync' else 400
@@ -8357,12 +8428,12 @@ def create_fallback_analysis_with_proper_readers_writers(config):
         'number_of_agents': num_agents,
         'destination_storage': destination_storage,
         'total_max_throughput_mbps': total_throughput,
-        'total_effective_throughput': min(total_throughput, 2000),  # Network limit
+        'total_effective_throughput': min(total_throughput, effective_bandwidth),  # Limited by network
         'scaling_efficiency': scaling_efficiency,
         'storage_performance_multiplier': storage_multiplier,
         'management_overhead': 1.0 + (num_agents - 1) * 0.05,
         'monthly_cost': num_agents * 200,  # Rough estimate
-        'bottleneck': 'network' if total_throughput > 2000 else 'agents',
+        'bottleneck': 'network' if total_throughput > effective_bandwidth else 'agents',
         'bottleneck_severity': 'medium',
         'agent_configuration': {
             'per_agent_spec': {
@@ -8398,7 +8469,7 @@ def create_fallback_analysis_with_proper_readers_writers(config):
         }.get(dest_type, 1.0)
         
         dest_throughput = base_throughput_per_agent * num_agents * scaling_efficiency * dest_storage_multiplier
-        dest_migration_time = (database_size_gb * 8 * 1000) / (min(dest_throughput, 2000) * 3600)
+        dest_migration_time = (database_size_gb * 8 * 1000) / (min(dest_throughput, effective_bandwidth) * 3600)
         
         dest_storage_cost = database_size_gb * {
             'S3': 0.023,
@@ -8409,7 +8480,7 @@ def create_fallback_analysis_with_proper_readers_writers(config):
         fsx_comparisons[dest_type] = {
             'destination_type': dest_type,
             'estimated_migration_time_hours': dest_migration_time,
-            'migration_throughput_mbps': min(dest_throughput, 2000),
+            'migration_throughput_mbps': min(dest_throughput, effective_bandwidth),
             'estimated_monthly_storage_cost': dest_storage_cost,
             'performance_rating': {
                 'S3': 'Good',
@@ -8522,8 +8593,8 @@ def create_fallback_analysis_with_proper_readers_writers(config):
         'migration_type': 'homogeneous' if is_homogeneous else 'heterogeneous',
         'primary_tool': primary_tool,
         'agent_analysis': agent_analysis,
-        'migration_throughput_mbps': min(total_throughput, 2000),
-        'estimated_migration_time_hours': (database_size_gb * 8 * 1000) / (min(total_throughput, 2000) * 3600),
+        'migration_throughput_mbps': min(total_throughput, effective_bandwidth),
+        'estimated_migration_time_hours': (database_size_gb * 8 * 1000) / (min(total_throughput, effective_bandwidth) * 3600),
         'aws_sizing_recommendations': {
             'rds_recommendations': rds_sizing,
             'ec2_recommendations': ec2_sizing,
