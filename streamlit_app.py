@@ -4230,7 +4230,7 @@ class EnhancedMigrationAnalyzer:
         }
     
     def _get_network_path_key(self, config: Dict) -> str:
-    """Get the appropriate network path key based on configuration"""
+        """Get the appropriate network path key based on configuration"""
     
     # Determine OS type from operating system config
     os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
