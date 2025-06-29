@@ -4751,115 +4751,127 @@ class EnhancedMigrationAnalyzer:
                 }
         
         return comparisons
-    async def _generate_corrected_fsx_destination_comparisons(self, config: Dict) -> Dict:
+   async def _generate_corrected_fsx_destination_comparisons(self, config: Dict) -> Dict:
         """Generate FSx comparisons with corrected architecture understanding"""
-    
-    comparisons = {}
-    destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
-    
-    for dest_type in destination_types:
-        temp_config = config.copy()
-        temp_config['destination_storage_type'] = dest_type
+
+        comparisons = {}
+        destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
         
-        # Get corrected architecture
-        agent_manager = EnhancedAgentSizingManager()
-        architecture = agent_manager.get_actual_migration_architecture(
-            'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
-            dest_type,
-            config
-        )
-        
-        # Calculate migration specifics based on architecture
-        if dest_type == 'S3':
-            # Direct migration
-            migration_description = "Direct database migration to S3"
-            complexity_factor = 1.0
-            setup_complexity = "Low"
-        
-        elif dest_type == 'FSx_Windows':
-            # Hybrid architecture
-            migration_description = "Database to EC2+EBS + File shares to FSx Windows"
-            complexity_factor = 1.3
-            setup_complexity = "Medium-High"
-        
-        elif dest_type == 'FSx_Lustre':
-            # HPC hybrid
-            migration_description = "Database to EC2+EBS + HPC data to FSx Lustre"
-            complexity_factor = 1.5
-            setup_complexity = "High"
-        
-        # Network path calculation
-        network_path_key = self._get_network_path_key(temp_config)
-        network_perf = self.network_manager.calculate_ai_enhanced_path_performance(network_path_key)
-        
-        # Agent configuration
-        is_homogeneous = config['source_database_engine'] == config['database_engine']
-        primary_tool = 'datasync' if is_homogeneous else 'dms'
-        agent_size = config.get('datasync_agent_size' if is_homogeneous else 'dms_agent_size', 'medium')
-        num_agents = config.get('number_of_agents', 1)
-        
-        agent_config = agent_manager.calculate_agent_configuration(
-            primary_tool, agent_size, num_agents, dest_type
-        )
-        
-        # Migration time calculation with architecture consideration
-        database_size_gb = config['database_size_gb']
-        
-        if architecture['agent_targets_destination']:
-            # Direct migration
-            migration_throughput = min(agent_config['total_max_throughput_mbps'], 
-                                     network_perf['effective_bandwidth_mbps'])
-            migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
-        else:
-            # Split workload
-            db_size = database_size_gb * (architecture.get('database_percentage', 80) / 100)
-            db_migration_time = (db_size * 8 * 1000) / (agent_config['total_max_throughput_mbps'] * 3600)
+        for dest_type in destination_types:
+            temp_config = config.copy()
+            temp_config['destination_storage_type'] = dest_type
             
-            file_size = database_size_gb * (architecture.get('file_percentage', 20) / 100)
-            file_migration_time = (file_size * 8 * 1000) / (agent_config['total_max_throughput_mbps'] * 3600)
+            # Get corrected architecture
+            agent_manager = EnhancedAgentSizingManager()
+            architecture = agent_manager.get_actual_migration_architecture(
+                'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+                dest_type,
+                config
+            )
             
-            # Total time (can run in parallel, so take the max)
-            migration_time_hours = max(db_migration_time, file_migration_time) * complexity_factor
+            # Calculate migration specifics based on architecture
+            if dest_type == 'S3':
+                # Direct migration
+                migration_description = "Direct database migration to S3"
+                complexity_factor = 1.0
+                setup_complexity = "Low"
+            
+            elif dest_type == 'FSx_Windows':
+                # Hybrid architecture
+                migration_description = "Database to EC2+EBS + File shares to FSx Windows"
+                complexity_factor = 1.3
+                setup_complexity = "Medium-High"
+            
+            elif dest_type == 'FSx_Lustre':
+                # HPC hybrid
+                migration_description = "Database to EC2+EBS + HPC data to FSx Lustre"
+                complexity_factor = 1.5
+                setup_complexity = "High"
+            
+            # Network path calculation
+            network_path_key = self._get_network_path_key(temp_config)
+            network_perf = self.network_manager.calculate_ai_enhanced_path_performance(network_path_key)
+            
+            # Agent configuration
+            is_homogeneous = config['source_database_engine'] == config['database_engine']
+            primary_tool = 'datasync' if is_homogeneous else 'dms'
+            agent_size = config.get('datasync_agent_size' if is_homogeneous else 'dms_agent_size', 'medium')
+            num_agents = config.get('number_of_agents', 1)
+            
+            agent_config = agent_manager.calculate_agent_configuration(
+                primary_tool, agent_size, num_agents, dest_type
+            )
+            
+            # Migration time calculation with architecture consideration
+            database_size_gb = config['database_size_gb']
+            
+            # Initialize migration_throughput variable
+            migration_throughput = 0
+            
+            if architecture['agent_targets_destination']:
+                # Direct migration
+                migration_throughput = min(agent_config['total_max_throughput_mbps'], 
+                                        network_perf['effective_bandwidth_mbps'])
+                migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
+            else:
+                # Split workload
+                db_size = database_size_gb * (architecture.get('database_percentage', 80) / 100)
+                file_size = database_size_gb * (architecture.get('file_percentage', 20) / 100)
+                
+                # Calculate throughput for each portion
+                base_throughput = min(agent_config['total_max_throughput_mbps'], 
+                                    network_perf['effective_bandwidth_mbps'])
+                
+                # Database migration throughput (no FSx multiplier)
+                db_throughput = base_throughput
+                db_migration_time = (db_size * 8 * 1000) / (db_throughput * 3600)
+                
+                # File migration throughput (with FSx multiplier if applicable)
+                file_throughput = base_throughput * agent_config.get('storage_performance_multiplier', 1.0)
+                file_migration_time = (file_size * 8 * 1000) / (file_throughput * 3600)
+                
+                # Total time (can run in parallel, so take the max)
+                migration_time_hours = max(db_migration_time, file_migration_time) * complexity_factor
+                
+                # Use the effective combined throughput for reporting
+                migration_throughput = (database_size_gb * 8 * 1000) / (migration_time_hours * 3600)
+            
+            # Cost calculation
+            base_storage_cost = database_size_gb * {
+                'S3': 0.023,
+                'FSx_Windows': 0.13,
+                'FSx_Lustre': 0.14
+            }.get(dest_type, 0.023)
+            
+            # Add EC2+EBS costs for FSx scenarios
+            if dest_type in ['FSx_Windows', 'FSx_Lustre']:
+                ec2_storage_cost = database_size_gb * 0.08  # EBS GP3 for database
+                total_storage_cost = base_storage_cost + ec2_storage_cost
+            else:
+                total_storage_cost = base_storage_cost
+            
+            comparisons[dest_type] = {
+                'destination_type': dest_type,
+                'migration_architecture': architecture,
+                'migration_description': migration_description,
+                'network_performance': network_perf,
+                'agent_configuration': agent_config,
+                'migration_throughput_mbps': migration_throughput,
+                'estimated_migration_time_hours': migration_time_hours,
+                'estimated_monthly_storage_cost': total_storage_cost,
+                'setup_complexity': setup_complexity,
+                'performance_rating': self._calculate_destination_performance_rating(dest_type, network_perf, agent_config),
+                'cost_rating': self._calculate_destination_cost_rating(dest_type, total_storage_cost),
+                'complexity_rating': setup_complexity,
+                'recommendations': self._get_corrected_destination_recommendations(dest_type, architecture, config),
+                'architecture_notes': [
+                    f"Primary tool: {agent_config['migration_architecture']['description']}",
+                    f"Architecture: {agent_config['migration_architecture']['architecture_type']}",
+                    f"Bandwidth calculation: {agent_config['migration_architecture']['bandwidth_calculation']}"
+                ]
+            }
         
-        # Cost calculation
-        base_storage_cost = database_size_gb * {
-            'S3': 0.023,
-            'FSx_Windows': 0.13,
-            'FSx_Lustre': 0.14
-        }.get(dest_type, 0.023)
-        
-        # Add EC2+EBS costs for FSx scenarios
-        if dest_type in ['FSx_Windows', 'FSx_Lustre']:
-            ec2_storage_cost = database_size_gb * 0.08  # EBS GP3 for database
-            total_storage_cost = base_storage_cost + ec2_storage_cost
-        else:
-            total_storage_cost = base_storage_cost
-        
-        comparisons[dest_type] = {
-            'destination_type': dest_type,
-            'migration_architecture': architecture,
-            'migration_description': migration_description,
-            'network_performance': network_perf,
-            'agent_configuration': agent_config,
-            'migration_throughput_mbps': migration_throughput if 'migration_throughput' in locals() else agent_config['total_max_throughput_mbps'],
-            'estimated_migration_time_hours': migration_time_hours,
-            'estimated_monthly_storage_cost': total_storage_cost,
-            'setup_complexity': setup_complexity,
-            'performance_rating': self._calculate_destination_performance_rating(dest_type, network_perf, agent_config),
-            'cost_rating': self._calculate_destination_cost_rating(dest_type, total_storage_cost),
-            'complexity_rating': setup_complexity,
-            'recommendations': self._get_corrected_destination_recommendations(dest_type, architecture, config),
-            'architecture_notes': [
-                f"Primary tool: {agent_config['migration_architecture']['description']}",
-                f"Architecture: {agent_config['migration_architecture']['architecture_type']}",
-                f"Bandwidth calculation: {agent_config['migration_architecture']['bandwidth_calculation']}"
-            ]
-        }
-    
-    return comparisons
-    
-    
-    
+        return comparisons
     def _calculate_destination_performance_rating(self, dest_type: str, network_perf: Dict, agent_config: Dict) -> str:
         """Calculate performance rating for destination type"""
         
