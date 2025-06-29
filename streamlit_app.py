@@ -61,19 +61,35 @@ def render_bandwidth_waterfall_analysis(analysis, config):
     os_impact = analysis.get('onprem_performance', {}).get('os_impact', {})
     agent_analysis = analysis.get('agent_analysis', {})
     
-    # DYNAMIC: Get actual network capacity from user's NIC selection
-    raw_network_capacity = config.get('nic_speed', 1000)  # User's actual NIC speed
+    # FIXED: Use actual network capacity from network analysis (not raw NIC speed)
+    # This already accounts for environment-based bottlenecks
+    raw_network_capacity = network_perf.get('effective_bandwidth_mbps', config.get('nic_speed', 1000))
     
-    # DYNAMIC: Step 1 - NIC Hardware Efficiency (from user's NIC type selection)
+    # Show what the actual network path limitation is
+    user_nic_speed = config.get('nic_speed', 1000)
+    environment = config.get('environment', 'non-production')
+    
+    # DYNAMIC: Step 1 - Start from actual network path capacity
+    # (This already includes any network bottlenecks like DX limitations)
+    after_network_path = raw_network_capacity
+    
+    # DYNAMIC: Step 2 - NIC Hardware Efficiency (only if NIC is the bottleneck)
     nic_type = config.get('nic_type', 'gigabit_fiber')
     nic_efficiency = get_nic_efficiency(nic_type)
-    after_nic = raw_network_capacity * nic_efficiency
     
-    # DYNAMIC: Step 2 - Operating System Network Stack (from OS manager calculation)
+    # If user's NIC is slower than network path, apply NIC limitation
+    if user_nic_speed < raw_network_capacity:
+        after_nic = user_nic_speed * nic_efficiency
+        nic_is_bottleneck = True
+    else:
+        after_nic = after_network_path * nic_efficiency
+        nic_is_bottleneck = False
+    
+    # DYNAMIC: Step 3 - Operating System Network Stack
     os_network_efficiency = os_impact.get('network_efficiency', 0.90)
     after_os = after_nic * os_network_efficiency
     
-    # DYNAMIC: Step 3 - Virtualization Impact (only if user selected VMware)
+    # DYNAMIC: Step 4 - Virtualization Impact (only if user selected VMware)
     server_type = config.get('server_type', 'physical')
     if server_type == 'vmware':
         virtualization_efficiency = 0.92  # 8% overhead for VMware
@@ -84,8 +100,7 @@ def render_bandwidth_waterfall_analysis(analysis, config):
         after_virtualization = after_os
         virt_loss_text = "No virtualization overhead"
     
-    # DYNAMIC: Step 4 - Protocol Overhead (TCP/IP, encryption, etc.)
-    # This varies based on network path and encryption requirements
+    # DYNAMIC: Step 5 - Protocol Overhead (TCP/IP, encryption, etc.)
     network_path = network_perf.get('path_name', '')
     if 'production' in network_path.lower():
         protocol_efficiency = 0.82  # More security overhead in production
@@ -93,8 +108,7 @@ def render_bandwidth_waterfall_analysis(analysis, config):
         protocol_efficiency = 0.85  # Standard overhead
     after_protocol = after_virtualization * protocol_efficiency
     
-    # DYNAMIC: Step 5 - Migration Appliance Processing (from actual agent analysis)
-    # Get the ACTUAL bottleneck and efficiency from agent analysis
+    # DYNAMIC: Step 6 - Migration Appliance Processing (from actual agent analysis)
     total_agent_capacity = agent_analysis.get('total_max_throughput_mbps', after_protocol * 0.75)
     actual_throughput = agent_analysis.get('total_effective_throughput', 0)
     
@@ -112,40 +126,53 @@ def render_bandwidth_waterfall_analysis(analysis, config):
         final_throughput = actual_throughput
         appliance_efficiency = final_throughput / after_protocol if after_protocol > 0 else 0.75
     
-    # DYNAMIC: Create waterfall data with actual user values
-    stages = ['Raw Network\nCapacity']
-    throughputs = [raw_network_capacity]
-    efficiencies = [100]
-    descriptions = [f"{raw_network_capacity:,.0f} Mbps {nic_type.replace('_', ' ')} connection"]
+    # DYNAMIC: Create waterfall data with CORRECTED starting point
+    stages = []
+    throughputs = []
+    efficiencies = []
+    descriptions = []
     
-    # Add NIC processing
-    stages.append('After NIC\nProcessing')
-    throughputs.append(after_nic)
-    efficiencies.append(nic_efficiency * 100)
-    descriptions.append(f"{nic_type.replace('_', ' ').title()} efficiency")
+    # Step 1: Network Path Capacity (corrected starting point)
+    stages.append('Network Path\nCapacity')
+    throughputs.append(raw_network_capacity)
+    efficiencies.append(100)
+    if environment == 'production':
+        descriptions.append(f"Production: Full {raw_network_capacity:,.0f} Mbps path")
+    else:
+        descriptions.append(f"Non-Prod: {raw_network_capacity:,.0f} Mbps (DX bottleneck)")
     
-    # Add OS processing
-    os_name = config.get('operating_system', 'unknown').replace('_', ' ').title()
-    stages.append(f'After OS\nNetwork Stack')
+    # Step 2: NIC Processing (only show if relevant)
+    if nic_is_bottleneck or user_nic_speed != raw_network_capacity:
+        stages.append('After NIC\nProcessing')
+        throughputs.append(after_nic)
+        efficiencies.append(nic_efficiency * 100)
+        if nic_is_bottleneck:
+            descriptions.append(f"{nic_type.replace('_', ' ').title()} NIC limitation")
+        else:
+            descriptions.append(f"{nic_type.replace('_', ' ').title()} efficiency")
+    
+    # Step 3: OS Network Stack
+    stages.append('After OS\nNetwork Stack')
     throughputs.append(after_os)
     efficiencies.append(os_network_efficiency * 100)
+    os_name = config.get('operating_system', 'unknown').replace('_', ' ').title()
     descriptions.append(f"{os_name} network stack")
     
-    # Add virtualization (only if VMware)
+    # Step 4: Virtualization (only if VMware)
     if server_type == 'vmware':
         stages.append('After VMware\nVirtualization')
         throughputs.append(after_virtualization)
         efficiencies.append(virtualization_efficiency * 100)
         descriptions.append('VMware hypervisor overhead')
     
-    # Add protocol overhead
+    # Step 5: Protocol Overhead
     env_type = config.get('environment', 'non-production')
     stages.append('After Protocol\nOverhead')
     throughputs.append(after_protocol)
     efficiencies.append(protocol_efficiency * 100)
     descriptions.append(f"{env_type.title()} security protocols")
     
-    # Add migration appliance
+    # Step 6: Migration Appliance
     tool_name = agent_analysis.get('primary_tool', 'DMS').upper()
     num_agents = config.get('number_of_agents', 1)
     stages.append(f'Final Migration\nThroughput')
@@ -165,7 +192,7 @@ def render_bandwidth_waterfall_analysis(analysis, config):
         waterfall_data,
         x='Stage',
         y='Throughput (Mbps)',
-        title=f"Bandwidth Analysis: {raw_network_capacity:,.0f} Mbps → {final_throughput:.0f} Mbps ({server_type.title()}, {os_name})",
+        title=f"Bandwidth Analysis: {raw_network_capacity:,.0f} Mbps → {final_throughput:.0f} Mbps ({environment.title()}, {os_name})",
         color='Efficiency',
         color_continuous_scale='RdYlGn',
         text='Throughput (Mbps)',
@@ -194,7 +221,7 @@ def render_bandwidth_waterfall_analysis(analysis, config):
     
     st.plotly_chart(fig, use_container_width=True)
     
-    # DYNAMIC Summary with actual user configuration
+    # ENHANCED Summary with corrected analysis
     total_loss = raw_network_capacity - final_throughput
     total_loss_pct = (total_loss / raw_network_capacity) * 100
     
@@ -208,13 +235,20 @@ def render_bandwidth_waterfall_analysis(analysis, config):
     bottleneck_analysis.sort(key=lambda x: x[1], reverse=True)
     biggest_bottleneck = bottleneck_analysis[0][0] if bottleneck_analysis else "None identified"
     
+    # Enhanced summary with network path context
+    if environment == 'production':
+        network_context = "Full 10Gbps production path (no network bottleneck)"
+    else:
+        network_context = "2Gbps Direct Connect bottleneck in non-production"
+    
     st.error(f"""
     📉 **Performance Impact Summary for Your Configuration:**
-    • **Started with:** {raw_network_capacity:,.0f} Mbps ({nic_type.replace('_', ' ')} {server_type})
+    • **Network Path Limitation:** {raw_network_capacity:,.0f} Mbps ({network_context})
+    • **Your NIC Capacity:** {user_nic_speed:,.0f} Mbps ({nic_type.replace('_', ' ')})
     • **Final migration throughput:** {final_throughput:.0f} Mbps ({num_agents}x {tool_name} agents)
     • **Total performance loss:** {total_loss:.0f} Mbps ({total_loss_pct:.1f}%)
-    • **Biggest bottleneck:** {biggest_bottleneck.replace('\n', ' ')}
-    • **Key insight:** Plan migration timelines using the **{final_throughput:.0f} Mbps actual throughput**, not the network capacity
+    • **Primary bottleneck:** {biggest_bottleneck.replace('\n', ' ')}
+    • **Key insight:** Plan migration timelines using the **{final_throughput:.0f} Mbps actual throughput**
     """)
     
     return final_throughput
