@@ -25,6 +25,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 import seaborn as sns
 
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,6 +38,234 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Add this function right after the imports and before any classes
+def get_nic_efficiency(nic_type):
+    """Get NIC efficiency based on type"""
+    efficiencies = {
+        'gigabit_copper': 0.85,
+        'gigabit_fiber': 0.90,
+        '10g_copper': 0.88, 
+        '10g_fiber': 0.92,
+        '25g_fiber': 0.94,
+        '40g_fiber': 0.95
+    }
+    return efficiencies.get(nic_type, 0.90)
+
+def render_bandwidth_waterfall_analysis(analysis, config):
+    """Show complete bandwidth degradation from network to final throughput"""
+    st.markdown("**🌊 Bandwidth Waterfall Analysis: Why Network Capacity ≠ Migration Throughput**")
+    
+    # Get all the performance factors
+    network_perf = analysis.get('network_performance', {})
+    os_impact = analysis.get('onprem_performance', {}).get('os_impact', {})
+    agent_analysis = analysis.get('agent_analysis', {})
+    
+    # Step-by-step bandwidth calculation
+    raw_network_capacity = network_perf.get('effective_bandwidth_mbps', 2000)
+    
+    # Step 1: NIC Impact
+    nic_type = config.get('nic_type', 'gigabit_fiber')
+    nic_efficiency = get_nic_efficiency(nic_type)
+    after_nic = raw_network_capacity * nic_efficiency
+    
+    # Step 2: Operating System Network Stack Impact  
+    os_network_efficiency = os_impact.get('network_efficiency', 0.90)
+    after_os = after_nic * os_network_efficiency
+    
+    # Step 3: Virtualization Impact (if applicable)
+    if config.get('server_type') == 'vmware':
+        virtualization_penalty = 0.92  # 8% overhead
+        after_virtualization = after_os * virtualization_penalty
+    else:
+        virtualization_penalty = 1.0
+        after_virtualization = after_os
+    
+    # Step 4: Protocol Overhead (TCP/IP, encryption, etc.)
+    protocol_efficiency = 0.85  # Typical TCP overhead
+    after_protocol = after_virtualization * protocol_efficiency
+    
+    # Step 5: DMS/DataSync Appliance Processing
+    appliance_efficiency = 0.75  # DMS/DataSync processing overhead
+    final_throughput = after_protocol * appliance_efficiency
+    
+    # Create waterfall visualization
+    waterfall_data = {
+        'Stage': [
+            'Raw Network\nCapacity',
+            'After NIC\nProcessing', 
+            'After OS\nNetwork Stack',
+            'After Virtualization\n(if applicable)',
+            'After Protocol\nOverhead',
+            'Final Migration\nThroughput'
+        ],
+        'Throughput (Mbps)': [
+            raw_network_capacity,
+            after_nic,
+            after_os, 
+            after_virtualization,
+            after_protocol,
+            final_throughput
+        ],
+        'Efficiency': [
+            100,
+            nic_efficiency * 100,
+            os_network_efficiency * 100,
+            virtualization_penalty * 100,
+            protocol_efficiency * 100,
+            appliance_efficiency * 100
+        ]
+    }
+    
+    fig = px.bar(
+        waterfall_data,
+        x='Stage',
+        y='Throughput (Mbps)',
+        title="Complete Bandwidth Degradation Analysis",
+        color='Efficiency',
+        color_continuous_scale='RdYlGn',
+        text='Throughput (Mbps)'
+    )
+    
+    # Update layout for better readability
+    fig.update_traces(texttemplate='%{text:.0f} Mbps', textposition='outside')
+    fig.update_layout(height=500)
+    
+    # Add efficiency percentages as annotations
+    for i, (stage, throughput, eff) in enumerate(zip(waterfall_data['Stage'], waterfall_data['Throughput (Mbps)'], waterfall_data['Efficiency'])):
+        if i > 0:  # Skip first stage
+            loss = waterfall_data['Throughput (Mbps)'][i-1] - throughput
+            if loss > 0:
+                fig.add_annotation(
+                    x=i, y=throughput + (raw_network_capacity * 0.05),
+                    text=f"-{loss:.0f} Mbps<br>({100-eff:.1f}% loss)",
+                    showarrow=True,
+                    arrowcolor="red",
+                    arrowhead=2,
+                    bgcolor="rgba(255,255,255,0.8)",
+                    bordercolor="red",
+                    font=dict(size=10)
+                )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Summary explanation
+    total_loss = raw_network_capacity - final_throughput
+    total_loss_pct = (total_loss / raw_network_capacity) * 100
+    
+    st.error(f"""
+    📉 **Performance Impact Summary:**
+    • **Started with:** {raw_network_capacity:,.0f} Mbps raw network capacity
+    • **Final migration throughput:** {final_throughput:.0f} Mbps  
+    • **Total performance loss:** {total_loss:.0f} Mbps ({total_loss_pct:.1f}%)
+    • **Key insight:** Plan migration timelines using the **{final_throughput:.0f} Mbps actual throughput**, not the network capacity
+    """)
+    
+    return final_throughput
+
+def render_performance_impact_table(analysis, config):
+    """Detailed table showing each performance impact layer"""
+    
+    st.markdown("**📊 Detailed Performance Impact Analysis:**")
+    
+    # Calculate each layer
+    base_bandwidth = analysis.get('network_performance', {}).get('effective_bandwidth_mbps', 2000)
+    
+    impact_data = []
+    running_throughput = base_bandwidth
+    
+    # Layer 1: Raw Network
+    impact_data.append({
+        'Layer': '🌐 Raw Network Capacity',
+        'Component': f"{config.get('nic_speed', 2000)} Mbps connection",
+        'Throughput (Mbps)': f"{running_throughput:.0f}",
+        'Efficiency (%)': "100.0%",
+        'Loss (Mbps)': "0",
+        'Impact Type': 'Baseline'
+    })
+    
+    # Layer 2: NIC Hardware
+    nic_efficiency = get_nic_efficiency(config.get('nic_type', '10g_fiber'))
+    nic_loss = running_throughput * (1 - nic_efficiency)
+    running_throughput *= nic_efficiency
+    
+    impact_data.append({
+        'Layer': '🔌 NIC Hardware',
+        'Component': config.get('nic_type', '10g_fiber').replace('_', ' ').title(),
+        'Throughput (Mbps)': f"{running_throughput:.0f}",
+        'Efficiency (%)': f"{nic_efficiency * 100:.1f}%",
+        'Loss (Mbps)': f"{nic_loss:.0f}",
+        'Impact Type': 'Hardware Limitation'
+    })
+    
+    # Layer 3: Operating System
+    os_efficiency = analysis.get('onprem_performance', {}).get('os_impact', {}).get('network_efficiency', 0.90)
+    os_loss = running_throughput * (1 - os_efficiency)
+    running_throughput *= os_efficiency
+    
+    impact_data.append({
+        'Layer': '💻 OS Network Stack',
+        'Component': config.get('operating_system', 'Unknown'),
+        'Throughput (Mbps)': f"{running_throughput:.0f}",
+        'Efficiency (%)': f"{os_efficiency * 100:.1f}%",
+        'Loss (Mbps)': f"{os_loss:.0f}",
+        'Impact Type': 'Software Overhead'
+    })
+    
+    # Layer 4: Virtualization (if applicable)
+    if config.get('server_type') == 'vmware':
+        virt_efficiency = 0.92
+        virt_loss = running_throughput * (1 - virt_efficiency)
+        running_throughput *= virt_efficiency
+        
+        impact_data.append({
+            'Layer': '☁️ Virtualization',
+            'Component': 'VMware hypervisor overhead',
+            'Throughput (Mbps)': f"{running_throughput:.0f}",
+            'Efficiency (%)': f"{virt_efficiency * 100:.1f}%",
+            'Loss (Mbps)': f"{virt_loss:.0f}",
+            'Impact Type': 'Virtualization Overhead'
+        })
+    
+    # Layer 5: Protocol Overhead
+    protocol_efficiency = 0.85
+    protocol_loss = running_throughput * (1 - protocol_efficiency)
+    running_throughput *= protocol_efficiency
+    
+    impact_data.append({
+        'Layer': '🔗 Protocol Overhead',
+        'Component': 'TCP/IP, encryption, compression',
+        'Throughput (Mbps)': f"{running_throughput:.0f}",
+        'Efficiency (%)': f"{protocol_efficiency * 100:.1f}%",
+        'Loss (Mbps)': f"{protocol_loss:.0f}",
+        'Impact Type': 'Protocol Processing'
+    })
+    
+    # Layer 6: Migration Appliance
+    appliance_efficiency = 0.75  # DMS/DataSync processing
+    appliance_loss = running_throughput * (1 - appliance_efficiency)
+    final_running_throughput = running_throughput * appliance_efficiency
+    
+    impact_data.append({
+        'Layer': '🤖 Migration Appliance',
+        'Component': f"{analysis.get('primary_tool', 'DMS').upper()} processing overhead",
+        'Throughput (Mbps)': f"{final_running_throughput:.0f}",
+        'Efficiency (%)': f"{appliance_efficiency * 100:.1f}%",
+        'Loss (Mbps)': f"{appliance_loss:.0f}",
+        'Impact Type': 'Application Processing'
+    })
+    
+    # Create DataFrame and display
+    df_impact = pd.DataFrame(impact_data)
+    st.dataframe(df_impact, use_container_width=True)
+    
+    # Summary
+    total_loss = base_bandwidth - final_running_throughput
+    total_loss_pct = (total_loss / base_bandwidth) * 100
+    
+    st.info(f"""
+    💡 **Key Takeaway:** Each layer in your network stack reduces performance. The biggest impact comes from the migration appliance processing overhead, followed by protocol and OS overhead.
+    """)
 
 # Professional CSS styling with corporate colors
 st.markdown("""
@@ -2230,6 +2460,8 @@ async def comprehensive_ai_migration_analysis(self, config: Dict) -> Dict:
             'ai_insights': os_config['ai_insights'],
             'platform_optimization': 1.02 if platform_type == 'physical' and 'windows' in os_type else 1.05 if platform_type == 'physical' else 1.0
         }
+
+
 
 class EnhancedNetworkIntelligenceManager:
     """AI-powered network path intelligence with enhanced analysis including FSx destinations"""
@@ -6895,11 +7127,12 @@ def render_agent_scaling_tab(analysis, config):
             delta=f"Multiplier: {agent_analysis.get('storage_performance_multiplier', 1.0):.1f}x"
         )
     
+    # FIND THIS SECTION in render_agent_scaling_tab() and REPLACE the throughput metric:
     with col3:
         st.metric(
-            "⚡ Total Throughput",
-            f"{agent_analysis.get('total_max_throughput_mbps', 0):,.0f} Mbps",
-            delta=f"Effective: {agent_analysis.get('total_effective_throughput', 0):,.0f} Mbps"
+            "⚡ Actual Migration Throughput",  # Changed from "Total Throughput"
+            f"{agent_analysis.get('total_effective_throughput', 0):,.0f} Mbps",
+            delta=f"vs {analysis.get('network_performance', {}).get('effective_bandwidth_mbps', 0):,.0f} Mbps network capacity"
         )
     
     with col4:
@@ -6915,6 +7148,34 @@ def render_agent_scaling_tab(analysis, config):
             f"${agent_analysis.get('monthly_cost', 0):,.0f}",
             delta=f"${agent_analysis.get('cost_per_hour', 0):.2f}/hour"
         )
+    
+    # ADD THIS AFTER THE EXISTING 5-COLUMN METRICS SECTION in render_agent_scaling_tab()
+
+    # Enhanced warning about bandwidth vs throughput
+    network_perf = analysis.get('network_performance', {})
+    agent_analysis = analysis.get('agent_analysis', {})
+
+    if network_perf.get('effective_bandwidth_mbps', 0) > agent_analysis.get('total_effective_throughput', 0):
+        network_bw = network_perf.get('effective_bandwidth_mbps', 0)
+        actual_throughput = agent_analysis.get('total_effective_throughput', 0)
+        
+        st.warning(f"""
+        ⚠️ **Why Network Intelligence Shows {network_bw:,.0f} Mbps But Agents Only Achieve {actual_throughput:,.0f} Mbps**
+
+        🔍 **Complete Performance Stack Impact:**
+        1. **Raw Network:** {config.get('nic_speed', 2000):,.0f} Mbps (your connection capacity)
+        2. **NIC Hardware:** -{(1-get_nic_efficiency(config.get('nic_type', '10g_fiber')))*100:.0f}% efficiency loss ({config.get('nic_type', '10g_fiber').replace('_', ' ')})
+        3. **OS Network Stack:** -{(1-analysis.get('onprem_performance', {}).get('os_impact', {}).get('network_efficiency', 0.9))*100:.0f}% efficiency loss ({config.get('operating_system', 'Unknown')})
+        4. **Virtualization:** {'-8%' if config.get('server_type') == 'vmware' else 'No impact'} ({'VMware overhead' if config.get('server_type') == 'vmware' else 'Physical server'})
+        5. **Protocol Overhead:** -15% (TCP/IP, encryption, compression)
+        6. **{analysis.get('primary_tool', 'DMS').upper()} Appliance:** -25% (migration tool processing overhead)
+
+        💡 **Bottom Line:** Each layer reduces performance. Plan migration timelines using the **{actual_throughput:,.0f} Mbps final throughput**, not the raw network capacity.
+        
+        📊 **See the Network Intelligence tab for detailed bandwidth waterfall analysis.**
+        """)
+    
+    
     
     # Agent Configuration Details with Storage Impact
     col1, col2 = st.columns(2)
@@ -8324,11 +8585,12 @@ def render_network_intelligence_tab(analysis: Dict, config: Dict):
             delta=f"AI Enhanced: {network_perf.get('ai_enhanced_quality_score', 0):.1f}"
         )
     
+    # FIND THIS SECTION in render_network_intelligence_tab() and REPLACE the bandwidth metric:
     with col2:
         st.metric(
-            "⚡ Effective Bandwidth",
+            "🌐 Network Capacity",  # Changed from "Effective Bandwidth"
             f"{network_perf.get('effective_bandwidth_mbps', 0):,.0f} Mbps",
-            delta=f"Utilization: {min(100, network_perf.get('effective_bandwidth_mbps', 0) / 10000 * 100):.1f}%"
+            delta="Raw network limit (not migration speed)"  # Added context
         )
     
     with col3:
@@ -8352,6 +8614,16 @@ def render_network_intelligence_tab(analysis: Dict, config: Dict):
             f"{ai_optimization:.1f}%",
             delta="Improvement potential"
         )
+    
+    # ADD THIS AFTER THE EXISTING 5-COLUMN METRICS SECTION in render_network_intelligence_tab()
+
+    # Add bandwidth waterfall analysis
+    st.markdown("---")  # Add separator
+    render_bandwidth_waterfall_analysis(analysis, config)
+
+    st.markdown("---")  # Add separator  
+    render_performance_impact_table(analysis, config)
+    
     
     # Network Path Visualization
     st.markdown("**🗺️ Network Path Visualization:**")
@@ -9542,7 +9814,6 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
-
 
 
 
