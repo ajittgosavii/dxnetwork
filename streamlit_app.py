@@ -5173,6 +5173,199 @@ def render_enhanced_sidebar_controls():
     
     st.sidebar.header("🤖 AI-Powered Migration Configuration v3.0 with FSx Analysis")
     
+    # Enhanced Target Database Selection with EC2 Options
+    database_engine = st.sidebar.selectbox(
+        "Target Database (AWS)",
+        [
+            # RDS Managed Services
+            "rds_mysql", "rds_postgresql", "rds_oracle", "rds_sqlserver", "rds_mongodb",
+            
+            # EC2 Instance Types for Self-Managed Databases
+            "ec2_t3_medium", "ec2_t3_large", "ec2_t3_xlarge", "ec2_t3_2xlarge",
+            "ec2_c5_large", "ec2_c5_xlarge", "ec2_c5_2xlarge", "ec2_c5_4xlarge",
+            "ec2_r6i_large", "ec2_r6i_xlarge", "ec2_r6i_2xlarge", "ec2_r6i_4xlarge", "ec2_r6i_8xlarge",
+            "ec2_m5_large", "ec2_m5_xlarge", "ec2_m5_2xlarge", "ec2_m5_4xlarge",
+            "ec2_x1e_xlarge", "ec2_x1e_2xlarge", "ec2_x1e_4xlarge",  # Memory optimized
+            "ec2_i3_large", "ec2_i3_xlarge", "ec2_i3_2xlarge"  # Storage optimized
+        ],
+        index=0,  # Default to RDS MySQL
+        format_func=lambda x: {
+            # RDS Managed Services
+            'rds_mysql': '☁️ RDS MySQL (Managed)',
+            'rds_postgresql': '☁️ RDS PostgreSQL (Managed)', 
+            'rds_oracle': '☁️ RDS Oracle (Managed)',
+            'rds_sqlserver': '☁️ RDS SQL Server (Managed)', 
+            'rds_mongodb': '☁️ DocumentDB (Managed)',
+            
+            # EC2 General Purpose
+            'ec2_t3_medium': '🖥️ EC2 t3.medium (2 vCPU, 4GB) - Burstable',
+            'ec2_t3_large': '🖥️ EC2 t3.large (2 vCPU, 8GB) - Burstable',
+            'ec2_t3_xlarge': '🖥️ EC2 t3.xlarge (4 vCPU, 16GB) - Burstable',
+            'ec2_t3_2xlarge': '🖥️ EC2 t3.2xlarge (8 vCPU, 32GB) - Burstable',
+            
+            # EC2 Compute Optimized
+            'ec2_c5_large': '⚡ EC2 c5.large (2 vCPU, 4GB) - Compute Optimized',
+            'ec2_c5_xlarge': '⚡ EC2 c5.xlarge (4 vCPU, 8GB) - Compute Optimized',
+            'ec2_c5_2xlarge': '⚡ EC2 c5.2xlarge (8 vCPU, 16GB) - Compute Optimized',
+            'ec2_c5_4xlarge': '⚡ EC2 c5.4xlarge (16 vCPU, 32GB) - Compute Optimized',
+            
+            # EC2 Memory Optimized
+            'ec2_r6i_large': '🧠 EC2 r6i.large (2 vCPU, 16GB) - Memory Optimized',
+            'ec2_r6i_xlarge': '🧠 EC2 r6i.xlarge (4 vCPU, 32GB) - Memory Optimized',
+            'ec2_r6i_2xlarge': '🧠 EC2 r6i.2xlarge (8 vCPU, 64GB) - Memory Optimized',
+            'ec2_r6i_4xlarge': '🧠 EC2 r6i.4xlarge (16 vCPU, 128GB) - Memory Optimized',
+            'ec2_r6i_8xlarge': '🧠 EC2 r6i.8xlarge (32 vCPU, 256GB) - Memory Optimized',
+            
+            # EC2 General Purpose (M5)
+            'ec2_m5_large': '🔵 EC2 m5.large (2 vCPU, 8GB) - General Purpose',
+            'ec2_m5_xlarge': '🔵 EC2 m5.xlarge (4 vCPU, 16GB) - General Purpose',
+            'ec2_m5_2xlarge': '🔵 EC2 m5.2xlarge (8 vCPU, 32GB) - General Purpose',
+            'ec2_m5_4xlarge': '🔵 EC2 m5.4xlarge (16 vCPU, 64GB) - General Purpose',
+            
+            # EC2 High Memory
+            'ec2_x1e_xlarge': '🔥 EC2 x1e.xlarge (4 vCPU, 122GB) - High Memory',
+            'ec2_x1e_2xlarge': '🔥 EC2 x1e.2xlarge (8 vCPU, 244GB) - High Memory',
+            'ec2_x1e_4xlarge': '🔥 EC2 x1e.4xlarge (16 vCPU, 488GB) - High Memory',
+            
+            # EC2 Storage Optimized
+            'ec2_i3_large': '💾 EC2 i3.large (2 vCPU, 15.25GB) + NVMe SSD',
+            'ec2_i3_xlarge': '💾 EC2 i3.xlarge (4 vCPU, 30.5GB) + NVMe SSD',
+            'ec2_i3_2xlarge': '💾 EC2 i3.2xlarge (8 vCPU, 61GB) + NVMe SSD'
+        }[x],
+        help="Select target AWS service: RDS (managed) or EC2 instance type (self-managed)"
+    )
+    
+    # Show deployment type indicator with enhanced logic
+    if database_engine.startswith('rds_'):
+        deployment_type = "🟢 Managed Service (RDS/DocumentDB)"
+        engine_name = database_engine.replace('rds_', '').upper()
+        management_complexity = "Low"
+    else:
+        deployment_type = "🟡 Self-Managed (EC2)"
+        engine_name = database_engine.replace('ec2_', '').upper()
+        management_complexity = "High"
+    
+    st.sidebar.info(f"**Deployment:** {deployment_type}")
+    st.sidebar.info(f"**Instance:** {engine_name}")
+    st.sidebar.info(f"**Management:** {management_complexity}")
+    
+    # Show migration type with enhanced logic
+    source_db_type = config['source_database_engine']
+    target_db_type = database_engine.split('_')[1] if '_' in database_engine else database_engine
+    
+    # Check if source and target database engines match
+    is_homogeneous = source_db_type == target_db_type or (
+        source_db_type == 'mongodb' and 'mongodb' in database_engine
+    )
+    
+    migration_type_indicator = "🟢 Homogeneous" if is_homogeneous else "🟡 Heterogeneous"
+    st.sidebar.info(f"**Migration Type:** {migration_type_indicator}")
+    
+    # Enhanced migration complexity assessment
+    complexity_factors = []
+    base_complexity = 1
+    
+    # Database engine complexity
+    if not is_homogeneous:
+        complexity_factors.append("Different database engines")
+        base_complexity += 2
+    
+    # Deployment complexity
+    if database_engine.startswith('ec2_'):
+        complexity_factors.append("Self-managed deployment")
+        base_complexity += 1
+    
+    # Instance type complexity
+    if 'x1e' in database_engine:
+        complexity_factors.append("High-memory instance configuration")
+        base_complexity += 0.5
+    elif 'i3' in database_engine:
+        complexity_factors.append("Storage-optimized instance setup")
+        base_complexity += 0.5
+    
+    migration_complexity = min(10, base_complexity)
+    
+    with st.sidebar.expander("📊 Migration Complexity Analysis"):
+        st.write(f"**Complexity Score:** {migration_complexity:.1f}/10")
+        st.write(f"**Factors:**")
+        for factor in complexity_factors:
+            st.write(f"• {factor}")
+        if not complexity_factors:
+            st.write("• Standard migration complexity")
+    
+    # Enhanced instance recommendations based on selection
+    if database_engine.startswith('ec2_'):
+        with st.sidebar.expander("💡 EC2 Instance Insights"):
+            instance_type = database_engine.replace('ec2_', '')
+            
+            instance_recommendations = {
+                't3_medium': {
+                    'best_for': 'Development/testing environments',
+                    'workload': 'Light to moderate workloads',
+                    'cost_efficiency': 'Excellent',
+                    'performance': 'Burstable - good for variable workloads'
+                },
+                't3_large': {
+                    'best_for': 'Small production databases',
+                    'workload': 'Moderate workloads with burst capability',
+                    'cost_efficiency': 'Very Good',
+                    'performance': 'Burstable - handles traffic spikes well'
+                },
+                'c5_large': {
+                    'best_for': 'CPU-intensive database operations',
+                    'workload': 'High-frequency transactions',
+                    'cost_efficiency': 'Good',
+                    'performance': 'Consistent high CPU performance'
+                },
+                'r6i_large': {
+                    'best_for': 'Memory-intensive databases',
+                    'workload': 'Large datasets, caching',
+                    'cost_efficiency': 'Good',
+                    'performance': 'Excellent for memory-bound workloads'
+                },
+                'x1e_xlarge': {
+                    'best_for': 'Very large in-memory databases',
+                    'workload': 'Analytics, big data processing',
+                    'cost_efficiency': 'Specialized use case',
+                    'performance': 'Exceptional memory capacity'
+                },
+                'i3_large': {
+                    'best_for': 'High I/O database applications',
+                    'workload': 'Database workloads requiring high IOPS',
+                    'cost_efficiency': 'Good for storage-intensive apps',
+                    'performance': 'Very high storage performance'
+                }
+            }
+            
+            # Find matching recommendation
+            rec = None
+            for key, value in instance_recommendations.items():
+                if key in instance_type:
+                    rec = value
+                    break
+            
+            if rec:
+                st.write(f"**Best For:** {rec['best_for']}")
+                st.write(f"**Workload:** {rec['workload']}")
+                st.write(f"**Cost Efficiency:** {rec['cost_efficiency']}")
+                st.write(f"**Performance:** {rec['performance']}")
+            else:
+                st.write("**General Purpose:** Suitable for most database workloads")
+                st.write("**Performance:** Depends on specific instance specifications")
+    
+    # Return enhanced configuration
+    return {
+        # ... (other config parameters) ...
+        'database_engine': database_engine,
+        'deployment_type': 'managed' if database_engine.startswith('rds_') else 'self_managed',
+        'instance_type': database_engine if database_engine.startswith('ec2_') else None,
+        'migration_complexity_score': migration_complexity,
+        'is_homogeneous': is_homogeneous,
+        # ... (rest of the configuration) ...
+    }
+
+ 
+    
     # Render API status
     render_api_status_sidebar()
     
@@ -5476,6 +5669,138 @@ def render_enhanced_sidebar_controls():
         'anticipated_max_memory_gb': anticipated_max_memory_gb,
         'anticipated_max_cpu_cores': anticipated_max_cpu_cores
     }
+
+# Enhanced AWS sizing function to handle EC2 instance selections
+def enhanced_aws_sizing_with_ec2_support(config: Dict):
+    """Enhanced AWS sizing that properly handles both RDS and specific EC2 instance selections"""
+    
+    database_engine = config['database_engine']
+    
+    if database_engine.startswith('rds_'):
+        # Use existing RDS sizing logic
+        return calculate_rds_sizing(config)
+    
+    elif database_engine.startswith('ec2_'):
+        # Enhanced EC2 sizing for specific instance types
+        return calculate_ec2_sizing_with_instance_type(config)
+    
+    else:
+        # Fallback to general EC2 sizing
+        return calculate_general_ec2_sizing(config)
+
+
+def calculate_ec2_sizing_with_instance_type(config: Dict):
+    """Calculate sizing for specific EC2 instance types"""
+    
+    selected_instance = config['database_engine']
+    instance_type = selected_instance.replace('ec2_', '')
+    
+    # Define instance specifications
+    ec2_specs = {
+        't3.medium': {'vcpu': 2, 'memory': 4, 'cost_per_hour': 0.0416, 'category': 'burstable'},
+        't3.large': {'vcpu': 2, 'memory': 8, 'cost_per_hour': 0.0832, 'category': 'burstable'},
+        't3.xlarge': {'vcpu': 4, 'memory': 16, 'cost_per_hour': 0.1664, 'category': 'burstable'},
+        't3.2xlarge': {'vcpu': 8, 'memory': 32, 'cost_per_hour': 0.3328, 'category': 'burstable'},
+        
+        'c5.large': {'vcpu': 2, 'memory': 4, 'cost_per_hour': 0.085, 'category': 'compute_optimized'},
+        'c5.xlarge': {'vcpu': 4, 'memory': 8, 'cost_per_hour': 0.17, 'category': 'compute_optimized'},
+        'c5.2xlarge': {'vcpu': 8, 'memory': 16, 'cost_per_hour': 0.34, 'category': 'compute_optimized'},
+        'c5.4xlarge': {'vcpu': 16, 'memory': 32, 'cost_per_hour': 0.68, 'category': 'compute_optimized'},
+        
+        'r6i.large': {'vcpu': 2, 'memory': 16, 'cost_per_hour': 0.252, 'category': 'memory_optimized'},
+        'r6i.xlarge': {'vcpu': 4, 'memory': 32, 'cost_per_hour': 0.504, 'category': 'memory_optimized'},
+        'r6i.2xlarge': {'vcpu': 8, 'memory': 64, 'cost_per_hour': 1.008, 'category': 'memory_optimized'},
+        'r6i.4xlarge': {'vcpu': 16, 'memory': 128, 'cost_per_hour': 2.016, 'category': 'memory_optimized'},
+        'r6i.8xlarge': {'vcpu': 32, 'memory': 256, 'cost_per_hour': 4.032, 'category': 'memory_optimized'},
+        
+        'm5.large': {'vcpu': 2, 'memory': 8, 'cost_per_hour': 0.096, 'category': 'general_purpose'},
+        'm5.xlarge': {'vcpu': 4, 'memory': 16, 'cost_per_hour': 0.192, 'category': 'general_purpose'},
+        'm5.2xlarge': {'vcpu': 8, 'memory': 32, 'cost_per_hour': 0.384, 'category': 'general_purpose'},
+        'm5.4xlarge': {'vcpu': 16, 'memory': 64, 'cost_per_hour': 0.768, 'category': 'general_purpose'},
+        
+        'x1e.xlarge': {'vcpu': 4, 'memory': 122, 'cost_per_hour': 0.834, 'category': 'high_memory'},
+        'x1e.2xlarge': {'vcpu': 8, 'memory': 244, 'cost_per_hour': 1.668, 'category': 'high_memory'},
+        'x1e.4xlarge': {'vcpu': 16, 'memory': 488, 'cost_per_hour': 3.336, 'category': 'high_memory'},
+        
+        'i3.large': {'vcpu': 2, 'memory': 15.25, 'cost_per_hour': 0.156, 'category': 'storage_optimized'},
+        'i3.xlarge': {'vcpu': 4, 'memory': 30.5, 'cost_per_hour': 0.312, 'category': 'storage_optimized'},
+        'i3.2xlarge': {'vcpu': 8, 'memory': 61, 'cost_per_hour': 0.624, 'category': 'storage_optimized'}
+    }
+    
+    instance_spec = ec2_specs.get(instance_type, ec2_specs['t3.medium'])
+    
+    # Calculate storage requirements
+    database_size_gb = config['database_size_gb']
+    storage_multiplier = 2.0  # Extra space for EC2 self-managed
+    storage_size_gb = max(database_size_gb * storage_multiplier, 100)
+    
+    # Storage type recommendation based on instance category
+    if instance_spec['category'] == 'storage_optimized':
+        storage_type = 'io2'
+    elif instance_spec['category'] in ['compute_optimized', 'high_memory']:
+        storage_type = 'gp3'
+    else:
+        storage_type = 'gp3'
+    
+    # Calculate costs
+    instance_cost = instance_spec['cost_per_hour'] * 24 * 30
+    storage_cost = storage_size_gb * 0.08  # GP3 pricing
+    
+    return {
+        'deployment_type': 'ec2',
+        'selected_instance': instance_type,
+        'instance_specs': instance_spec,
+        'storage_type': storage_type,
+        'storage_size_gb': storage_size_gb,
+        'monthly_instance_cost': instance_cost,
+        'monthly_storage_cost': storage_cost,
+        'total_monthly_cost': instance_cost + storage_cost,
+        'instance_category': instance_spec['category'],
+        'management_complexity': 'high',
+        'scaling_capability': 'manual',
+        'backup_strategy': 'custom_implementation_required',
+        'monitoring_setup': 'cloudwatch_custom_metrics',
+        'os_licensing_required': True,
+        'database_software_licensing': 'customer_managed'
+    }
+
+
+# Enhanced display function for the new options
+def display_enhanced_target_selection(config: Dict):
+    """Display enhanced information about the selected target"""
+    
+    database_engine = config['database_engine']
+    
+    if database_engine.startswith('rds_'):
+        st.success("🌟 **Managed Service Selected**")
+        st.write("✅ Automated backups and patching")
+        st.write("✅ Built-in monitoring and alerting") 
+        st.write("✅ Automatic scaling capabilities")
+        st.write("✅ Managed security and compliance")
+        
+    elif database_engine.startswith('ec2_'):
+        instance_type = database_engine.replace('ec2_', '')
+        st.warning("🔧 **Self-Managed Instance Selected**")
+        st.write(f"🖥️ Instance Type: {instance_type}")
+        st.write("⚠️ Manual backup configuration required")
+        st.write("⚠️ Custom monitoring setup needed")
+        st.write("⚠️ Manual scaling and maintenance")
+        st.write("⚠️ OS and database licensing considerations")
+        
+        # Show instance-specific considerations
+        if 't3' in instance_type:
+            st.info("💡 **Burstable Performance**: Great for variable workloads")
+        elif 'c5' in instance_type:
+            st.info("⚡ **Compute Optimized**: Ideal for CPU-intensive databases")
+        elif 'r6i' in instance_type:
+            st.info("🧠 **Memory Optimized**: Perfect for memory-intensive workloads")
+        elif 'x1e' in instance_type:
+            st.info("🔥 **High Memory**: Designed for very large in-memory databases")
+        elif 'i3' in instance_type:
+            st.info("💾 **Storage Optimized**: High IOPS for storage-intensive applications")
+
+
+
 
 def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
     """Render FSx destination comparison analysis tab using native Streamlit components"""
