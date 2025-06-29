@@ -7599,6 +7599,17 @@ def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
     """Render enhanced AI insights and analysis tab using native Streamlit components"""
     st.subheader("🧠 AI-Powered Migration Insights & Analysis")
     
+    # Guard clause to handle None or invalid analysis
+    if analysis is None:
+        analysis = {}
+    if config is None:
+        config = {}
+    
+    # Ensure analysis is a dictionary
+    if not isinstance(analysis, dict):
+        st.error("Invalid analysis data provided. Please check your data source.")
+        return
+    
     ai_analysis = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {})
     ai_assessment = analysis.get('ai_overall_assessment', {})
     
@@ -7895,7 +7906,6 @@ def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
     with st.expander("🔍 Raw AI Analysis Response", expanded=False):
         raw_response = ai_analysis.get('raw_ai_response', 'No raw AI response available')
         st.text_area("AI Analysis Details", raw_response, height=200, help="Complete AI analysis response for technical review")
-
 
 
 
