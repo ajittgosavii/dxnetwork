@@ -7448,6 +7448,8 @@ END OF REPORT
 def create_fallback_analysis_with_proper_readers_writers(config):
     """Create fallback analysis with proper reader/writer configuration and complete AWS sizing recommendations"""
     
+    from datetime import datetime
+    
     # Extract actual database engine for homogeneous check
     source_engine = config['source_database_engine']
     
@@ -7601,7 +7603,387 @@ def create_fallback_analysis_with_proper_readers_writers(config):
     
     recommended_deployment = 'rds' if rds_score > ec2_score else 'ec2'
     confidence = abs(rds_score - ec2_score) / max(rds_score, ec2_score)
-# Add this function after the PDFReportGenerator class and before the render_network_intelligence_tab function
+    
+    # Get both RDS and EC2 sizing
+    rds_sizing = get_fallback_rds_sizing()
+    ec2_sizing = get_fallback_ec2_sizing()
+    
+    # Create reader/writer configuration
+    reader_writer_config = {
+        'writers': writers,
+        'readers': readers,
+        'total_instances': total_instances,
+        'write_capacity_percent': (writers / total_instances) * 100 if total_instances > 0 else 100,
+        'read_capacity_percent': (readers / total_instances) * 100 if total_instances > 0 else 0,
+        'recommended_read_split': min(80, (readers / total_instances) * 100) if total_instances > 0 else 0,
+        'reasoning': f"AI-optimized for {database_size_gb}GB, {config.get('performance_requirements', 'standard')} performance",
+        'ai_insights': {
+            'complexity_impact': 6,
+            'agent_scaling_impact': config.get('number_of_agents', 1),
+            'scaling_factors': [
+                f"Database size drives {readers} reader replicas",
+                f"Performance requirement: {config.get('performance_requirements', 'standard')}",
+                f"Environment: {config.get('environment', 'non-production')} scaling applied"
+            ]
+        }
+    }
+    
+    # Create AI analysis
+    ai_analysis = {
+        'ai_complexity_score': 6,
+        'confidence_level': 'medium',
+        'risk_factors': [
+            'Standard migration complexity',
+            'Database size may require careful planning',
+            'Agent coordination needed'
+        ],
+        'risk_percentages': {
+            'migration_risk': 15,
+            'performance_risk': 10,
+            'complexity_risk': 20
+        },
+        'mitigation_strategies': [
+            'Implement comprehensive testing',
+            'Plan adequate migration windows',
+            'Configure proper monitoring'
+        ],
+        'performance_recommendations': [
+            'Optimize database before migration',
+            'Configure proper instance sizing',
+            'Implement monitoring and alerting'
+        ],
+        'performance_improvements': {
+            'overall_optimization': '15-25%',
+            'instance_upgrade': '20-30%'
+        },
+        'timeline_suggestions': [
+            'Phase 1: Assessment and Planning (2-3 weeks)',
+            'Phase 2: Environment Setup (2-4 weeks)',
+            'Phase 3: Testing and Validation (1-2 weeks)',
+            'Phase 4: Migration Execution (1-3 days)',
+            'Phase 5: Post-Migration Optimization (1 week)'
+        ],
+        'resource_allocation': {
+            'migration_team_size': 3,
+            'aws_specialists_needed': 1,
+            'database_experts_required': 1,
+            'testing_resources': 'Standard',
+            'infrastructure_requirements': 'Standard setup'
+        },
+        'cost_optimization': [
+            'Consider Reserved Instances for cost savings',
+            'Implement auto-scaling policies',
+            'Optimize storage configuration'
+        ],
+        'best_practices': [
+            'Implement comprehensive backup strategy',
+            'Use AWS Migration Hub for tracking',
+            'Establish detailed communication plan'
+        ],
+        'testing_strategy': [
+            'Unit Testing: Validate migration components',
+            'Integration Testing: End-to-end workflow',
+            'Performance Testing: AWS environment validation'
+        ],
+        'post_migration_monitoring': [
+            'Implement CloudWatch monitoring',
+            'Set up automated alerts',
+            'Monitor application performance'
+        ],
+        'detailed_assessment': {
+            'overall_readiness': 'needs_preparation',
+            'success_probability': 80,
+            'recommended_approach': 'staged_migration'
+        }
+    }
+    
+    # Create deployment recommendation
+    deployment_recommendation = {
+        'recommendation': recommended_deployment,
+        'confidence': confidence,
+        'rds_score': rds_score,
+        'ec2_score': ec2_score,
+        'primary_reasons': [
+            f'Recommended for {database_size_gb}GB database',
+            f'Suitable for {config.get("environment", "non-production")} environment',
+            f'Matches {config.get("performance_requirements", "standard")} performance requirements'
+        ]
+    }
+    
+    # Create on-premises performance analysis
+    onprem_performance = {
+        'performance_score': 75,
+        'overall_performance': {
+            'cpu_score': 70,
+            'memory_score': 75,
+            'storage_score': 80,
+            'network_score': 85,
+            'database_score': 78,
+            'composite_score': 75
+        },
+        'os_impact': {
+            'name': config.get('operating_system', 'Unknown OS'),
+            'total_efficiency': 0.85,
+            'base_efficiency': 0.90,
+            'cpu_efficiency': 0.88,
+            'memory_efficiency': 0.85,
+            'io_efficiency': 0.87,
+            'network_efficiency': 0.90,
+            'db_optimization': 0.85,
+            'licensing_cost_factor': 1.5,
+            'management_complexity': 0.6,
+            'ai_insights': {
+                'strengths': ['Good performance characteristics', 'Stable platform'],
+                'weaknesses': ['Some optimization opportunities'],
+                'migration_considerations': ['Standard migration approach']
+            }
+        },
+        'bottlenecks': ['No major bottlenecks identified'],
+        'ai_insights': ['System appears well-configured for migration']
+    }
+    
+    # Create network performance analysis
+    network_performance = {
+        'path_name': f'Network path for {config.get("environment", "non-production")} environment',
+        'destination_storage': config.get('destination_storage_type', 'S3'),
+        'network_quality_score': 80,
+        'ai_enhanced_quality_score': 85,
+        'effective_bandwidth_mbps': 2000,
+        'total_latency_ms': 15,
+        'total_reliability': 0.998,
+        'storage_performance_bonus': 5 if config.get('destination_storage_type') == 'FSx_Lustre' else 0,
+        'ai_optimization_potential': 15,
+        'segments': [
+            {
+                'name': 'Source to intermediate',
+                'effective_bandwidth_mbps': 1000,
+                'effective_latency_ms': 8,
+                'reliability': 0.999,
+                'connection_type': 'internal_lan'
+            },
+            {
+                'name': f'Intermediate to AWS {config.get("destination_storage_type", "S3")}',
+                'effective_bandwidth_mbps': 2000,
+                'effective_latency_ms': 7,
+                'reliability': 0.998,
+                'connection_type': 'direct_connect'
+            }
+        ],
+        'ai_insights': {
+            'performance_bottlenecks': ['Standard network considerations'],
+            'optimization_opportunities': ['Network optimization available'],
+            'recommended_improvements': ['Standard network best practices']
+        }
+    }
+    
+    # Create agent analysis
+    is_homogeneous = source_engine == target_engine
+    primary_tool = 'datasync' if is_homogeneous else 'dms'
+    num_agents = config.get('number_of_agents', 1)
+    destination_storage = config.get('destination_storage_type', 'S3')
+    
+    # Calculate agent throughput
+    base_throughput_per_agent = 500 if primary_tool == 'datasync' else 400
+    storage_multiplier = {
+        'S3': 1.0,
+        'FSx_Windows': 1.15,
+        'FSx_Lustre': 1.4
+    }.get(destination_storage, 1.0)
+    
+    scaling_efficiency = min(1.0, 1.0 - (num_agents - 1) * 0.05)  # Diminishing returns
+    total_throughput = base_throughput_per_agent * num_agents * scaling_efficiency * storage_multiplier
+    
+    agent_analysis = {
+        'primary_tool': primary_tool,
+        'agent_size': config.get('datasync_agent_size', config.get('dms_agent_size', 'medium')),
+        'number_of_agents': num_agents,
+        'destination_storage': destination_storage,
+        'total_max_throughput_mbps': total_throughput,
+        'total_effective_throughput': min(total_throughput, 2000),  # Network limit
+        'scaling_efficiency': scaling_efficiency,
+        'storage_performance_multiplier': storage_multiplier,
+        'management_overhead': 1.0 + (num_agents - 1) * 0.05,
+        'monthly_cost': num_agents * 200,  # Rough estimate
+        'bottleneck': 'network' if total_throughput > 2000 else 'agents',
+        'bottleneck_severity': 'medium',
+        'agent_configuration': {
+            'per_agent_spec': {
+                'vcpu': 2,
+                'memory_gb': 4
+            },
+            'max_throughput_mbps_per_agent': base_throughput_per_agent,
+            'storage_performance_multiplier': storage_multiplier,
+            'optimal_configuration': {
+                'efficiency_score': 85,
+                'management_complexity': 'Low' if num_agents <= 2 else 'Medium',
+                'cost_efficiency': 'Good'
+            }
+        },
+        'ai_optimization': {
+            'optimization_potential_percent': 15,
+            'recommendations': [
+                'Optimize agent configuration for workload',
+                'Implement proper load balancing',
+                'Monitor agent performance'
+            ]
+        }
+    }
+    
+    # Create FSx destination comparisons
+    fsx_comparisons = {}
+    
+    for dest_type in ['S3', 'FSx_Windows', 'FSx_Lustre']:
+        dest_storage_multiplier = {
+            'S3': 1.0,
+            'FSx_Windows': 1.15,
+            'FSx_Lustre': 1.4
+        }.get(dest_type, 1.0)
+        
+        dest_throughput = base_throughput_per_agent * num_agents * scaling_efficiency * dest_storage_multiplier
+        dest_migration_time = (database_size_gb * 8 * 1000) / (min(dest_throughput, 2000) * 3600)
+        
+        dest_storage_cost = database_size_gb * {
+            'S3': 0.023,
+            'FSx_Windows': 0.13,
+            'FSx_Lustre': 0.14
+        }.get(dest_type, 0.023)
+        
+        fsx_comparisons[dest_type] = {
+            'destination_type': dest_type,
+            'estimated_migration_time_hours': dest_migration_time,
+            'migration_throughput_mbps': min(dest_throughput, 2000),
+            'estimated_monthly_storage_cost': dest_storage_cost,
+            'performance_rating': {
+                'S3': 'Good',
+                'FSx_Windows': 'Very Good',
+                'FSx_Lustre': 'Excellent'
+            }.get(dest_type, 'Good'),
+            'cost_rating': {
+                'S3': 'Excellent',
+                'FSx_Windows': 'Good',
+                'FSx_Lustre': 'Fair'
+            }.get(dest_type, 'Good'),
+            'complexity_rating': {
+                'S3': 'Low',
+                'FSx_Windows': 'Medium',
+                'FSx_Lustre': 'High'
+            }.get(dest_type, 'Low'),
+            'recommendations': [
+                f'{dest_type} is suitable for this workload',
+                f'Consider performance vs cost trade-offs',
+                f'Validate {dest_type} integration requirements'
+            ],
+            'network_performance': network_performance,
+            'agent_configuration': {
+                'number_of_agents': num_agents,
+                'total_monthly_cost': num_agents * 200,
+                'storage_performance_multiplier': dest_storage_multiplier
+            }
+        }
+    
+    # Create cost analysis
+    selected_sizing = rds_sizing if recommended_deployment == 'rds' else ec2_sizing
+    
+    cost_analysis = {
+        'aws_compute_cost': selected_sizing['monthly_instance_cost'],
+        'aws_storage_cost': selected_sizing['monthly_storage_cost'],
+        'agent_cost': agent_analysis['monthly_cost'],
+        'agent_base_cost': agent_analysis['monthly_cost'],
+        'destination_storage_cost': fsx_comparisons[destination_storage]['estimated_monthly_storage_cost'],
+        'destination_storage_type': destination_storage,
+        'network_cost': 500,
+        'os_licensing_cost': 300,
+        'management_cost': 200,
+        'total_monthly_cost': (selected_sizing['monthly_instance_cost'] + 
+                             selected_sizing['monthly_storage_cost'] + 
+                             agent_analysis['monthly_cost'] + 
+                             fsx_comparisons[destination_storage]['estimated_monthly_storage_cost'] + 
+                             500 + 300 + 200),
+        'one_time_migration_cost': database_size_gb * 0.1 + num_agents * 500,
+        'agent_setup_cost': num_agents * 500,
+        'agent_coordination_cost': max(0, (num_agents - 1) * 200),
+        'storage_setup_cost': {'S3': 100, 'FSx_Windows': 1000, 'FSx_Lustre': 2000}.get(destination_storage, 100),
+        'estimated_monthly_savings': 500,
+        'roi_months': 12,
+        'ai_cost_insights': {
+            'ai_optimization_factor': 0.1,
+            'complexity_multiplier': 1.0,
+            'management_reduction': 0.05,
+            'agent_efficiency_bonus': 0.1,
+            'storage_efficiency_bonus': 0.1,
+            'potential_additional_savings': '10-15%'
+        }
+    }
+    
+    # Create AI overall assessment
+    ai_overall_assessment = {
+        'migration_readiness_score': 80,
+        'success_probability': 85,
+        'risk_level': 'Medium',
+        'readiness_factors': [
+            'System appears ready for migration',
+            'Standard complexity migration',
+            'Proper planning required'
+        ],
+        'ai_confidence': 0.8,
+        'agent_scaling_impact': {
+            'scaling_efficiency': scaling_efficiency * 100,
+            'optimal_agents': 2,
+            'current_agents': num_agents,
+            'efficiency_bonus': 5
+        },
+        'destination_storage_impact': {
+            'storage_type': destination_storage,
+            'performance_bonus': fsx_comparisons[destination_storage]['performance_rating'],
+            'storage_performance_multiplier': storage_multiplier
+        },
+        'recommended_next_steps': [
+            'Conduct detailed performance baseline',
+            'Set up AWS environment and testing',
+            'Plan comprehensive testing strategy',
+            'Develop detailed migration runbook'
+        ],
+        'timeline_recommendation': {
+            'planning_phase_weeks': 2,
+            'testing_phase_weeks': 3,
+            'migration_window_hours': 24,
+            'total_project_weeks': 6,
+            'recommended_approach': 'staged'
+        }
+    }
+    
+    # Return complete analysis
+    return {
+        'api_status': {
+            'anthropic_connected': False,
+            'aws_pricing_connected': False,
+            'last_update': datetime.now()
+        },
+        'onprem_performance': onprem_performance,
+        'network_performance': network_performance,
+        'migration_type': 'homogeneous' if is_homogeneous else 'heterogeneous',
+        'primary_tool': primary_tool,
+        'agent_analysis': agent_analysis,
+        'migration_throughput_mbps': min(total_throughput, 2000),
+        'estimated_migration_time_hours': (database_size_gb * 8 * 1000) / (min(total_throughput, 2000) * 3600),
+        'aws_sizing_recommendations': {
+            'rds_recommendations': rds_sizing,
+            'ec2_recommendations': ec2_sizing,
+            'reader_writer_config': reader_writer_config,
+            'deployment_recommendation': deployment_recommendation,
+            'ai_analysis': ai_analysis,
+            'pricing_data': {
+                'data_source': 'fallback',
+                'last_updated': datetime.now(),
+                'ec2_instances': {},
+                'rds_instances': {},
+                'storage': {}
+            }
+        },
+        'cost_analysis': cost_analysis,
+        'fsx_comparisons': fsx_comparisons,
+        'ai_overall_assessment': ai_overall_assessment
+    }
 
 def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
     """Render enhanced AI insights and analysis tab using native Streamlit components"""
