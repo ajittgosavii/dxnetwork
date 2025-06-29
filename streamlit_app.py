@@ -3178,57 +3178,71 @@ class EnhancedAgentSizingManager:
         }
     
     def calculate_agent_configuration(self, agent_type: str, agent_size: str, number_of_agents: int, destination_storage: str = 'S3') -> Dict:
-        """Calculate total agent configuration based on type, size, count, and destination storage"""
-        
-        if agent_type == 'datasync':
-            agent_spec = self.datasync_agent_specs[agent_size]
-        else:  # dms
-            agent_spec = self.dms_agent_specs[agent_size]
-        
-        # Calculate totals with scaling efficiency
-        scaling_efficiency = self._calculate_scaling_efficiency(number_of_agents)
-        
-        # Destination storage performance adjustments
+    """Calculate agent configuration with corrected FSx architecture"""
+    
+    if agent_type == 'datasync':
+        agent_spec = self.datasync_agent_specs[agent_size]
+    else:  # dms
+        agent_spec = self.dms_agent_specs[agent_size]
+    
+    # Get actual migration architecture
+    architecture = self.get_actual_migration_architecture(agent_type, destination_storage, {})
+    
+    # Calculate scaling efficiency
+    scaling_efficiency = self._calculate_scaling_efficiency(number_of_agents)
+    
+    # Calculate throughput based on actual architecture
+    if architecture['agent_targets_destination']:
+        # Direct migration (S3)
         storage_multiplier = self._get_storage_performance_multiplier(destination_storage)
-        
         total_throughput = (agent_spec['max_throughput_mbps_per_agent'] * 
                           number_of_agents * scaling_efficiency * storage_multiplier)
+    else:
+        # Split workload (FSx scenarios)
+        base_throughput = agent_spec['max_throughput_mbps_per_agent'] * number_of_agents * scaling_efficiency
         
-        total_concurrent_tasks = (agent_spec['max_concurrent_tasks_per_agent'] * 
-                                number_of_agents)
+        # Database portion goes to EC2+EBS (no FSx multiplier)
+        db_portion = base_throughput * (architecture.get('database_percentage', 80) / 100)
         
-        total_cost_per_hour = agent_spec['cost_per_hour_per_agent'] * number_of_agents
+        # File portion gets FSx multiplier
+        file_portion = base_throughput * (architecture.get('file_percentage', 20) / 100)
+        fsx_multiplier = self._get_storage_performance_multiplier(destination_storage)
+        file_portion_enhanced = file_portion * fsx_multiplier
         
-        # Management overhead calculation
-        management_overhead_factor = 1.0 + (number_of_agents - 1) * 0.05  # 5% overhead per additional agent
-        
-        # Storage-specific overhead
-        storage_overhead = self._get_storage_management_overhead(destination_storage)
-        
-        return {
-            'agent_type': agent_type,
-            'agent_size': agent_size,
-            'number_of_agents': number_of_agents,
-            'destination_storage': destination_storage,
-            'per_agent_spec': agent_spec,
-            'total_vcpu': agent_spec['vcpu'] * number_of_agents,
-            'total_memory_gb': agent_spec['memory_gb'] * number_of_agents,
-            'max_throughput_mbps_per_agent': agent_spec['max_throughput_mbps_per_agent'],
-            'total_max_throughput_mbps': total_throughput,
-            'effective_throughput_mbps': total_throughput,  # This will be adjusted by network constraints
-            'total_concurrent_tasks': total_concurrent_tasks,
-            'cost_per_hour_per_agent': agent_spec['cost_per_hour_per_agent'],
-            'total_cost_per_hour': total_cost_per_hour,
-            'total_monthly_cost': total_cost_per_hour * 24 * 30,
-            'scaling_efficiency': scaling_efficiency,
-            'storage_performance_multiplier': storage_multiplier,
-            'management_overhead_factor': management_overhead_factor,
-            'storage_management_overhead': storage_overhead,
-            'effective_cost_per_hour': total_cost_per_hour * management_overhead_factor * storage_overhead,
-            'ai_optimization_tips': agent_spec['ai_optimization_tips'],
-            'scaling_recommendations': self._get_scaling_recommendations(agent_size, number_of_agents, destination_storage),
-            'optimal_configuration': self._assess_configuration_optimality(agent_size, number_of_agents, destination_storage)
-        }
+        total_throughput = db_portion + file_portion_enhanced
+    
+    total_concurrent_tasks = (agent_spec['max_concurrent_tasks_per_agent'] * number_of_agents)
+    total_cost_per_hour = agent_spec['cost_per_hour_per_agent'] * number_of_agents
+    
+    # Calculate management overhead
+    management_overhead_factor = 1.0 + (number_of_agents - 1) * 0.05
+    storage_overhead = self._get_storage_management_overhead(destination_storage)
+    
+    return {
+        'agent_type': agent_type,
+        'agent_size': agent_size,
+        'number_of_agents': number_of_agents,
+        'destination_storage': destination_storage,
+        'migration_architecture': architecture,  # NEW: Architecture details
+        'per_agent_spec': agent_spec,
+        'total_vcpu': agent_spec['vcpu'] * number_of_agents,
+        'total_memory_gb': agent_spec['memory_gb'] * number_of_agents,
+        'max_throughput_mbps_per_agent': agent_spec['max_throughput_mbps_per_agent'],
+        'total_max_throughput_mbps': total_throughput,
+        'effective_throughput_mbps': total_throughput,
+        'total_concurrent_tasks': total_concurrent_tasks,
+        'cost_per_hour_per_agent': agent_spec['cost_per_hour_per_agent'],
+        'total_cost_per_hour': total_cost_per_hour,
+        'total_monthly_cost': total_cost_per_hour * 24 * 30,
+        'scaling_efficiency': scaling_efficiency,
+        'storage_performance_multiplier': fsx_multiplier if architecture['agent_targets_destination'] else 1.0,
+        'management_overhead_factor': management_overhead_factor,
+        'storage_management_overhead': storage_overhead,
+        'effective_cost_per_hour': total_cost_per_hour * management_overhead_factor * storage_overhead,
+        'ai_optimization_tips': agent_spec['ai_optimization_tips'],
+        'scaling_recommendations': self._get_scaling_recommendations(agent_size, number_of_agents, destination_storage),
+        'optimal_configuration': self._assess_configuration_optimality(agent_size, number_of_agents, destination_storage)
+    }
     
     def _get_storage_performance_multiplier(self, destination_storage: str) -> float:
         """Get performance multiplier based on destination storage type"""
@@ -3437,6 +3451,59 @@ class EnhancedAgentSizingManager:
             }
         }
 
+    def get_actual_migration_architecture(self, agent_type: str, destination_storage: str, config: Dict) -> Dict:
+    """Determine the actual migration architecture based on destination storage"""
+    
+    database_size_gb = config.get('database_size_gb', 1000)
+    
+    if destination_storage == 'S3':
+        # Direct migration to S3
+        return {
+            'primary_target': 'S3',
+            'secondary_target': None,
+            'agent_targets_destination': True,
+            'architecture_type': 'direct_cloud_storage',
+            'bandwidth_calculation': 'direct',
+            'description': f'{agent_type.upper()} agents transfer directly to S3'
+        }
+    
+    elif destination_storage == 'FSx_Windows':
+        # Hybrid architecture
+        return {
+            'primary_target': 'EC2_EBS',  # Database goes to EC2 + EBS
+            'secondary_target': 'FSx_Windows',  # File data goes to FSx Windows
+            'agent_targets_destination': False,  # Agents don't directly target FSx
+            'architecture_type': 'hybrid_storage',
+            'bandwidth_calculation': 'split_workload',
+            'database_percentage': 80,  # 80% database, 20% file data
+            'file_percentage': 20,
+            'description': f'{agent_type.upper()} for database → EC2+EBS; DataSync for files → FSx Windows'
+        }
+    
+    elif destination_storage == 'FSx_Lustre':
+        # HPC architecture
+        return {
+            'primary_target': 'EC2_EBS',  # Database still goes to EC2 + EBS
+            'secondary_target': 'FSx_Lustre',  # HPC data goes to FSx Lustre
+            'agent_targets_destination': False,
+            'architecture_type': 'hpc_hybrid',
+            'bandwidth_calculation': 'split_workload',
+            'database_percentage': 70,  # 70% database, 30% HPC file data
+            'file_percentage': 30,
+            'description': f'{agent_type.upper()} for database → EC2+EBS; DataSync for HPC data → FSx Lustre'
+        }
+    
+    else:
+        # Fallback
+        return {
+            'primary_target': destination_storage,
+            'secondary_target': None,
+            'agent_targets_destination': True,
+            'architecture_type': 'standard',
+            'bandwidth_calculation': 'direct',
+            'description': f'{agent_type.upper()} agents transfer to {destination_storage}'
+        }
+    
 class EnhancedAWSMigrationManager:
     """Enhanced AWS migration manager with AI and real-time pricing"""
     
@@ -4555,32 +4622,30 @@ class EnhancedMigrationAnalyzer:
         }
     
     def _get_network_path_key(self, config: Dict) -> str:
-        """Get the appropriate network path key based on configuration"""
-        
-        # Determine OS type from operating system config
-        os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
-        
-        # Clean environment name
-        environment = config['environment'].replace('-', '_')
-        
-        # Get destination storage type
-        destination_storage = config.get('destination_storage_type', 'S3').lower()
-        
-        # Construct path key
-        if environment == 'non_production':
-            if destination_storage == 's3':
-                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
-            elif destination_storage == 'fsx_windows':
-                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
-            elif destination_storage == 'fsx_lustre':
-                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
-        else:  # production
-            if destination_storage == 's3':
-                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
-            elif destination_storage == 'fsx_windows':
-                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_windows"
-            elif destination_storage == 'fsx_lustre':
-                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_fsx_lustre"
+    """Get network path key with corrected FSx routing"""
+    
+    # Determine OS type
+    os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
+    
+    # Clean environment name
+    environment = config['environment'].replace('-', '_')
+    
+    # Get destination storage type
+    destination_storage = config.get('destination_storage_type', 'S3').lower()
+    
+    # CORRECTED: FSx destinations use different network paths
+    if environment == 'non_production':
+        if destination_storage == 's3':
+            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+        else:
+            # FSx destinations route differently - typically through EC2 infrastructure
+            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
+    else:  # production
+        if destination_storage == 's3':
+            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+        else:
+            # FSx destinations route through production EC2 infrastructure
+            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
         
         # Default fallback
         return "nonprod_sj_linux_nas_s3"
@@ -4665,6 +4730,114 @@ class EnhancedMigrationAnalyzer:
                 }
         
         return comparisons
+    async def _generate_corrected_fsx_destination_comparisons(self, config: Dict) -> Dict:
+    """Generate FSx comparisons with corrected architecture understanding"""
+    
+    comparisons = {}
+    destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
+    
+    for dest_type in destination_types:
+        temp_config = config.copy()
+        temp_config['destination_storage_type'] = dest_type
+        
+        # Get corrected architecture
+        agent_manager = EnhancedAgentSizingManager()
+        architecture = agent_manager.get_actual_migration_architecture(
+            'datasync' if config['source_database_engine'] == config['database_engine'] else 'dms',
+            dest_type,
+            config
+        )
+        
+        # Calculate migration specifics based on architecture
+        if dest_type == 'S3':
+            # Direct migration
+            migration_description = "Direct database migration to S3"
+            complexity_factor = 1.0
+            setup_complexity = "Low"
+        
+        elif dest_type == 'FSx_Windows':
+            # Hybrid architecture
+            migration_description = "Database to EC2+EBS + File shares to FSx Windows"
+            complexity_factor = 1.3
+            setup_complexity = "Medium-High"
+        
+        elif dest_type == 'FSx_Lustre':
+            # HPC hybrid
+            migration_description = "Database to EC2+EBS + HPC data to FSx Lustre"
+            complexity_factor = 1.5
+            setup_complexity = "High"
+        
+        # Network path calculation
+        network_path_key = self._get_network_path_key(temp_config)
+        network_perf = self.network_manager.calculate_ai_enhanced_path_performance(network_path_key)
+        
+        # Agent configuration
+        is_homogeneous = config['source_database_engine'] == config['database_engine']
+        primary_tool = 'datasync' if is_homogeneous else 'dms'
+        agent_size = config.get('datasync_agent_size' if is_homogeneous else 'dms_agent_size', 'medium')
+        num_agents = config.get('number_of_agents', 1)
+        
+        agent_config = agent_manager.calculate_agent_configuration(
+            primary_tool, agent_size, num_agents, dest_type
+        )
+        
+        # Migration time calculation with architecture consideration
+        database_size_gb = config['database_size_gb']
+        
+        if architecture['agent_targets_destination']:
+            # Direct migration
+            migration_throughput = min(agent_config['total_max_throughput_mbps'], 
+                                     network_perf['effective_bandwidth_mbps'])
+            migration_time_hours = (database_size_gb * 8 * 1000) / (migration_throughput * 3600)
+        else:
+            # Split workload
+            db_size = database_size_gb * (architecture.get('database_percentage', 80) / 100)
+            db_migration_time = (db_size * 8 * 1000) / (agent_config['total_max_throughput_mbps'] * 3600)
+            
+            file_size = database_size_gb * (architecture.get('file_percentage', 20) / 100)
+            file_migration_time = (file_size * 8 * 1000) / (agent_config['total_max_throughput_mbps'] * 3600)
+            
+            # Total time (can run in parallel, so take the max)
+            migration_time_hours = max(db_migration_time, file_migration_time) * complexity_factor
+        
+        # Cost calculation
+        base_storage_cost = database_size_gb * {
+            'S3': 0.023,
+            'FSx_Windows': 0.13,
+            'FSx_Lustre': 0.14
+        }.get(dest_type, 0.023)
+        
+        # Add EC2+EBS costs for FSx scenarios
+        if dest_type in ['FSx_Windows', 'FSx_Lustre']:
+            ec2_storage_cost = database_size_gb * 0.08  # EBS GP3 for database
+            total_storage_cost = base_storage_cost + ec2_storage_cost
+        else:
+            total_storage_cost = base_storage_cost
+        
+        comparisons[dest_type] = {
+            'destination_type': dest_type,
+            'migration_architecture': architecture,
+            'migration_description': migration_description,
+            'network_performance': network_perf,
+            'agent_configuration': agent_config,
+            'migration_throughput_mbps': migration_throughput if 'migration_throughput' in locals() else agent_config['total_max_throughput_mbps'],
+            'estimated_migration_time_hours': migration_time_hours,
+            'estimated_monthly_storage_cost': total_storage_cost,
+            'setup_complexity': setup_complexity,
+            'performance_rating': self._calculate_destination_performance_rating(dest_type, network_perf, agent_config),
+            'cost_rating': self._calculate_destination_cost_rating(dest_type, total_storage_cost),
+            'complexity_rating': setup_complexity,
+            'recommendations': self._get_corrected_destination_recommendations(dest_type, architecture, config),
+            'architecture_notes': [
+                f"Primary tool: {agent_config['migration_architecture']['description']}",
+                f"Architecture: {agent_config['migration_architecture']['architecture_type']}",
+                f"Bandwidth calculation: {agent_config['migration_architecture']['bandwidth_calculation']}"
+            ]
+        }
+    
+    return comparisons
+    
+    
     
     def _calculate_destination_performance_rating(self, dest_type: str, network_perf: Dict, agent_config: Dict) -> str:
         """Calculate performance rating for destination type"""
@@ -7023,6 +7196,37 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
     if not fsx_comparisons:
         st.error("FSx comparison data not available. Please run the analysis first.")
         return
+    
+    # Architecture Overview
+    st.markdown("**🏗️ Migration Architecture Overview:**")
+    
+    for destination in fsx_comparisons.keys():
+        comparison = fsx_comparisons[destination]
+        architecture = comparison.get('migration_architecture', {})
+        
+        is_current = destination == current_destination
+        
+        with st.expander(f"{'🎯 ' if is_current else ''}**{destination} Architecture**", expanded=is_current):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write(f"**Primary Target:** {architecture.get('primary_target', 'Unknown')}")
+                st.write(f"**Secondary Target:** {architecture.get('secondary_target', 'None')}")
+                st.write(f"**Architecture Type:** {architecture.get('architecture_type', 'Unknown')}")
+                st.write(f"**Agent Direct Access:** {'Yes' if architecture.get('agent_targets_destination') else 'No'}")
+            
+            with col2:
+                st.write(f"**Migration Description:** {comparison.get('migration_description', 'Standard migration')}")
+                st.write(f"**Setup Complexity:** {comparison.get('setup_complexity', 'Unknown')}")
+                st.write(f"**Migration Time:** {comparison.get('estimated_migration_time_hours', 0):.1f} hours")
+                st.write(f"**Monthly Storage Cost:** ${comparison.get('estimated_monthly_storage_cost', 0):,.0f}")
+            
+            # Architecture notes
+            if 'architecture_notes' in comparison:
+                st.write("**Architecture Notes:**")
+                for note in comparison['architecture_notes']:
+                    st.write(f"• {note}")
+    
     
     # Destination Overview Cards using native components
     st.markdown("**📊 Destination Storage Overview:**")
