@@ -4630,32 +4630,46 @@ class EnhancedMigrationAnalyzer:
     
     def _get_network_path_key(self, config: Dict) -> str:
         """Get network path key with corrected FSx routing"""
-    
-    # Determine OS type
-    os_type = 'linux' if any(os in config['operating_system'] for os in ['linux', 'ubuntu', 'rhel']) else 'windows'
-    
-    # Clean environment name
-    environment = config['environment'].replace('-', '_')
-    
-    # Get destination storage type
-    destination_storage = config.get('destination_storage_type', 'S3').lower()
-    
-    # CORRECTED: FSx destinations use different network paths
-    if environment == 'non_production':
-        if destination_storage == 's3':
-            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
-        else:
-            # FSx destinations route differently - typically through EC2 infrastructure
-            return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
-    else:  # production
-        if destination_storage == 's3':
-            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
-        else:
-            # FSx destinations route through production EC2 infrastructure
-            return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
         
-        # Default fallback
-        return "nonprod_sj_linux_nas_s3"
+        # Validate required config keys
+        if 'operating_system' not in config:
+            raise ValueError("Missing required 'operating_system' in config")
+        if 'environment' not in config:
+            raise ValueError("Missing required 'environment' in config")
+        
+        # Determine OS type with more precise matching
+        os_lower = config['operating_system'].lower()
+        if any(os_name in os_lower for os_name in ['linux', 'ubuntu', 'rhel', 'centos', 'debian']):
+            os_type = 'linux'
+        elif 'windows' in os_lower:
+            os_type = 'windows'
+        else:
+            # Default to linux if unknown
+            os_type = 'linux'
+        
+        # Clean environment name
+        environment = config['environment'].replace('-', '_').lower()
+        
+        # Get destination storage type
+        destination_storage = config.get('destination_storage_type', 'S3').lower()
+        
+        # CORRECTED: FSx destinations use different network paths
+        if environment in ['non_production', 'nonprod', 'dev', 'test', 'staging']:
+            if destination_storage == 's3':
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+            else:
+                # FSx destinations route differently - typically through EC2 infrastructure
+                return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
+        
+        elif environment in ['production', 'prod']:
+            if destination_storage == 's3':
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
+            else:
+                # FSx destinations route through production EC2 infrastructure
+                return f"prod_sa_{os_type}_{'nas' if os_type == 'linux' else 'share'}_ec2_fsx"
+        
+        # Default fallback (moved to method level)
+        return f"nonprod_sj_{os_type}_{'nas' if os_type == 'linux' else 'share'}_s3"
     
     async def _generate_fsx_destination_comparisons(self, config: Dict) -> Dict:
         """Generate comprehensive FSx destination comparisons"""
