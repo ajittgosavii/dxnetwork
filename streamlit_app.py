@@ -32,7 +32,7 @@ from datetime import datetime
 import io
 
 # Import the new analyzers (add to existing imports)
-from schema_analysis_implementation import SchemaQueryAnalyzer, TechnicalGapsAnalyzer, DatabaseDialect
+#from schema_analysis_implementation import SchemaQueryAnalyzer, TechnicalGapsAnalyzer, DatabaseDialect
 
 
 # Configure logging
