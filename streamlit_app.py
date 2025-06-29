@@ -2741,7 +2741,7 @@ class EnhancedAWSMigrationManager:
         }
     
     async def _ai_calculate_reader_writer_config(self, config: Dict, ai_analysis: Dict) -> Dict:
-    """AI-enhanced reader/writer configuration with better logic"""
+        """AI-enhanced reader/writer configuration with better logic"""
     
     database_size_gb = config['database_size_gb']
     performance_req = config.get('performance_requirements', 'standard')
