@@ -3179,45 +3179,46 @@ class EnhancedAgentSizingManager:
     
     def calculate_agent_configuration(self, agent_type: str, agent_size: str, number_of_agents: int, destination_storage: str = 'S3') -> Dict:
         """Calculate agent configuration with corrected FSx architecture"""
-    
-    if agent_type == 'datasync':
-        agent_spec = self.datasync_agent_specs[agent_size]
-    else:  # dms
-        agent_spec = self.dms_agent_specs[agent_size]
-    
-    # Get actual migration architecture
-    architecture = self.get_actual_migration_architecture(agent_type, destination_storage, {})
-    
-    # Calculate scaling efficiency
-    scaling_efficiency = self._calculate_scaling_efficiency(number_of_agents)
-    
-    # Calculate throughput based on actual architecture
-    if architecture['agent_targets_destination']:
-        # Direct migration (S3)
-        storage_multiplier = self._get_storage_performance_multiplier(destination_storage)
-        total_throughput = (agent_spec['max_throughput_mbps_per_agent'] * 
-                          number_of_agents * scaling_efficiency * storage_multiplier)
-    else:
-        # Split workload (FSx scenarios)
-        base_throughput = agent_spec['max_throughput_mbps_per_agent'] * number_of_agents * scaling_efficiency
-        
-        # Database portion goes to EC2+EBS (no FSx multiplier)
-        db_portion = base_throughput * (architecture.get('database_percentage', 80) / 100)
-        
-        # File portion gets FSx multiplier
-        file_portion = base_throughput * (architecture.get('file_percentage', 20) / 100)
-        fsx_multiplier = self._get_storage_performance_multiplier(destination_storage)
-        file_portion_enhanced = file_portion * fsx_multiplier
-        
-        total_throughput = db_portion + file_portion_enhanced
-    
-    total_concurrent_tasks = (agent_spec['max_concurrent_tasks_per_agent'] * number_of_agents)
-    total_cost_per_hour = agent_spec['cost_per_hour_per_agent'] * number_of_agents
-    
-    # Calculate management overhead
-    management_overhead_factor = 1.0 + (number_of_agents - 1) * 0.05
-    storage_overhead = self._get_storage_management_overhead(destination_storage)
-    
+
+        if agent_type == 'datasync':
+            agent_spec = self.datasync_agent_specs[agent_size]
+        else:  # dms
+            agent_spec = self.dms_agent_specs[agent_size]
+
+        # Get actual migration architecture
+        architecture = self.get_actual_migration_architecture(agent_type, destination_storage, {})
+
+        # Calculate scaling efficiency
+        scaling_efficiency = self._calculate_scaling_efficiency(number_of_agents)
+
+        # Calculate throughput based on actual architecture
+        if architecture['agent_targets_destination']:
+            # Direct migration (S3)
+            storage_multiplier = self._get_storage_performance_multiplier(destination_storage)
+            total_throughput = (agent_spec['max_throughput_mbps_per_agent'] * 
+                            number_of_agents * scaling_efficiency * storage_multiplier)
+            fsx_multiplier = storage_multiplier  # Use storage_multiplier for consistency
+        else:
+            # Split workload (FSx scenarios)
+            base_throughput = agent_spec['max_throughput_mbps_per_agent'] * number_of_agents * scaling_efficiency
+            
+            # Database portion goes to EC2+EBS (no FSx multiplier)
+            db_portion = base_throughput * (architecture.get('database_percentage', 80) / 100)
+            
+            # File portion gets FSx multiplier
+            file_portion = base_throughput * (architecture.get('file_percentage', 20) / 100)
+            fsx_multiplier = self._get_storage_performance_multiplier(destination_storage)
+            file_portion_enhanced = file_portion * fsx_multiplier
+            
+            total_throughput = db_portion + file_portion_enhanced
+
+        total_concurrent_tasks = (agent_spec['max_concurrent_tasks_per_agent'] * number_of_agents)
+        total_cost_per_hour = agent_spec['cost_per_hour_per_agent'] * number_of_agents
+
+        # Calculate management overhead
+        management_overhead_factor = 1.0 + (number_of_agents - 1) * 0.05
+        storage_overhead = self._get_storage_management_overhead(destination_storage)
+
         return {
             'agent_type': agent_type,
             'agent_size': agent_size,
@@ -3242,7 +3243,7 @@ class EnhancedAgentSizingManager:
             'ai_optimization_tips': agent_spec['ai_optimization_tips'],
             'scaling_recommendations': self._get_scaling_recommendations(agent_size, number_of_agents, destination_storage),
             'optimal_configuration': self._assess_configuration_optimality(agent_size, number_of_agents, destination_storage)
-    }
+        }
     
     def _get_storage_performance_multiplier(self, destination_storage: str) -> float:
         """Get performance multiplier based on destination storage type"""
