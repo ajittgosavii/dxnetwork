@@ -7438,7 +7438,7 @@ END OF REPORT
 # In the EnhancedMigrationAnalyzer class, update the fallback analysis section:
 
 def create_fallback_analysis_with_proper_readers_writers(config):
-    """Create fallback analysis with proper reader/writer configuration and fixed database engine handling"""
+    """Create fallback analysis with proper reader/writer configuration and complete AWS sizing recommendations"""
     
     # Extract actual database engine for homogeneous check
     source_engine = config['source_database_engine']
@@ -7472,61 +7472,127 @@ def create_fallback_analysis_with_proper_readers_writers(config):
     writers = 1
     total_instances = writers + readers
     
-    return {
-        'api_status': APIStatus(anthropic_connected=False, aws_pricing_connected=False),
-        'onprem_performance': {'performance_score': 75, 'os_impact': {'total_efficiency': 0.85}},
-        'network_performance': {
-            'network_quality_score': 80, 
-            'effective_bandwidth_mbps': 1000, 
-            'segments': [], 
-            'destination_storage': config.get('destination_storage_type', 'S3')
-        },
-        'migration_type': 'homogeneous' if source_engine == target_engine else 'heterogeneous',
-        'primary_tool': 'datasync' if source_engine == target_engine else 'dms',
-        'agent_analysis': {
-            'primary_tool': 'datasync' if source_engine == target_engine else 'dms',
-            'number_of_agents': config.get('number_of_agents', 1),
-            'destination_storage': config.get('destination_storage_type', 'S3'),
-            'total_effective_throughput': 500 * config.get('number_of_agents', 1),
-            'scaling_efficiency': 0.95 if config.get('number_of_agents', 1) <= 3 else 0.85,
-            'storage_performance_multiplier': {
-                'S3': 1.0, 
-                'FSx_Windows': 1.15, 
-                'FSx_Lustre': 1.4
-            }.get(config.get('destination_storage_type', 'S3'), 1.0),
-            'monthly_cost': 150 * config.get('number_of_agents', 1)
-        },
-        'migration_throughput_mbps': 500,
-        'estimated_migration_time_hours': 8,
-        'aws_sizing_recommendations': {
-            'deployment_recommendation': {'recommendation': 'rds'},
-            'reader_writer_config': {
-                'writers': writers,
-                'readers': readers,
-                'total_instances': total_instances,
-                'write_capacity_percent': (writers / total_instances) * 100 if total_instances > 0 else 100,
-                'read_capacity_percent': (readers / total_instances) * 100 if total_instances > 0 else 0,
-                'recommended_read_split': min(80, (readers / total_instances) * 100) if total_instances > 0 else 0,
-                'reasoning': f"Intelligently configured for {database_size_gb}GB database with {readers} readers and {writers} writer",
-                'ai_insights': {
-                    'complexity_impact': 6,
-                    'agent_scaling_impact': config.get('number_of_agents', 1),
-                    'scaling_factors': [
-                        f"Database size {database_size_gb}GB drives {readers} reader configuration",
-                        f"Performance: {config.get('performance_requirements', 'standard')}",
-                        f"Environment: {config.get('environment', 'non-production')}"
-                    ]
-                }
+    # Generate comprehensive AWS sizing recommendations
+    def get_fallback_rds_sizing():
+        # Determine instance size based on database size and requirements
+        if database_size_gb < 1000:
+            instance_type = 'db.t3.medium'
+            vcpu = 2
+            memory = 4
+            cost_per_hour = 0.068
+        elif database_size_gb < 5000:
+            instance_type = 'db.r6g.large'
+            vcpu = 2
+            memory = 16
+            cost_per_hour = 0.48
+        elif database_size_gb < 20000:
+            instance_type = 'db.r6g.xlarge'
+            vcpu = 4
+            memory = 32
+            cost_per_hour = 0.96
+        else:
+            instance_type = 'db.r6g.2xlarge'
+            vcpu = 8
+            memory = 64
+            cost_per_hour = 1.92
+        
+        # Storage sizing
+        storage_size = max(database_size_gb * 1.5, 100)
+        storage_type = 'gp3' if database_size_gb < 10000 else 'io1'
+        storage_cost_per_gb = 0.08 if storage_type == 'gp3' else 0.125
+        
+        monthly_instance_cost = cost_per_hour * 24 * 30
+        monthly_storage_cost = storage_size * storage_cost_per_gb
+        
+        return {
+            'primary_instance': instance_type,
+            'instance_specs': {
+                'vcpu': vcpu,
+                'memory': memory,
+                'cost_per_hour': cost_per_hour
+            },
+            'storage_type': storage_type,
+            'storage_size_gb': storage_size,
+            'monthly_instance_cost': monthly_instance_cost,
+            'monthly_storage_cost': monthly_storage_cost,
+            'total_monthly_cost': monthly_instance_cost + monthly_storage_cost,
+            'multi_az': config.get('environment') == 'production',
+            'backup_retention_days': 30 if config.get('environment') == 'production' else 7,
+            'ai_sizing_factors': {
+                'complexity_multiplier': 1.0,
+                'agent_scaling_factor': 1.0,
+                'ai_complexity_score': 6,
+                'storage_multiplier': 1.5
             }
-        },
-        'cost_analysis': {
-            'total_monthly_cost': 1500, 
-            'destination_storage_type': config.get('destination_storage_type', 'S3'), 
-            'destination_storage_cost': 200
-        },
-        'fsx_comparisons': {},
-        'ai_overall_assessment': {'migration_readiness_score': 75, 'risk_level': 'Medium'}
-    }
+        }
+    
+    def get_fallback_ec2_sizing():
+        # Determine instance size based on database size and requirements
+        if database_size_gb < 1000:
+            instance_type = 't3.large'
+            vcpu = 2
+            memory = 8
+            cost_per_hour = 0.0832
+        elif database_size_gb < 5000:
+            instance_type = 'r6i.large'
+            vcpu = 2
+            memory = 16
+            cost_per_hour = 0.252
+        elif database_size_gb < 20000:
+            instance_type = 'r6i.xlarge'
+            vcpu = 4
+            memory = 32
+            cost_per_hour = 0.504
+        else:
+            instance_type = 'r6i.2xlarge'
+            vcpu = 8
+            memory = 64
+            cost_per_hour = 1.008
+        
+        # Storage sizing (EC2 needs more overhead)
+        storage_size = max(database_size_gb * 2.0, 100)
+        storage_type = 'gp3'
+        storage_cost_per_gb = 0.08
+        
+        monthly_instance_cost = cost_per_hour * 24 * 30
+        monthly_storage_cost = storage_size * storage_cost_per_gb
+        
+        return {
+            'primary_instance': instance_type,
+            'instance_specs': {
+                'vcpu': vcpu,
+                'memory': memory,
+                'cost_per_hour': cost_per_hour
+            },
+            'storage_type': storage_type,
+            'storage_size_gb': storage_size,
+            'monthly_instance_cost': monthly_instance_cost,
+            'monthly_storage_cost': monthly_storage_cost,
+            'total_monthly_cost': monthly_instance_cost + monthly_storage_cost,
+            'ebs_optimized': True,
+            'enhanced_networking': True,
+            'ai_sizing_factors': {
+                'complexity_multiplier': 1.2,
+                'agent_scaling_factor': 1.0,
+                'ai_complexity_score': 6,
+                'storage_multiplier': 2.0
+            }
+        }
+    
+    # Determine which deployment to recommend
+    rds_score = 75
+    ec2_score = 65
+    
+    # Adjust scores based on configuration
+    if config.get('environment') == 'production':
+        rds_score += 10
+    if database_size_gb > 20000:
+        ec2_score += 15
+    if config.get('performance_requirements') == 'high':
+        ec2_score += 10
+    
+    recommended_deployment = 'rds' if rds_score > ec2_score else 'ec2'
+    confidence = abs(rds_score - ec2_score) / max(rds_score, ec2_score)
 # Add this function after the PDFReportGenerator class and before the render_network_intelligence_tab function
 
 def render_ai_insights_tab_enhanced(analysis: Dict, config: Dict):
