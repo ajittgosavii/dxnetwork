@@ -2743,84 +2743,84 @@ class EnhancedAWSMigrationManager:
     async def _ai_calculate_reader_writer_config(self, config: Dict, ai_analysis: Dict) -> Dict:
         """AI-enhanced reader/writer configuration with better logic"""
     
-    database_size_gb = config['database_size_gb']
-    performance_req = config.get('performance_requirements', 'standard')
-    environment = config.get('environment', 'non-production')
-    ai_complexity = ai_analysis.get('ai_complexity_score', 6)
-    num_agents = config.get('number_of_agents', 1)
-    
-    # Start with single writer
-    writers = 1
-    readers = 0
-    
-    # Enhanced reader scaling logic - ensure we always have some readers for reasonable sizes
-    if database_size_gb > 500:  # Lowered threshold
-        readers += 1
-    if database_size_gb > 2000:
-        readers += 1 + max(0, int(ai_complexity / 5))  # AI complexity adds more readers
-    if database_size_gb > 10000:
-        readers += 2 + max(0, int(ai_complexity / 3))
-    if database_size_gb > 50000:
-        readers += 3
-    
-    # Performance-based scaling with AI insights
-    if performance_req == 'high':
-        readers += 2 + max(0, int(ai_complexity / 4))
-    else:  # Even standard performance should have readers for decent sizes
-        if database_size_gb > 1000:
+        database_size_gb = config['database_size_gb']
+        performance_req = config.get('performance_requirements', 'standard')
+        environment = config.get('environment', 'non-production')
+        ai_complexity = ai_analysis.get('ai_complexity_score', 6)
+        num_agents = config.get('number_of_agents', 1)
+        
+        # Start with single writer
+        writers = 1
+        readers = 0
+        
+        # Enhanced reader scaling logic - ensure we always have some readers for reasonable sizes
+        if database_size_gb > 500:  # Lowered threshold
             readers += 1
-    
-    # Agent scaling impact - more agents may benefit from more read replicas
-    if num_agents > 2:
-        readers += 1 + (num_agents // 3)
-    elif num_agents > 1 and database_size_gb > 1000:
-        readers += 1
-    
-    # Environment-based scaling
-    if environment == 'production':
-        readers = max(readers, 2)  # Minimum 2 readers for production
-        if database_size_gb > 50000 or ai_complexity > 8:
-            writers = 2  # Multi-writer for very large or complex production DBs
-    else:
-        # Non-production should still have at least 1 reader for decent sizes
-        if database_size_gb > 1000:
-            readers = max(readers, 1)
-    
-    # AI-recommended adjustments
-    ai_best_practices = ai_analysis.get('best_practices', [])
-    if any('high availability' in practice.lower() for practice in ai_best_practices):
-        readers += 1
-    if any('read replica' in practice.lower() for practice in ai_best_practices):
-        readers += 1
-    
-    # Ensure minimum sensible configuration
-    if database_size_gb > 1000 and readers == 0:
-        readers = 1  # Always have at least 1 reader for databases > 1TB
-    
-    # Calculate read/write distribution
-    total_capacity = writers + readers
-    write_capacity_percent = (writers / total_capacity) * 100 if total_capacity > 0 else 100
-    read_capacity_percent = (readers / total_capacity) * 100 if total_capacity > 0 else 0
-    
-    return {
-        'writers': writers,
-        'readers': readers,
-        'total_instances': total_capacity,
-        'write_capacity_percent': write_capacity_percent,
-        'read_capacity_percent': read_capacity_percent,
-        'recommended_read_split': min(80, read_capacity_percent),
-        'reasoning': f"AI-optimized for {database_size_gb}GB, complexity {ai_complexity}/10, {performance_req} performance, {environment}, {num_agents} agents",
-        'ai_insights': {
-            'complexity_impact': ai_complexity,
-            'agent_scaling_impact': num_agents,
-            'scaling_factors': [
-                f"Database size drives {readers} reader replicas",
-                f"Performance requirement: {performance_req}",
-                f"Environment: {environment} scaling applied"
-            ],
-            'optimization_potential': f"{max(0, (10 - ai_complexity) * 10)}% potential for further optimization"
+        if database_size_gb > 2000:
+            readers += 1 + max(0, int(ai_complexity / 5))  # AI complexity adds more readers
+        if database_size_gb > 10000:
+            readers += 2 + max(0, int(ai_complexity / 3))
+        if database_size_gb > 50000:
+            readers += 3
+        
+        # Performance-based scaling with AI insights
+        if performance_req == 'high':
+            readers += 2 + max(0, int(ai_complexity / 4))
+        else:  # Even standard performance should have readers for decent sizes
+            if database_size_gb > 1000:
+                readers += 1
+        
+        # Agent scaling impact - more agents may benefit from more read replicas
+        if num_agents > 2:
+            readers += 1 + (num_agents // 3)
+        elif num_agents > 1 and database_size_gb > 1000:
+            readers += 1
+        
+        # Environment-based scaling
+        if environment == 'production':
+            readers = max(readers, 2)  # Minimum 2 readers for production
+            if database_size_gb > 50000 or ai_complexity > 8:
+                writers = 2  # Multi-writer for very large or complex production DBs
+        else:
+            # Non-production should still have at least 1 reader for decent sizes
+            if database_size_gb > 1000:
+                readers = max(readers, 1)
+        
+        # AI-recommended adjustments
+        ai_best_practices = ai_analysis.get('best_practices', [])
+        if any('high availability' in practice.lower() for practice in ai_best_practices):
+            readers += 1
+        if any('read replica' in practice.lower() for practice in ai_best_practices):
+            readers += 1
+        
+        # Ensure minimum sensible configuration
+        if database_size_gb > 1000 and readers == 0:
+            readers = 1  # Always have at least 1 reader for databases > 1TB
+        
+        # Calculate read/write distribution
+        total_capacity = writers + readers
+        write_capacity_percent = (writers / total_capacity) * 100 if total_capacity > 0 else 100
+        read_capacity_percent = (readers / total_capacity) * 100 if total_capacity > 0 else 0
+        
+        return {
+            'writers': writers,
+            'readers': readers,
+            'total_instances': total_capacity,
+            'write_capacity_percent': write_capacity_percent,
+            'read_capacity_percent': read_capacity_percent,
+            'recommended_read_split': min(80, read_capacity_percent),
+            'reasoning': f"AI-optimized for {database_size_gb}GB, complexity {ai_complexity}/10, {performance_req} performance, {environment}, {num_agents} agents",
+            'ai_insights': {
+                'complexity_impact': ai_complexity,
+                'agent_scaling_impact': num_agents,
+                'scaling_factors': [
+                    f"Database size drives {readers} reader replicas",
+                    f"Performance requirement: {performance_req}",
+                    f"Environment: {environment} scaling applied"
+                ],
+                'optimization_potential': f"{max(0, (10 - ai_complexity) * 10)}% potential for further optimization"
+            }
         }
-    }
     async def _ai_recommend_deployment_type(self, config: Dict, ai_analysis: Dict, 
                                           rds_rec: Dict, ec2_rec: Dict) -> Dict:
         """AI-powered deployment type recommendation"""
