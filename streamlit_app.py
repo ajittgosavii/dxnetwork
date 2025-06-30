@@ -7458,7 +7458,7 @@ def render_agent_scaling_tab(analysis, config):
             delta=f"Multiplier: {agent_analysis.get('storage_performance_multiplier', 1.0):.1f}x"
         )
     
-        # REPLACE this section around line 2890:
+    # FIND THIS SECTION in render_agent_scaling_tab() and REPLACE the throughput metric:
     with col3:
         st.metric(
             "⚡ Actual Migration Throughput",  # Changed from "Total Throughput"
@@ -7480,7 +7480,9 @@ def render_agent_scaling_tab(analysis, config):
             delta=f"${agent_analysis.get('cost_per_hour', 0):.2f}/hour"
         )
     
-        # ADD this after the existing metrics section:
+    # ADD THIS AFTER THE EXISTING 5-COLUMN METRICS SECTION in render_agent_scaling_tab()
+
+    # Enhanced DYNAMIC warning about bandwidth vs throughput
     network_perf = analysis.get('network_performance', {})
     agent_analysis = analysis.get('agent_analysis', {})
 
@@ -7488,14 +7490,13 @@ def render_agent_scaling_tab(analysis, config):
     actual_throughput = agent_analysis.get('total_effective_throughput', 0)
 
     if network_bw > actual_throughput:
-        st.warning(f"""
-        ⚠️ **Agent vs Network Capacity Explanation:**
-        • **Agent Theoretical Max:** {agent_analysis.get('total_max_throughput_mbps', 0):,.0f} Mbps (what agents could handle)
-        • **Network Infrastructure Limit:** {network_bw:,.0f} Mbps (your actual network path)
-        • **Final Migration Speed:** {actual_throughput:,.0f} Mbps (actual bottlenecked performance)
-        
-        💡 **Your agents can handle more than your network can provide.** Plan migration times using the Final Migration Speed.
-        """)
+        # Get ACTUAL user configuration values
+        nic_speed = config.get('nic_speed', 1000)
+        nic_type = config.get('nic_type', 'gigabit_fiber')
+        os_name = config.get('operating_system', 'Unknown').replace('_', ' ').title()
+        server_type = config.get('server_type', 'physical')
+        num_agents = config.get('number_of_agents', 1)
+        tool_name = analysis.get('primary_tool', 'DMS').upper()
         
         # Calculate ACTUAL efficiency losses
         nic_efficiency = get_nic_efficiency(nic_type)
