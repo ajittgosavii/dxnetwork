@@ -7427,13 +7427,7 @@ def render_fsx_destination_comparison_tab(analysis: Dict, config: Dict):
     df_matrix = pd.DataFrame(matrix_data)
     st.dataframe(df_matrix, use_container_width=True)
     
-def safe_get_title(data, key, default='Unknown'):
-    """Safely get a value and convert to title case, handling None values"""
-    value = data.get(key) or default
-    return value.title() if isinstance(value, str) else str(value)
 
-# Then use it like:
-st.write(f"**Agent Size:** {safe_get_title(agent_analysis, 'agent_size')}")
 def render_agent_scaling_tab(analysis, config):
     # Guard clause to handle None or invalid analysis
     if analysis is None:
