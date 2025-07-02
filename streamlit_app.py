@@ -220,6 +220,12 @@ class AnthropicAIManager:
             - Migration Agents: {config.get('number_of_agents', 1)} agents configured
             - Destination Storage: {config.get('destination_storage_type', 'S3')}
 
+            CURRENT DATABASE PERFORMANCE METRICS:
+            - Database Max Memory: {config.get('current_db_max_memory_gb', 'Not specified')} GB
+            - Database Max CPU Cores: {config.get('current_db_max_cpu_cores', 'Not specified')} cores
+            - Database Max IOPS: {config.get('current_db_max_iops', 'Not specified')} IOPS
+            - Database Max Throughput: {config.get('current_db_max_throughput_mbps', 'Not specified')} MB/s
+
             {migration_details}
 
             CURRENT PERFORMANCE METRICS:
@@ -233,19 +239,22 @@ class AnthropicAIManager:
             1. MIGRATION COMPLEXITY (1-10 scale with detailed justification)
             2. RISK ASSESSMENT with specific risk percentages and mitigation strategies
             3. PERFORMANCE OPTIMIZATION recommendations with expected improvement percentages
-            4. DETAILED TIMELINE with phase-by-phase breakdown
-            5. RESOURCE ALLOCATION with specific AWS instance recommendations
-            6. COST OPTIMIZATION strategies with potential savings
-            7. BEST PRACTICES specific to this configuration with implementation steps
-            8. TESTING STRATEGY with checkpoints and validation criteria
-            9. ROLLBACK PROCEDURES and contingency planning
-            10. POST-MIGRATION monitoring and optimization recommendations
-            11. AGENT SCALING IMPACT analysis based on {config.get('number_of_agents', 1)} agents
-            12. DESTINATION STORAGE IMPACT for {config.get('destination_storage_type', 'S3')} including performance and cost implications
-            13. BACKUP STORAGE CONSIDERATIONS for {migration_method} method using {backup_storage_type if migration_method == 'backup_restore' else 'N/A'}
+            4. AWS SIZING RECOMMENDATIONS based on current database performance metrics
+            5. DETAILED TIMELINE with phase-by-phase breakdown
+            6. RESOURCE ALLOCATION with specific AWS instance recommendations
+            7. COST OPTIMIZATION strategies with potential savings
+            8. BEST PRACTICES specific to this configuration with implementation steps
+            9. TESTING STRATEGY with checkpoints and validation criteria
+            10. ROLLBACK PROCEDURES and contingency planning
+            11. POST-MIGRATION monitoring and optimization recommendations
+            12. AGENT SCALING IMPACT analysis based on {config.get('number_of_agents', 1)} agents
+            13. DESTINATION STORAGE IMPACT for {config.get('destination_storage_type', 'S3')} including performance and cost implications
+            14. BACKUP STORAGE CONSIDERATIONS for {migration_method} method using {backup_storage_type if migration_method == 'backup_restore' else 'N/A'}
+            15. RIGHT-SIZING ANALYSIS: Compare current database performance ({config.get('current_db_max_memory_gb', 'Unknown')} GB RAM, {config.get('current_db_max_cpu_cores', 'Unknown')} cores, {config.get('current_db_max_iops', 'Unknown')} IOPS) with recommended AWS instance types
 
             Provide quantitative analysis wherever possible, including specific metrics, percentages, and measurable outcomes.
             Format the response as detailed sections with clear recommendations and actionable insights.
+            Pay special attention to right-sizing recommendations based on the provided current database performance metrics.
             """
             
             message = self.client.messages.create(
@@ -1473,19 +1482,23 @@ class OSPerformanceManager:
             }
         }
     
-    def extract_database_engine(self, target_database_selection: str, ec2_database_engine: str = None) -> str:
-        """Extract the actual database engine from target selection"""
+    def extract_database_engine(self, target_database_selection: str, config: Dict) -> str:
+        """Extract the actual database engine from target selection and config"""
+        # For RDS, use the database_engine directly
         if target_database_selection.startswith('rds_'):
             return target_database_selection.replace('rds_', '')
         elif target_database_selection.startswith('ec2_'):
-            return ec2_database_engine if ec2_database_engine else 'mysql'
+            return config.get('ec2_database_engine', 'mysql')
         else:
-            return target_database_selection
+            # Check if we have EC2 database engine specified
+            if config.get('target_platform') == 'ec2' and config.get('ec2_database_engine'):
+                return config.get('ec2_database_engine')
+            return config.get('database_engine', target_database_selection)
     
-    def calculate_os_performance_impact(self, os_type: str, platform_type: str, target_database_selection: str, ec2_database_engine: str = None) -> Dict:
+    def calculate_os_performance_impact(self, os_type: str, platform_type: str, config: Dict) -> Dict:
         """Enhanced OS performance calculation with AI insights"""
         os_config = self.operating_systems[os_type]
-        database_engine = self.extract_database_engine(target_database_selection, ec2_database_engine)
+        database_engine = self.extract_database_engine(config.get('database_engine', 'mysql'), config)
         
         # Base OS efficiency calculation
         base_efficiency = (
@@ -2210,7 +2223,7 @@ class OnPremPerformanceAnalyzer:
         os_impact = os_manager.calculate_os_performance_impact(
             config['operating_system'], 
             config['server_type'], 
-            config['database_engine']
+            config
         )
         
         # Performance calculations
@@ -2313,13 +2326,16 @@ class OnPremPerformanceAnalyzer:
         """Calculate database performance"""
         db_optimization = os_impact['db_optimization']
         
-        if config['database_engine'] == 'mysql':
+        # Get the actual database engine for performance calculation
+        database_engine = config.get('ec2_database_engine') or config.get('database_engine', 'mysql')
+        
+        if database_engine == 'mysql':
             base_tps = 5000
-        elif config['database_engine'] == 'postgresql':
+        elif database_engine == 'postgresql':
             base_tps = 4500
-        elif config['database_engine'] == 'oracle':
+        elif database_engine == 'oracle':
             base_tps = 6000
-        elif config['database_engine'] == 'sqlserver':
+        elif database_engine == 'sqlserver':
             base_tps = 5500
         else:
             base_tps = 4000
@@ -2328,7 +2344,7 @@ class OnPremPerformanceAnalyzer:
         effective_tps = base_tps * hardware_factor * db_optimization
         
         return {
-            'database_engine': config['database_engine'],
+            'database_engine': database_engine,
             'base_tps': base_tps,
             'hardware_factor': hardware_factor,
             'db_optimization': db_optimization,
@@ -2691,61 +2707,279 @@ class EnhancedMigrationAnalyzer:
         }
     
     def _calculate_rds_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
-        """Calculate RDS sizing"""
+        """Calculate RDS sizing based on database size and performance metrics"""
         database_size_gb = config['database_size_gb']
         
+        # Get current database performance metrics for better sizing
+        current_memory_gb = config.get('current_db_max_memory_gb', 0)
+        current_cpu_cores = config.get('current_db_max_cpu_cores', 0)
+        current_iops = config.get('current_db_max_iops', 0)
+        current_throughput_mbps = config.get('current_db_max_throughput_mbps', 0)
+        
+        # Base sizing on database size (existing logic)
         if database_size_gb < 1000:
-            instance_type = 'db.t3.medium'
-            cost_per_hour = 0.068
+            base_instance_type = 'db.t3.medium'
+            base_cost_per_hour = 0.068
         elif database_size_gb < 5000:
-            instance_type = 'db.r6g.large'
-            cost_per_hour = 0.48
+            base_instance_type = 'db.r6g.large'
+            base_cost_per_hour = 0.48
         else:
-            instance_type = 'db.r6g.xlarge'
-            cost_per_hour = 0.96
+            base_instance_type = 'db.r6g.xlarge'
+            base_cost_per_hour = 0.96
+        
+        # Performance-based sizing recommendations
+        recommended_instance_type = base_instance_type
+        performance_based_cost = base_cost_per_hour
+        sizing_reasoning = ["Based on database size"]
+        
+        # Adjust based on current memory usage
+        if current_memory_gb > 0:
+            # Add 20% buffer for AWS overhead and growth
+            required_memory = current_memory_gb * 1.2
+            
+            if required_memory > 64:
+                recommended_instance_type = 'db.r6g.4xlarge'
+                performance_based_cost = 3.84
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 32:
+                recommended_instance_type = 'db.r6g.2xlarge'
+                performance_based_cost = 1.92
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 16:
+                recommended_instance_type = 'db.r6g.xlarge'
+                performance_based_cost = 0.96
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 8:
+                recommended_instance_type = 'db.r6g.large'
+                performance_based_cost = 0.48
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+        
+        # Adjust based on current CPU usage
+        if current_cpu_cores > 0:
+            # Add 25% buffer for peak load handling
+            required_vcpu = current_cpu_cores * 1.25
+            
+            if required_vcpu > 16:
+                if recommended_instance_type in ['db.t3.medium', 'db.r6g.large', 'db.r6g.xlarge']:
+                    recommended_instance_type = 'db.r6g.4xlarge'
+                    performance_based_cost = 3.84
+                    sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+            elif required_vcpu > 8:
+                if recommended_instance_type in ['db.t3.medium', 'db.r6g.large']:
+                    recommended_instance_type = 'db.r6g.2xlarge'
+                    performance_based_cost = 1.92
+                    sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+            elif required_vcpu > 4:
+                if recommended_instance_type == 'db.t3.medium':
+                    recommended_instance_type = 'db.r6g.xlarge'
+                    performance_based_cost = 0.96
+                    sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+        
+        # Adjust based on IOPS requirements
+        if current_iops > 0:
+            # Add 30% buffer for peak operations
+            required_iops = current_iops * 1.3
+            
+            if required_iops > 40000:
+                sizing_reasoning.append(f"High IOPS requirement: {required_iops:.0f} IOPS")
+                # May need io1/io2 storage
+            elif required_iops > 20000:
+                sizing_reasoning.append(f"Medium-high IOPS requirement: {required_iops:.0f} IOPS")
+        
+        # Use the performance-based recommendation if it's more suitable
+        final_instance_type = recommended_instance_type
+        cost_per_hour = performance_based_cost
+        
+        # Get real pricing if available
+        rds_instances = pricing_data.get('rds_instances', {})
+        if final_instance_type in rds_instances:
+            cost_per_hour = rds_instances[final_instance_type].get('cost_per_hour', cost_per_hour)
         
         storage_size = max(database_size_gb * 1.5, 100)
         storage_cost = storage_size * 0.08
         
+        # SQL Server specific adjustments
+        database_engine = config.get('database_engine', 'mysql')
+        if database_engine == 'sqlserver':
+            # SQL Server requires more resources
+            sizing_reasoning.append("SQL Server requires additional resources")
+            cost_per_hour *= 1.2  # SQL Server licensing overhead
+        
         return {
-            'primary_instance': instance_type,
-            'instance_specs': pricing_data.get('rds_instances', {}).get(instance_type, {'vcpu': 2, 'memory': 4}),
+            'primary_instance': final_instance_type,
+            'base_recommendation': base_instance_type,
+            'performance_based_recommendation': recommended_instance_type,
+            'instance_specs': pricing_data.get('rds_instances', {}).get(final_instance_type, {'vcpu': 2, 'memory': 4}),
             'storage_type': 'gp3',
             'storage_size_gb': storage_size,
             'monthly_instance_cost': cost_per_hour * 24 * 30,
             'monthly_storage_cost': storage_cost,
             'total_monthly_cost': cost_per_hour * 24 * 30 + storage_cost,
             'multi_az': config.get('environment') == 'production',
-            'backup_retention_days': 30 if config.get('environment') == 'production' else 7
+            'backup_retention_days': 30 if config.get('environment') == 'production' else 7,
+            'sizing_reasoning': sizing_reasoning,
+            'performance_metrics_used': {
+                'current_memory_gb': current_memory_gb,
+                'current_cpu_cores': current_cpu_cores,
+                'current_iops': current_iops,
+                'current_throughput_mbps': current_throughput_mbps
+            }
         }
     
     def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
-        """Calculate EC2 sizing"""
+        """Calculate EC2 sizing based on database size and performance metrics"""
         database_size_gb = config['database_size_gb']
         
-        if database_size_gb < 1000:
-            instance_type = 't3.large'
-            cost_per_hour = 0.0832
-        elif database_size_gb < 5000:
-            instance_type = 'r6i.large'
-            cost_per_hour = 0.252
-        else:
-            instance_type = 'r6i.xlarge'
-            cost_per_hour = 0.504
+        # Get current database performance metrics for better sizing
+        current_memory_gb = config.get('current_db_max_memory_gb', 0)
+        current_cpu_cores = config.get('current_db_max_cpu_cores', 0)
+        current_iops = config.get('current_db_max_iops', 0)
+        current_throughput_mbps = config.get('current_db_max_throughput_mbps', 0)
         
-        storage_size = max(database_size_gb * 2.0, 100)
+        # Get the actual database engine for EC2
+        database_engine = config.get('ec2_database_engine') or config.get('database_engine', 'mysql')
+        
+        # Base sizing on database size (existing logic)
+        if database_size_gb < 1000:
+            base_instance_type = 't3.large'
+            base_cost_per_hour = 0.0832
+        elif database_size_gb < 5000:
+            base_instance_type = 'r6i.large'
+            base_cost_per_hour = 0.252
+        else:
+            base_instance_type = 'r6i.xlarge'
+            base_cost_per_hour = 0.504
+        
+        # Performance-based sizing recommendations
+        recommended_instance_type = base_instance_type
+        performance_based_cost = base_cost_per_hour
+        sizing_reasoning = ["Based on database size"]
+        
+        # Adjust based on current memory usage
+        if current_memory_gb > 0:
+            # Add 25% buffer for OS overhead and growth (EC2 needs more overhead than RDS)
+            required_memory = current_memory_gb * 1.25
+            
+            if required_memory > 128:
+                recommended_instance_type = 'r6i.4xlarge'
+                performance_based_cost = 2.016
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 64:
+                recommended_instance_type = 'r6i.2xlarge'
+                performance_based_cost = 1.008
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 32:
+                recommended_instance_type = 'r6i.xlarge'
+                performance_based_cost = 0.504
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 16:
+                recommended_instance_type = 'r6i.large'
+                performance_based_cost = 0.252
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+            elif required_memory > 8:
+                recommended_instance_type = 't3.xlarge'
+                performance_based_cost = 0.1664
+                sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+        
+        # Adjust based on current CPU usage
+        if current_cpu_cores > 0:
+            # Add 30% buffer for peak load handling (more than RDS due to OS overhead)
+            required_vcpu = current_cpu_cores * 1.3
+            
+            if required_vcpu > 16:
+                if recommended_instance_type not in ['r6i.4xlarge', 'c5.4xlarge']:
+                    recommended_instance_type = 'r6i.4xlarge'
+                    performance_based_cost = 2.016
+                    sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+            elif required_vcpu > 8:
+                if recommended_instance_type in ['t3.large', 't3.xlarge', 'r6i.large']:
+                    recommended_instance_type = 'r6i.2xlarge'
+                    performance_based_cost = 1.008
+                    sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+            elif required_vcpu > 4:
+                if recommended_instance_type in ['t3.large', 't3.xlarge']:
+                    recommended_instance_type = 'r6i.xlarge'
+                    performance_based_cost = 0.504
+                    sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+        
+        # Adjust based on IOPS requirements
+        if current_iops > 0:
+            # Add 35% buffer for peak operations (more than RDS)
+            required_iops = current_iops * 1.35
+            
+            if required_iops > 50000:
+                sizing_reasoning.append(f"Very high IOPS requirement: {required_iops:.0f} IOPS - consider io1/io2 EBS")
+            elif required_iops > 25000:
+                sizing_reasoning.append(f"High IOPS requirement: {required_iops:.0f} IOPS - consider gp3 with provisioned IOPS")
+            elif required_iops > 10000:
+                sizing_reasoning.append(f"Medium IOPS requirement: {required_iops:.0f} IOPS")
+        
+        # SQL Server specific adjustments
+        if database_engine == 'sqlserver':
+            sizing_reasoning.append("SQL Server on EC2 requires additional resources")
+            
+            # SQL Server needs more memory and CPU
+            if current_memory_gb > 0 and current_memory_gb < 16:
+                if recommended_instance_type in ['t3.large', 't3.xlarge']:
+                    recommended_instance_type = 'r6i.large'
+                    performance_based_cost = 0.252
+                    sizing_reasoning.append("SQL Server minimum memory recommendation")
+            
+            # SQL Server licensing considerations
+            # Note: This would be BYOL (Bring Your Own License) or License Included pricing
+            licensing_factor = 1.0  # Assume BYOL for now
+            sizing_reasoning.append("Consider SQL Server licensing costs (BYOL assumed)")
+        
+        # Use the performance-based recommendation if it's more suitable
+        final_instance_type = recommended_instance_type
+        cost_per_hour = performance_based_cost
+        
+        # Get real pricing if available
+        ec2_instances = pricing_data.get('ec2_instances', {})
+        if final_instance_type in ec2_instances:
+            cost_per_hour = ec2_instances[final_instance_type].get('cost_per_hour', cost_per_hour)
+        
+        # Storage sizing - EC2 needs more storage overhead
+        storage_size = max(database_size_gb * 2.5, 100)  # Increased multiplier for EC2
         storage_cost = storage_size * 0.08
         
+        # EBS optimization for high IOPS workloads
+        if current_iops > 20000:
+            storage_cost *= 1.5  # io1/io2 premium
+            sizing_reasoning.append("High IOPS workload - io1/io2 EBS recommended")
+        
+        # Operating system licensing
+        os_licensing = 0
+        if 'windows' in config.get('operating_system', ''):
+            if database_engine == 'sqlserver':
+                os_licensing = 200  # Windows + SQL Server management overhead
+                sizing_reasoning.append("Windows OS licensing included")
+            else:
+                os_licensing = 150  # Windows licensing per instance
+                sizing_reasoning.append("Windows OS licensing included")
+        
         return {
-            'primary_instance': instance_type,
-            'instance_specs': pricing_data.get('ec2_instances', {}).get(instance_type, {'vcpu': 2, 'memory': 8}),
-            'storage_type': 'gp3',
+            'primary_instance': final_instance_type,
+            'base_recommendation': base_instance_type,
+            'performance_based_recommendation': recommended_instance_type,
+            'database_engine': database_engine,
+            'instance_specs': pricing_data.get('ec2_instances', {}).get(final_instance_type, {'vcpu': 2, 'memory': 8}),
+            'storage_type': 'gp3' if current_iops <= 20000 else 'io1',
             'storage_size_gb': storage_size,
             'monthly_instance_cost': cost_per_hour * 24 * 30,
             'monthly_storage_cost': storage_cost,
-            'total_monthly_cost': cost_per_hour * 24 * 30 + storage_cost,
+            'os_licensing_cost': os_licensing,
+            'total_monthly_cost': cost_per_hour * 24 * 30 + storage_cost + os_licensing,
             'ebs_optimized': True,
-            'enhanced_networking': True
+            'enhanced_networking': True,
+            'sizing_reasoning': sizing_reasoning,
+            'performance_metrics_used': {
+                'current_memory_gb': current_memory_gb,
+                'current_cpu_cores': current_cpu_cores,
+                'current_iops': current_iops,
+                'current_throughput_mbps': current_throughput_mbps
+            },
+            'sql_server_considerations': database_engine == 'sqlserver'
         }
     
     def _calculate_reader_writer_config(self, config: Dict) -> Dict:
@@ -3169,6 +3403,36 @@ def render_enhanced_sidebar_controls():
         }[x]
     )
     
+    # On-Premise Database Performance Inputs
+    st.sidebar.subheader("📊 Current Database Performance")
+    st.sidebar.markdown("*Enter your actual on-premise database metrics for accurate AWS sizing*")
+    
+    current_db_max_memory_gb = st.sidebar.number_input(
+        "Current DB Max Memory (GB)", 
+        min_value=1, max_value=1024, value=min(ram_gb * 0.8, 64), step=1,
+        help="Maximum memory currently allocated to your database"
+    )
+    
+    current_db_max_cpu_cores = st.sidebar.number_input(
+        "Current DB Max CPU Cores", 
+        min_value=1, max_value=128, value=min(cpu_cores, 16), step=1,
+        help="Number of CPU cores currently allocated to your database"
+    )
+    
+    current_db_max_iops = st.sidebar.number_input(
+        "Current DB Max IOPS", 
+        min_value=100, max_value=500000, value=10000, step=1000,
+        help="Maximum IOPS your database currently achieves"
+    )
+    
+    current_db_max_throughput_mbps = st.sidebar.number_input(
+        "Current DB Max Throughput (MB/s)", 
+        min_value=10, max_value=10000, value=500, step=50,
+        help="Maximum throughput your database currently achieves"
+    )
+    
+    st.sidebar.markdown("---")
+    
     # Target Platform Selection
     target_platform = st.sidebar.selectbox(
         "Target Platform",
@@ -3190,16 +3454,31 @@ def render_enhanced_sidebar_controls():
                 'sqlserver': '☁️ RDS SQL Server', 'mongodb': '☁️ DocumentDB'
             }[x]
         )
+        ec2_database_engine = None  # Not used for RDS
     else:  # EC2
-        database_engine = st.sidebar.selectbox(
-            "Target Database (EC2)",
-            ["mysql", "postgresql", "oracle", "sqlserver", "mongodb"],
-            index=3 if source_database_engine == "sqlserver" else 0,
-            format_func=lambda x: {
-                'mysql': '🖥️ EC2 with MySQL', 'postgresql': '🖥️ EC2 with PostgreSQL', 'oracle': '🖥️ EC2 with Oracle',
-                'sqlserver': '🖥️ EC2 with SQL Server', 'mongodb': '🖥️ EC2 with MongoDB'
-            }[x]
-        )
+        # For EC2, show SQL Server prominently if source is SQL Server
+        if source_database_engine == "sqlserver":
+            database_engine = st.sidebar.selectbox(
+                "Target Database (EC2)",
+                ["sqlserver", "mysql", "postgresql", "oracle", "mongodb"],
+                index=0,  # Default to SQL Server for SQL Server sources
+                format_func=lambda x: {
+                    'sqlserver': '🪟 EC2 with SQL Server (Recommended for SQL Server sources)',
+                    'mysql': '🖥️ EC2 with MySQL', 'postgresql': '🖥️ EC2 with PostgreSQL', 
+                    'oracle': '🖥️ EC2 with Oracle', 'mongodb': '🖥️ EC2 with MongoDB'
+                }[x]
+            )
+        else:
+            database_engine = st.sidebar.selectbox(
+                "Target Database (EC2)",
+                ["mysql", "postgresql", "oracle", "sqlserver", "mongodb"],
+                index=0 if source_database_engine != "sqlserver" else 3,
+                format_func=lambda x: {
+                    'mysql': '🖥️ EC2 with MySQL', 'postgresql': '🖥️ EC2 with PostgreSQL', 'oracle': '🖥️ EC2 with Oracle',
+                    'sqlserver': '🖥️ EC2 with SQL Server', 'mongodb': '🖥️ EC2 with MongoDB'
+                }[x]
+            )
+        ec2_database_engine = database_engine  # Store the actual database engine for EC2
     
     database_size_gb = st.sidebar.number_input("Database Size (GB)", 
                                               min_value=100, max_value=100000, value=1000, step=100)
@@ -3349,7 +3628,12 @@ def render_enhanced_sidebar_controls():
         'source_database_engine': source_database_engine,
         'target_platform': target_platform,
         'database_engine': database_engine,
+        'ec2_database_engine': ec2_database_engine,
         'database_size_gb': database_size_gb,
+        'current_db_max_memory_gb': current_db_max_memory_gb,
+        'current_db_max_cpu_cores': current_db_max_cpu_cores,
+        'current_db_max_iops': current_db_max_iops,
+        'current_db_max_throughput_mbps': current_db_max_throughput_mbps,
         'downtime_tolerance_minutes': downtime_tolerance_minutes,
         'performance_requirements': performance_requirements,
         'backup_storage_type': backup_storage_type,
