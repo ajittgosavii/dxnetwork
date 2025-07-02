@@ -3558,13 +3558,13 @@ def render_enhanced_sidebar_controls():
             )
         ec2_database_engine = database_engine  # Store the actual database engine for EC2
     
-    database_size_gb = st.sidebar.number_input("Database Size (GB)", 
-                                              min_value=100, max_value=100000, value=1000, step=100)
+    #database_size_gb = st.sidebar.number_input("Database Size (GB)", 
+                                              #min_value=100, max_value=100000, value=1000, step=100)
     
-    downtime_tolerance_minutes = st.sidebar.number_input("Max Downtime (minutes)", 
-                                                        min_value=1, max_value=480, value=60)
+    #downtime_tolerance_minutes = st.sidebar.number_input("Max Downtime (minutes)", 
+                                                        #min_value=1, max_value=480, value=60)
     
-    performance_requirements = st.sidebar.selectbox("Performance Requirement", ["standard", "high"])
+    #performance_requirements = st.sidebar.selectbox("Performance Requirement", ["standard", "high"])
     
             # SQL Server Deployment Type (only show if SQL Server is selected for EC2)
         if database_engine == "sqlserver":
