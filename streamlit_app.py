@@ -3131,7 +3131,7 @@ def _recommend_deployment_type(self, config: Dict, rds_rec: Dict, ec2_rec: Dict)
             'primary_reasons': primary_reasons
         }
     
-    async def _calculate_ai_enhanced_costs_with_agents(self, config: Dict, aws_sizing: Dict, 
+async def _calculate_ai_enhanced_costs_with_agents(self, config: Dict, aws_sizing: Dict, 
                                                      agent_analysis: Dict, network_perf: Dict) -> Dict:
         """AI-enhanced cost calculation"""
         
@@ -3195,7 +3195,7 @@ def _calculate_destination_storage_cost(self, config: Dict, destination_storage:
         base_cost_per_gb = storage_costs.get(destination_storage, 0.023)
         return database_size_gb * 1.5 * base_cost_per_gb
     
-    async def _generate_fsx_destination_comparisons(self, config: Dict) -> Dict:
+async def _generate_fsx_destination_comparisons(self, config: Dict) -> Dict:
         """Generate FSx destination comparisons"""
         comparisons = {}
         destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
