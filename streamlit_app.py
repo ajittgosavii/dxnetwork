@@ -5070,38 +5070,6 @@ def render_fsx_comparisons_tab(analysis: Dict, config: Dict):
                 delta=f"${comparison.get('estimated_monthly_storage_cost', 0):,.0f}/mo"
             )
             
-def run_agent_optimization_sync(optimizer: AgentScalingOptimizer, config: Dict, analysis: Dict) -> Dict:
-    """Run agent optimization synchronously for Streamlit"""
-    import asyncio
-    
-    # Check if we're in an event loop
-    try:
-        loop = asyncio.get_running_loop()
-        # We're in an event loop, so we need to run in a thread
-        import concurrent.futures
-        import threading
-        
-        def run_async():
-            # Create a new event loop for this thread
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            try:
-                return new_loop.run_until_complete(
-                    optimizer.analyze_agent_scaling_optimization(config, analysis)
-                )
-            finally:
-                new_loop.close()
-        
-        # Run in a separate thread with its own event loop
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(run_async)
-            return future.result(timeout=60)  # 60 second timeout
-            
-    except RuntimeError:
-        # No event loop running, safe to use asyncio.run()
-        return asyncio.run(optimizer.analyze_agent_scaling_optimization(config, analysis))
-
-
 
 def render_agent_scaling_optimizer_tab(analysis: Dict, config: Dict):
     """Render Agent Scaling Optimizer tab with AI recommendations"""
@@ -5597,6 +5565,39 @@ class AgentScalingOptimizer:
             'scaling_scenarios': scaling_scenarios,
             'optimization_summary': self._generate_optimization_summary(current_config, optimal_configs, ai_recommendations)
         }
+    
+    # Add this function right after the AgentScalingOptimizer class ends
+    def run_agent_optimization_sync(optimizer, config: Dict, analysis: Dict) -> Dict:
+        """Run agent optimization synchronously for Streamlit"""
+        import asyncio
+        
+        # Check if we're in an event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an event loop, so we need to run in a thread
+            import concurrent.futures
+            import threading
+            
+            def run_async():
+                # Create a new event loop for this thread
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(
+                        optimizer.analyze_agent_scaling_optimization(config, analysis)
+                    )
+                finally:
+                    new_loop.close()
+            
+            # Run in a separate thread with its own event loop
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_async)
+                return future.result(timeout=60)  # 60 second timeout
+                
+        except RuntimeError:
+            # No event loop running, safe to use asyncio.run()
+            return asyncio.run(optimizer.analyze_agent_scaling_optimization(config, analysis))
+    
     
     def _extract_current_agent_config(self, config: Dict, analysis: Dict) -> Dict:
         """Extract current agent configuration details"""
