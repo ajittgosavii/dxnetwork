@@ -3337,6 +3337,33 @@ def render_enhanced_sidebar_controls():
     if st.sidebar.button("🔄 Refresh AI Analysis", type="primary"):
         st.rerun()
     
+    # Return the configuration dictionary
+    return {
+        'operating_system': operating_system,
+        'server_type': server_type,
+        'ram_gb': ram_gb,
+        'cpu_cores': cpu_cores,
+        'cpu_ghz': cpu_ghz,
+        'nic_type': nic_type,
+        'nic_speed': nic_speed,
+        'source_database_engine': source_database_engine,
+        'target_platform': target_platform,
+        'database_engine': database_engine,
+        'database_size_gb': database_size_gb,
+        'downtime_tolerance_minutes': downtime_tolerance_minutes,
+        'performance_requirements': performance_requirements,
+        'backup_storage_type': backup_storage_type,
+        'backup_size_multiplier': backup_size_multiplier,
+        'migration_method': migration_method,
+        'destination_storage_type': destination_storage_type,
+        'environment': environment,
+        'number_of_agents': number_of_agents,
+        'datasync_agent_size': datasync_agent_size,
+        'dms_agent_size': dms_agent_size,
+        'enable_ai_analysis': enable_ai_analysis
+    }
+    
+    
 def render_bandwidth_waterfall_analysis(analysis, config):
     """Show complete bandwidth degradation from user hardware to final throughput including backup storage"""
     st.markdown("**🌊 Bandwidth Waterfall Analysis: From Your Hardware to Migration Throughput**")
