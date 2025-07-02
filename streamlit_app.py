@@ -23,6 +23,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.backends.backend_pdf import PdfPages
 import seaborn as sns
+import concurrent.futures
+import threading
 
 
 # Configure logging
@@ -5067,6 +5069,40 @@ def render_fsx_comparisons_tab(analysis: Dict, config: Dict):
                 comparison.get('performance_rating', 'Unknown'),
                 delta=f"${comparison.get('estimated_monthly_storage_cost', 0):,.0f}/mo"
             )
+            
+def run_agent_optimization_sync(optimizer: AgentScalingOptimizer, config: Dict, analysis: Dict) -> Dict:
+    """Run agent optimization synchronously for Streamlit"""
+    import asyncio
+    
+    # Check if we're in an event loop
+    try:
+        loop = asyncio.get_running_loop()
+        # We're in an event loop, so we need to run in a thread
+        import concurrent.futures
+        import threading
+        
+        def run_async():
+            # Create a new event loop for this thread
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(
+                    optimizer.analyze_agent_scaling_optimization(config, analysis)
+                )
+            finally:
+                new_loop.close()
+        
+        # Run in a separate thread with its own event loop
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(run_async)
+            return future.result(timeout=60)  # 60 second timeout
+            
+    except RuntimeError:
+        # No event loop running, safe to use asyncio.run()
+        return asyncio.run(optimizer.analyze_agent_scaling_optimization(config, analysis))
+
+
+
 def render_agent_scaling_optimizer_tab(analysis: Dict, config: Dict):
     """Render Agent Scaling Optimizer tab with AI recommendations"""
     st.subheader("🤖 DataSync/DMS Agent Scaling Optimizer")
@@ -5084,10 +5120,8 @@ def render_agent_scaling_optimizer_tab(analysis: Dict, config: Dict):
                     agent_manager = EnhancedAgentSizingManager()
                     optimizer = AgentScalingOptimizer(ai_manager, agent_manager)
                     
-                    # Run optimization analysis
-                    optimization_analysis = asyncio.run(
-                        optimizer.analyze_agent_scaling_optimization(config, analysis)
-                    )
+                    # Run optimization analysis synchronously
+                    optimization_analysis = run_agent_optimization_sync(optimizer, config, analysis)
                     
                     st.session_state['agent_optimization'] = optimization_analysis
                     st.rerun()
@@ -5493,7 +5527,6 @@ def render_agent_scaling_optimizer_tab(analysis: Dict, config: Dict):
 
 
 
-
 def create_network_path_diagram(network_perf: Dict):
     """Create network path diagram using Plotly"""
     segments = network_perf.get('segments', [])
@@ -5718,7 +5751,7 @@ class AgentScalingOptimizer:
             return "General purpose workloads"
     
     async def _get_ai_scaling_recommendations(self, config: Dict, analysis: Dict, 
-                                            current_config: Dict, optimal_configs: Dict) -> Dict:
+                                        current_config: Dict, optimal_configs: Dict) -> Dict:
         """Get AI-powered scaling recommendations"""
         
         if not self.ai_manager.connected:
@@ -5768,46 +5801,41 @@ class AgentScalingOptimizer:
             for i, (config_key, config_data) in enumerate(top_configs, 1):
                 prompt += f"""
             {i}. {config_key}: {config_data['agent_count']}x {config_data['agent_size']} agents
-               - Throughput: {config_data['total_throughput']:,.0f} Mbps
-               - Monthly Cost: ${config_data['monthly_cost']:,.0f}
-               - Efficiency Score: {config_data['efficiency_score']:.1f}/100
-               - Cost per Mbps: ${config_data['cost_per_mbps']:.2f}
-               - Management: {config_data['management_complexity']}
-               - Best for: {config_data['recommended_for']}
+            - Throughput: {config_data['total_throughput']:,.0f} Mbps
+            - Monthly Cost: ${config_data['monthly_cost']:,.0f}
+            - Efficiency Score: {config_data['efficiency_score']:.1f}/100
+            - Cost per Mbps: ${config_data['cost_per_mbps']:.2f}
+            - Management: {config_data['management_complexity']}
+            - Best for: {config_data['recommended_for']}
                 """
             
-            prompt += f"""
+            prompt += """
 
             Please provide comprehensive agent scaling recommendations including:
 
             1. **OPTIMAL CONFIGURATION ANALYSIS**: Which of the top 3 configurations is most suitable and why?
-
             2. **SCALING STRATEGY**: Detailed recommendations for scaling approach (scale up vs scale out)
-
             3. **COST OPTIMIZATION**: How to achieve best cost-performance ratio
-
             4. **PERFORMANCE OPTIMIZATION**: Specific tuning recommendations for chosen configuration
-
-            5. **MIGRATION METHOD CONSIDERATIONS**: How does {migration_method} affect agent optimization?
-
-            6. **BOTTLENECK RESOLUTION**: Specific steps to address the current "{current_config['bottleneck']}" bottleneck
-
-            7. **RISK MITIGATION**: Potential risks with recommended configuration and mitigation strategies
-
-            8. **IMPLEMENTATION PLAN**: Step-by-step plan to implement optimal configuration
-
-            9. **MONITORING RECOMMENDATIONS**: Key metrics to monitor during and after implementation
-
-            10. **FALLBACK STRATEGY**: Alternative configurations if primary recommendation doesn't work
+            5. **BOTTLENECK RESOLUTION**: Specific steps to address bottlenecks
+            6. **RISK MITIGATION**: Potential risks and mitigation strategies
+            7. **IMPLEMENTATION PLAN**: Step-by-step implementation plan
+            8. **MONITORING RECOMMENDATIONS**: Key metrics to monitor
+            9. **FALLBACK STRATEGY**: Alternative configurations
 
             Provide specific, actionable recommendations with quantified benefits where possible.
             """
             
-            message = self.ai_manager.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=4000,
-                temperature=0.2,
-                messages=[{"role": "user", "content": prompt}]
+            # Create the message with timeout handling
+            message = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.ai_manager.client.messages.create,
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=4000,
+                    temperature=0.2,
+                    messages=[{"role": "user", "content": prompt}]
+                ),
+                timeout=30.0  # 30 second timeout
             )
             
             ai_response = message.content[0].text
@@ -5827,6 +5855,9 @@ class AgentScalingOptimizer:
                 'backup_storage_considerations': self._extract_backup_storage_considerations(ai_response, migration_method)
             }
             
+        except asyncio.TimeoutError:
+            logger.error("AI agent scaling analysis timed out")
+            return self._fallback_ai_recommendations(current_config, optimal_configs)
         except Exception as e:
             logger.error(f"AI agent scaling analysis failed: {e}")
             return self._fallback_ai_recommendations(current_config, optimal_configs)
