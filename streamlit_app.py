@@ -3082,7 +3082,7 @@ def _calculate_reader_writer_config(self, config: Dict) -> Dict:
             'reasoning': f"AI-optimized for {database_size_gb}GB database"
         }
     
-    def _recommend_deployment_type(self, config: Dict, rds_rec: Dict, ec2_rec: Dict) -> Dict:
+def _recommend_deployment_type(self, config: Dict, rds_rec: Dict, ec2_rec: Dict) -> Dict:
         """Recommend deployment type based on user selection and analysis"""
         target_platform = config.get('target_platform', 'rds')
         
@@ -3188,7 +3188,7 @@ def _calculate_reader_writer_config(self, config: Dict) -> Dict:
             'roi_months': 12
         }
     
-    def _calculate_destination_storage_cost(self, config: Dict, destination_storage: str) -> float:
+def _calculate_destination_storage_cost(self, config: Dict, destination_storage: str) -> float:
         """Calculate destination storage cost"""
         database_size_gb = config['database_size_gb']
         storage_costs = {'S3': 0.023, 'FSx_Windows': 0.13, 'FSx_Lustre': 0.14}
@@ -3262,17 +3262,17 @@ def _calculate_reader_writer_config(self, config: Dict) -> Dict:
         
         return comparisons
     
-    def _get_performance_rating(self, dest_type: str) -> str:
+def _get_performance_rating(self, dest_type: str) -> str:
         """Get performance rating for destination"""
         ratings = {'S3': 'Good', 'FSx_Windows': 'Very Good', 'FSx_Lustre': 'Excellent'}
         return ratings.get(dest_type, 'Good')
     
-    def _get_cost_rating(self, dest_type: str) -> str:
+def _get_cost_rating(self, dest_type: str) -> str:
         """Get cost rating for destination"""
         ratings = {'S3': 'Excellent', 'FSx_Windows': 'Good', 'FSx_Lustre': 'Fair'}
         return ratings.get(dest_type, 'Good')
     
-    def _get_complexity_rating(self, dest_type: str) -> str:
+def _get_complexity_rating(self, dest_type: str) -> str:
         """Get complexity rating for destination"""
         ratings = {'S3': 'Low', 'FSx_Windows': 'Medium', 'FSx_Lustre': 'High'}
         return ratings.get(dest_type, 'Low')
