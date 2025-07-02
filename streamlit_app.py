@@ -2709,6 +2709,90 @@ class EnhancedMigrationAnalyzer:
             'pricing_data': pricing_data
         }
     
+    def _calculate_reader_writer_config(self, config: Dict) -> Dict:
+        """Calculate reader/writer configuration"""
+        database_size_gb = config['database_size_gb']
+        performance_req = config.get('performance_requirements', 'standard')
+        environment = config.get('environment', 'non-production')
+        
+        writers = 1
+        readers = 0
+        
+        if database_size_gb > 500:
+            readers += 1
+        if database_size_gb > 2000:
+            readers += 1
+        if database_size_gb > 10000:
+            readers += 2
+        
+        if performance_req == 'high':
+            readers += 2
+        
+        if environment == 'production':
+            readers = max(readers, 2)
+        
+        total_instances = writers + readers
+        
+        return {
+            'writers': writers,
+            'readers': readers,
+            'total_instances': total_instances,
+            'write_capacity_percent': (writers / total_instances) * 100 if total_instances > 0 else 100,
+            'read_capacity_percent': (readers / total_instances) * 100 if total_instances > 0 else 0,
+            'recommended_read_split': min(80, (readers / total_instances) * 100) if total_instances > 0 else 0,
+            'reasoning': f"AI-optimized for {database_size_gb}GB database"
+        }
+    
+    def _recommend_deployment_type(self, config: Dict, rds_rec: Dict, ec2_rec: Dict) -> Dict:
+        """Recommend deployment type based on user selection and analysis"""
+        target_platform = config.get('target_platform', 'rds')
+        
+        # Use user's explicit choice but provide analysis
+        rds_score = 0
+        ec2_score = 0
+        
+        if config['database_size_gb'] < 2000:
+            rds_score += 40
+        elif config['database_size_gb'] > 10000:
+            ec2_score += 30
+        
+        if config['performance_requirements'] == 'high':
+            ec2_score += 30
+        else:
+            rds_score += 35
+        
+        if config['environment'] == 'production':
+            rds_score += 20
+        
+        rds_score += 20  # Management simplicity
+        
+        # Override with user selection
+        recommendation = target_platform
+        
+        # Calculate confidence based on alignment with analysis
+        analytical_recommendation = 'rds' if rds_score > ec2_score else 'ec2'
+        confidence = 0.9 if recommendation == analytical_recommendation else 0.6
+        
+        primary_reasons = [
+            f"User selected {target_platform.upper()} platform",
+            f"Suitable for {config['database_size_gb']:,}GB database",
+            f"Appropriate for {config.get('environment', 'non-production')} environment"
+        ]
+        
+        if recommendation != analytical_recommendation:
+            primary_reasons.append(f"Note: Analysis suggests {analytical_recommendation.upper()} might be optimal")
+        
+        return {
+            'recommendation': recommendation,
+            'user_choice': target_platform,
+            'analytical_recommendation': analytical_recommendation,
+            'confidence': confidence,
+            'rds_score': rds_score,
+            'ec2_score': ec2_score,
+            'primary_reasons': primary_reasons
+        }
+    
+    
     def _calculate_rds_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
         """Calculate RDS sizing based on database size and performance metrics"""
         database_size_gb = config['database_size_gb']
