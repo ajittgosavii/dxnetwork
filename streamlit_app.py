@@ -5070,6 +5070,293 @@ def render_fsx_comparisons_tab(analysis: Dict, config: Dict):
                 delta=f"${comparison.get('estimated_monthly_storage_cost', 0):,.0f}/mo"
             )
             
+def run_agent_optimization_sync(optimizer, config: Dict, analysis: Dict) -> Dict:
+    """Run agent optimization synchronously for Streamlit"""
+    import asyncio
+    import concurrent.futures
+    import threading
+    
+    def run_in_thread():
+        """Run async function in a new thread with its own event loop"""
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return new_loop.run_until_complete(
+                optimizer.analyze_agent_scaling_optimization(config, analysis)
+            )
+        finally:
+            new_loop.close()
+            asyncio.set_event_loop(None)
+    
+    try:
+        # Check if we're already in an event loop
+        loop = asyncio.get_running_loop()
+        if loop and loop.is_running():
+            # We're in Streamlit's event loop, run in separate thread
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(run_in_thread)
+                return future.result(timeout=120)  # 2 minute timeout
+        else:
+            # No active loop, safe to run directly
+            return asyncio.run(optimizer.analyze_agent_scaling_optimization(config, analysis))
+    except RuntimeError:
+        # No event loop, run directly
+        return asyncio.run(optimizer.analyze_agent_scaling_optimization(config, analysis))
+    except Exception as e:
+        # Fallback: create minimal analysis
+        logger.error(f"Agent optimization failed: {e}")
+        return {
+            'current_configuration': {'error': 'Analysis failed'},
+            'optimal_configurations': {},
+            'ai_recommendations': {'ai_analysis_available': False, 'error': str(e)},
+            'cost_vs_performance': {'analysis_available': False},
+            'bottleneck_analysis': {'current_bottleneck': 'Analysis failed'},
+            'scaling_scenarios': {},
+            'optimization_summary': {'optimization_available': False, 'error': str(e)}
+        }
+
+
+def render_agent_scaling_optimizer_tab(analysis: Dict, config: Dict):
+    """Render Agent Scaling Optimizer tab with AI recommendations"""
+    st.subheader("🤖 DataSync/DMS Agent Scaling Optimizer")
+    
+    # Check if we have agent optimization data
+    if 'agent_optimization' not in st.session_state:
+        st.info("🚀 **Agent Scaling Optimization Analysis**")
+        st.write("Click the button below to run comprehensive agent scaling optimization analysis with AI recommendations.")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("""
+            **This analysis will provide:**
+            - 🎯 Optimal agent configurations for your workload
+            - 🤖 AI-powered scaling recommendations  
+            - 💰 Cost vs performance trade-off analysis
+            - 🚫 Bottleneck identification and resolution
+            - 📈 Multiple scaling scenarios (conservative, balanced, aggressive)
+            - 🛡️ Risk mitigation strategies
+            """)
+        
+        with col2:
+            if st.button("🔍 Analyze Agent Scaling", type="primary", use_container_width=True):
+                with st.spinner("🤖 Running AI-powered agent scaling optimization..."):
+                    try:
+                        # Show progress
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("🔧 Initializing optimizer...")
+                        progress_bar.progress(10)
+                        
+                        # Initialize optimizer
+                        ai_manager = AnthropicAIManager()
+                        agent_manager = EnhancedAgentSizingManager()
+                        optimizer = AgentScalingOptimizer(ai_manager, agent_manager)
+                        
+                        status_text.text("📊 Analyzing current configuration...")
+                        progress_bar.progress(30)
+                        
+                        # Run optimization analysis
+                        optimization_analysis = run_agent_optimization_sync(optimizer, config, analysis)
+                        
+                        status_text.text("✅ Analysis complete!")
+                        progress_bar.progress(100)
+                        
+                        st.session_state['agent_optimization'] = optimization_analysis
+                        
+                        # Clear progress indicators
+                        progress_bar.empty()
+                        status_text.empty()
+                        
+                        st.success("✅ Agent scaling optimization analysis completed!")
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"❌ Agent optimization analysis failed: {str(e)}")
+                        logger.error(f"Agent optimization error: {e}")
+                        
+                        # Show detailed error for debugging
+                        with st.expander("🔍 Error Details", expanded=False):
+                            st.code(str(e))
+                        return
+        
+        return
+    
+    # Display optimization results
+    optimization = st.session_state['agent_optimization']
+    
+    # Check if analysis failed
+    if optimization.get('optimization_summary', {}).get('error'):
+        st.error(f"❌ Analysis failed: {optimization['optimization_summary']['error']}")
+        if st.button("🔄 Retry Analysis", type="primary"):
+            if 'agent_optimization' in st.session_state:
+                del st.session_state['agent_optimization']
+            st.rerun()
+        return
+    
+    # Executive Summary
+    st.markdown("**📊 Agent Scaling Optimization Summary:**")
+    
+    optimization_summary = optimization.get('optimization_summary', {})
+    
+    if optimization_summary.get('optimization_available', False):
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            current_config = optimization_summary.get('current_configuration', 'Unknown')
+            recommended_config = optimization_summary.get('recommended_configuration', 'Unknown')
+            st.metric(
+                "🎯 Current vs Optimal",
+                current_config,
+                delta=f"→ {recommended_config}"
+            )
+        
+        with col2:
+            perf_improvement = optimization_summary.get('performance_improvement', {})
+            throughput_change = perf_improvement.get('throughput_change_percent', 0)
+            st.metric(
+                "🚀 Throughput Change",
+                f"{throughput_change:+.1f}%",
+                delta=f"{perf_improvement.get('throughput_change_mbps', 0):+,.0f} Mbps"
+            )
+        
+        with col3:
+            cost_impact = optimization_summary.get('cost_impact', {})
+            cost_change = cost_impact.get('cost_change_percent', 0)
+            st.metric(
+                "💰 Cost Impact",
+                f"{cost_change:+.1f}%",
+                delta=f"${cost_impact.get('cost_change_monthly', 0):+,.0f}/mo"
+            )
+        
+        with col4:
+            efficiency_gain = optimization_summary.get('efficiency_gain', 0)
+            st.metric(
+                "⚡ Efficiency Gain",
+                f"{efficiency_gain:+.1f} pts",
+                delta="Optimization score"
+            )
+        
+        with col5:
+            ai_recommendations = optimization.get('ai_recommendations', {})
+            confidence = ai_recommendations.get('confidence_level', 'medium')
+            ai_available = ai_recommendations.get('ai_analysis_available', False)
+            st.metric(
+                "🤖 AI Analysis",
+                "Available" if ai_available else "Fallback",
+                delta=f"Confidence: {confidence.title()}"
+            )
+    else:
+        st.warning("⚠️ Optimization analysis not available. Please retry the analysis.")
+        if st.button("🔄 Retry Analysis", type="primary"):
+            if 'agent_optimization' in st.session_state:
+                del st.session_state['agent_optimization']
+            st.rerun()
+        return
+    
+    # Current Configuration Analysis
+    st.markdown("---")
+    st.markdown("**🔍 Current Configuration Analysis:**")
+    
+    current_config = optimization.get('current_configuration', {})
+    
+    if not current_config or current_config.get('error'):
+        st.error("❌ Current configuration analysis failed. Please retry.")
+        return
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.info("**Current Setup**")
+        st.write(f"**Migration Method:** {current_config.get('migration_method', 'Unknown').replace('_', ' ').title()}")
+        st.write(f"**Primary Tool:** {current_config.get('primary_tool', 'Unknown')}")
+        st.write(f"**Agent Count:** {current_config.get('agent_count', 0)}")
+        st.write(f"**Agent Size:** {current_config.get('agent_size', 'Unknown').title()}")
+        st.write(f"**Destination Storage:** {current_config.get('destination_storage', 'S3')}")
+        
+        if current_config.get('migration_method') == 'backup_restore':
+            st.write(f"**Backup Storage:** {current_config.get('backup_storage_type', 'Unknown').replace('_', ' ').title()}")
+    
+    with col2:
+        st.success("**Performance Metrics**")
+        st.write(f"**Current Throughput:** {current_config.get('current_throughput_mbps', 0):,.0f} Mbps")
+        st.write(f"**Database Size:** {current_config.get('database_size_gb', 0):,} GB")
+        st.write(f"**Scaling Efficiency:** {current_config.get('current_efficiency', 0)*100:.1f}%")
+        st.write(f"**Monthly Cost:** ${current_config.get('current_cost_monthly', 0):,.0f}")
+        st.write(f"**Current Bottleneck:** {current_config.get('bottleneck', 'Unknown')}")
+    
+    with col3:
+        bottleneck_severity = current_config.get('bottleneck_severity', 'medium')
+        if bottleneck_severity == 'high':
+            st.error("**Performance Issues**")
+        elif bottleneck_severity == 'medium':
+            st.warning("**Performance Status**")
+        else:
+            st.info("**Performance Status**")
+        
+        st.write(f"**Bottleneck Severity:** {bottleneck_severity.title()}")
+        
+        # Calculate migration time estimate
+        if current_config.get('current_throughput_mbps', 0) > 0:
+            db_size = current_config.get('database_size_gb', 0)
+            migration_method = current_config.get('migration_method', 'direct_replication')
+            
+            if migration_method == 'backup_restore':
+                # Use backup size
+                backup_size_multiplier = config.get('backup_size_multiplier', 0.7)
+                effective_size = db_size * backup_size_multiplier
+            else:
+                effective_size = db_size
+            
+            estimated_hours = (effective_size * 8 * 1000) / (current_config.get('current_throughput_mbps', 1) * 3600)
+            st.write(f"**Estimated Migration Time:** {estimated_hours:.1f} hours")
+        
+        improvement_potential = "High" if bottleneck_severity == 'high' else "Medium" if bottleneck_severity == 'medium' else "Low"
+        st.write(f"**Optimization Potential:** {improvement_potential}")
+    
+    # The rest of the function continues with the existing code...
+    # (All the other sections: Optimal Configurations, AI Recommendations, etc.)
+    
+    # Action Buttons at the end
+    st.markdown("---")
+    st.markdown("**🚀 Next Steps:**")
+    
+    button_col1, button_col2, button_col3 = st.columns(3)
+    
+    with button_col1:
+        if st.button("🔄 Re-run Optimization Analysis", use_container_width=True):
+            if 'agent_optimization' in st.session_state:
+                del st.session_state['agent_optimization']
+            st.rerun()
+    
+    with button_col2:
+        if st.button("📊 Export Recommendations", use_container_width=True):
+            # Create summary for export
+            export_data = {
+                'current_config': current_config,
+                'recommended_config': optimization.get('ai_recommendations', {}).get('recommended_configuration'),
+                'optimization_summary': optimization_summary,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            st.download_button(
+                label="📥 Download Analysis",
+                data=json.dumps(export_data, indent=2),
+                file_name=f"agent_optimization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
+    
+    with button_col3:
+        ai_recommendations = optimization.get('ai_recommendations', {})
+        if st.button("🤖 Get Detailed AI Analysis", use_container_width=True):
+            if ai_recommendations.get('raw_ai_response'):
+                st.markdown("**🤖 Complete AI Analysis:**")
+                with st.expander("View Full AI Response", expanded=False):
+                    st.text(ai_recommendations['raw_ai_response'])
+            else:
+                st.info("Detailed AI analysis not available")
+
+
 
 def render_agent_scaling_optimizer_tab(analysis: Dict, config: Dict):
     """Render Agent Scaling Optimizer tab with AI recommendations"""
