@@ -2829,6 +2829,27 @@ class EnhancedMigrationAnalyzer:
             }
         }
     
+    def config_has_changed(current_config, stored_config):
+        """Check if configuration has changed significantly"""
+        if stored_config is None:
+            return True
+        
+        # Key fields that trigger re-analysis
+        key_fields = [
+            'database_size_gb', 'source_database_engine', 'database_engine', 
+            'migration_method', 'backup_storage_type', 'destination_storage_type',
+            'number_of_agents', 'datasync_agent_size', 'dms_agent_size',
+            'operating_system', 'ram_gb', 'cpu_cores', 'environment',
+            'target_platform', 'sql_server_deployment_type'  # ADD THIS LINE
+        ]
+        
+        for field in key_fields:
+            if current_config.get(field) != stored_config.get(field):
+                return True
+        
+        return False
+    
+    
     def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
         """Calculate EC2 sizing based on database size and performance metrics"""
         database_size_gb = config['database_size_gb']
@@ -2841,6 +2862,60 @@ class EnhancedMigrationAnalyzer:
         
         # Get the actual database engine for EC2
         database_engine = config.get('ec2_database_engine') or config.get('database_engine', 'mysql')
+        
+        # SQL Server deployment configuration
+        sql_server_deployment_type = config.get('sql_server_deployment_type', 'standalone')
+        is_sql_server_always_on = (database_engine == 'sqlserver' and sql_server_deployment_type == 'always_on')
+        
+        # For SQL Server Always On, upgrade instance size for cluster requirements
+        if is_sql_server_always_on:
+            if database_size_gb < 1000:
+                base_instance_type = 'r6i.large'  # Upgrade from t3.large
+                base_cost_per_hour = 0.252
+            elif database_size_gb < 5000:
+                base_instance_type = 'r6i.xlarge'  # Upgrade from r6i.large
+                base_cost_per_hour = 0.504
+            else:
+                base_instance_type = 'r6i.2xlarge'  # Upgrade from r6i.xlarge
+                base_cost_per_hour = 1.008
+
+# And then near the end of the _calculate_ec2_sizing method, add this before the return statement:
+
+        # Calculate number of instances
+        if is_sql_server_always_on:
+            instance_count = 3  # Always On requires 3 nodes
+            deployment_description = "3-Node Always On Cluster"
+        else:
+            instance_count = 1  # Standalone deployment
+            deployment_description = "Single Instance"
+
+        # Update the return dictionary to include these new fields:
+        return {
+            # ... existing fields ...
+            'sql_server_deployment_type': sql_server_deployment_type,
+            'instance_count': instance_count,
+            'deployment_description': deployment_description,
+            'is_always_on_cluster': is_sql_server_always_on,
+            'monthly_instance_cost': cost_per_hour * 24 * 30 * instance_count,
+            'monthly_storage_cost': storage_cost * instance_count,
+            'total_monthly_cost': (cost_per_hour * 24 * 30 * instance_count) + (storage_cost * instance_count) + os_licensing,
+            'cost_per_hour_per_instance': cost_per_hour,
+            'total_cost_per_hour': cost_per_hour * instance_count,
+            'always_on_benefits': [
+                "Automatic failover capability",
+                "Read-scale with secondary replicas", 
+                "Zero data loss with synchronous replicas",
+                "Enhanced backup strategies"
+            ] if is_sql_server_always_on else [],
+            'cluster_requirements': [
+                "Windows Server Failover Clustering (WSFC)",
+                "Shared storage or storage replication",
+                "Dedicated cluster network",
+                "Quorum configuration"
+            ] if is_sql_server_always_on else []
+        }
+        
+        
         
         # Base sizing on database size (existing logic)
         if database_size_gb < 1000:
@@ -3491,6 +3566,41 @@ def render_enhanced_sidebar_controls():
     
     performance_requirements = st.sidebar.selectbox("Performance Requirement", ["standard", "high"])
     
+            # SQL Server Deployment Type (only show if SQL Server is selected for EC2)
+        if database_engine == "sqlserver":
+            st.sidebar.markdown("**🔧 SQL Server Deployment Configuration:**")
+            sql_server_deployment_type = st.sidebar.selectbox(
+                "SQL Server Deployment Type",
+                ["standalone", "always_on"],
+                format_func=lambda x: {
+                    'standalone': '🖥️ Standalone SQL Server (Single Instance)',
+                    'always_on': '🔄 SQL Server Always On (3-Node Cluster)'
+                }[x]
+            )
+            
+            # Show deployment-specific information
+            if sql_server_deployment_type == "always_on":
+                st.sidebar.info("""
+                **🔄 SQL Server Always On Cluster:**
+                • 3 EC2 instances (Primary + 2 Replicas)
+                • High Availability & Disaster Recovery
+                • Automatic failover capability
+                • Shared storage or storage replication
+                • Higher cost but enterprise-grade reliability
+                """)
+            else:
+                st.sidebar.info("""
+                **🖥️ Standalone SQL Server:**
+                • Single EC2 instance
+                • Standard SQL Server deployment
+                • Cost-effective for non-HA requirements
+                • Manual backup and recovery processes
+                """)
+        else:
+            sql_server_deployment_type = None  # Not applicable for non-SQL Server
+    
+    
+    
     # Backup Storage Configuration for DataSync
     st.sidebar.subheader("💾 Backup Storage Configuration")
     
@@ -3632,6 +3742,7 @@ def render_enhanced_sidebar_controls():
         'target_platform': target_platform,
         'database_engine': database_engine,
         'ec2_database_engine': ec2_database_engine,
+        'sql_server_deployment_type': sql_server_deployment_type,  # ADD THIS LINE
         'database_size_gb': database_size_gb,
         'current_db_max_memory_gb': current_db_max_memory_gb,
         'current_db_max_cpu_cores': current_db_max_cpu_cores,
@@ -5018,10 +5129,17 @@ def render_migration_dashboard_tab(analysis: Dict, config: Dict):
     with col5:
         migration_method = config.get('migration_method', 'direct_replication')
         backup_storage = config.get('backup_storage_type', 'nas_drive').replace('_', ' ').title()
+        sql_deployment = config.get('sql_server_deployment_type', 'standalone')
         
         if migration_method == 'backup_restore':
             display_text = f"Backup/Restore via {backup_storage}"
             delta_text = f"Tool: {analysis.get('agent_analysis', {}).get('primary_tool', 'DataSync').upper()}"
+        elif config.get('database_engine') == 'sqlserver' and config.get('target_platform') == 'ec2':
+            display_text = f"SQL Server {sql_deployment.replace('_', ' ').title()}"
+            if sql_deployment == 'always_on':
+                delta_text = "3-Node HA Cluster"
+            else:
+                delta_text = "Single Instance"
         else:
             destination = config.get('destination_storage_type', 'S3')
             agent_efficiency = analysis.get('agent_analysis', {}).get('scaling_efficiency', 1.0)
@@ -5029,7 +5147,7 @@ def render_migration_dashboard_tab(analysis: Dict, config: Dict):
             delta_text = f"Efficiency: {agent_efficiency*100:.1f}%"
         
         st.metric(
-            "🗄️ Migration Method",
+            "🗄️ Target Configuration",
             display_text,
             delta=delta_text
         )
@@ -5043,6 +5161,112 @@ def render_migration_dashboard_tab(analysis: Dict, config: Dict):
             delta=f"Complexity: {complexity:.1f}/10"
         )
 
+    # SQL Server Always On Analysis (if applicable)
+    if (config.get('database_engine') == 'sqlserver' and 
+        config.get('target_platform') == 'ec2' and 
+        config.get('sql_server_deployment_type') == 'always_on'):
+        
+        st.markdown("**🔄 SQL Server Always On Cluster Analysis:**")
+        
+        sql_col1, sql_col2 = st.columns(2)
+        
+        with sql_col1:
+            st.success("🎯 **Always On Benefits & Configuration**")
+            st.write("• **High Availability:** Automatic failover capability")
+            st.write("• **Read Scale-out:** Secondary replicas for read workloads")
+            st.write("• **Zero Data Loss:** Synchronous commit for primary replica")
+            st.write("• **Flexible Failover:** Manual and automatic failover modes")
+            st.write("• **Enhanced Backup:** Backup from secondary replicas")
+            st.write("• **Cluster Configuration:** 3-node Windows Server Failover Cluster")
+            
+            complexity_score = analysis.get('aws_sizing_recommendations', {}).get('ai_analysis', {}).get('ai_complexity_score', 6)
+            if complexity_score >= 7:
+                st.warning("⚠️ **Increased Complexity:** Always On adds +1-2 complexity points")
+            
+        with sql_col2:
+            st.info("⚙️ **Implementation Considerations**")
+            st.write("• **Network Requirements:** Low-latency cluster communication")
+            st.write("• **Storage Requirements:** EBS volumes per instance")
+            st.write("• **Quorum Configuration:** File share witness or cloud witness")
+            st.write("• **Security:** Windows authentication and encryption")
+            st.write("• **Monitoring:** Extended Events and Always On dashboard")
+            st.write("• **Licensing:** Core-based licensing for all cluster nodes")
+            
+            aws_sizing = analysis.get('aws_sizing_recommendations', {})
+            ec2_rec = aws_sizing.get('ec2_recommendations', {})
+            if ec2_rec.get('total_monthly_cost', 0) > 0:
+                single_instance_estimate = ec2_rec.get('total_monthly_cost', 0) / 3
+                st.write(f"• **Cost vs Standalone:** ~3x (${single_instance_estimate:,.0f} → ${ec2_rec.get('total_monthly_cost', 0):,.0f}/mo)")
+        
+        # Always On specific recommendations
+        st.markdown("**💡 Always On Specific Recommendations:**")
+        
+        always_on_rec_col1, always_on_rec_col2 = st.columns(2)
+        
+        with always_on_rec_col1:
+            st.warning("🚨 **Pre-Migration Planning**")
+            st.write("• Validate Windows Server Failover Clustering expertise")
+            st.write("• Plan cluster network topology and IP addressing")
+            st.write("• Design quorum configuration for AWS environment")
+            st.write("• Test Always On setup in non-production environment")
+            st.write("• Plan availability group and listener configuration")
+            st.write("• Document failover and disaster recovery procedures")
+        
+        with always_on_rec_col2:
+            st.success("⚡ **Performance & Monitoring Setup**")
+            st.write("• Configure placement groups for low-latency networking")
+            st.write("• Use Enhanced Networking (SR-IOV) for cluster traffic")
+            st.write("• Set up CloudWatch custom metrics for Always On")
+            st.write("• Configure Always On extended events for monitoring")
+            st.write("• Plan read routing for secondary replicas")
+            st.write("• Implement connection string failover configuration")
+        
+        # Migration complexity impact
+        readiness_score = analysis.get('ai_overall_assessment', {}).get('migration_readiness_score', 0)
+        if readiness_score > 0:
+            always_on_impact = min(15, max(5, 20 - readiness_score // 5))  # 5-15 point reduction
+            adjusted_readiness = max(0, readiness_score - always_on_impact)
+            
+            st.info(f"""
+            📊 **Always On Impact on Migration Readiness:**
+            • **Base Readiness Score:** {readiness_score}/100
+            • **Always On Complexity Impact:** -{always_on_impact} points
+            • **Adjusted Readiness Score:** {adjusted_readiness}/100
+            • **Recommendation:** {"Proceed with caution - additional planning required" if adjusted_readiness < 70 else "Good readiness for Always On migration"}
+            """)
+        
+        st.markdown("---")  # Add separator
+    
+    elif (config.get('database_engine') == 'sqlserver' and 
+          config.get('target_platform') == 'ec2' and 
+          config.get('sql_server_deployment_type') == 'standalone'):
+        
+        st.markdown("**🖥️ SQL Server Standalone Configuration:**")
+        
+        standalone_col1, standalone_col2 = st.columns(2)
+        
+        with standalone_col1:
+            st.info("✅ **Standalone Benefits**")
+            st.write("• **Simplicity:** Single instance management")
+            st.write("• **Cost-effective:** Lower licensing and infrastructure costs")
+            st.write("• **Faster deployment:** Simpler setup and configuration")
+            st.write("• **Standard features:** All core SQL Server capabilities")
+            st.write("• **Easier troubleshooting:** Single point of management")
+        
+        with standalone_col2:
+            st.warning("⚠️ **Limitations & Considerations**")
+            st.write("• **No automatic failover:** Manual intervention required")
+            st.write("• **Single point of failure:** No built-in high availability")
+            st.write("• **Backup dependency:** Critical backup and restore strategy needed")
+            st.write("• **Planned downtime:** Required for maintenance and updates")
+            st.write("• **Consider:** Upgrade path to Always On if HA needs emerge")
+        
+        st.markdown("---")  # Add separator
+    
+    
+    
+    
+    
 def render_fsx_comparisons_tab(analysis: Dict, config: Dict):
     """Render FSx destination comparisons tab"""
     st.subheader("🗄️ FSx Destination Storage Comparisons")
