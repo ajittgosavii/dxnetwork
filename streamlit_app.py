@@ -4540,7 +4540,153 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
             f"{total_instances}",
             delta=f"Writers: {writers}, Readers: {readers}"
         )
-
+    
+    # NEW SECTION: Detailed Instance Specifications
+    st.markdown("---")
+    st.markdown("**🖥️ Detailed Instance Specifications:**")
+    
+    # Show detailed sizing based on recommendation
+    if recommendation == 'RDS':
+        rds_rec = aws_sizing.get('rds_recommendations', {})
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**☁️ RDS Configuration:**")
+            st.info("Primary Database Instance")
+            
+            primary_instance = rds_rec.get('primary_instance', 'Unknown')
+            instance_specs = rds_rec.get('instance_specs', {})
+            
+            st.write(f"**Primary Instance Type:** {primary_instance}")
+            st.write(f"**vCPUs:** {instance_specs.get('vcpu', 'Unknown')}")
+            st.write(f"**Memory:** {instance_specs.get('memory', 'Unknown')} GB")
+            st.write(f"**Multi-AZ:** {'Yes' if rds_rec.get('multi_az', False) else 'No'}")
+            st.write(f"**Storage Type:** {rds_rec.get('storage_type', 'gp3')}")
+            st.write(f"**Storage Size:** {rds_rec.get('storage_size_gb', 0):,.0f} GB")
+            st.write(f"**Backup Retention:** {rds_rec.get('backup_retention_days', 7)} days")
+        
+        with col2:
+            st.markdown("**📊 Cost Breakdown:**")
+            st.success("Monthly Costs")
+            
+            st.write(f"**Instance Cost:** ${rds_rec.get('monthly_instance_cost', 0):,.0f}")
+            st.write(f"**Storage Cost:** ${rds_rec.get('monthly_storage_cost', 0):,.0f}")
+            st.write(f"**Total Monthly:** ${rds_rec.get('total_monthly_cost', 0):,.0f}")
+            
+            # Reader instance details if applicable
+            if readers > 0:
+                st.write(f"**Read Replicas:** {readers} instances")
+                st.write(f"**Reader Instance Type:** {primary_instance}")
+                st.write(f"**Total Instance Cost:** ${rds_rec.get('monthly_instance_cost', 0) * (1 + readers):,.0f}")
+    
+    else:  # EC2 recommendation
+        ec2_rec = aws_sizing.get('ec2_recommendations', {})
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**🖥️ EC2 Configuration:**")
+            st.info("Self-Managed Database Instance")
+            
+            primary_instance = ec2_rec.get('primary_instance', 'Unknown')
+            instance_specs = ec2_rec.get('instance_specs', {})
+            
+            st.write(f"**Primary Instance Type:** {primary_instance}")
+            st.write(f"**vCPUs:** {instance_specs.get('vcpu', 'Unknown')}")
+            st.write(f"**Memory:** {instance_specs.get('memory', 'Unknown')} GB")
+            st.write(f"**EBS Optimized:** {'Yes' if ec2_rec.get('ebs_optimized', False) else 'No'}")
+            st.write(f"**Enhanced Networking:** {'Yes' if ec2_rec.get('enhanced_networking', False) else 'No'}")
+            st.write(f"**Storage Type:** {ec2_rec.get('storage_type', 'gp3')}")
+            st.write(f"**Storage Size:** {ec2_rec.get('storage_size_gb', 0):,.0f} GB")
+        
+        with col2:
+            st.markdown("**📊 Cost Breakdown:**")
+            st.success("Monthly Costs")
+            
+            st.write(f"**Instance Cost:** ${ec2_rec.get('monthly_instance_cost', 0):,.0f}")
+            st.write(f"**Storage Cost:** ${ec2_rec.get('monthly_storage_cost', 0):,.0f}")
+            st.write(f"**Total Monthly:** ${ec2_rec.get('total_monthly_cost', 0):,.0f}")
+            
+            # Additional EC2 considerations
+            st.write(f"**OS:** {config.get('operating_system', 'Unknown').replace('_', ' ').title()}")
+            st.write(f"**Database Engine:** {config.get('database_engine', 'Unknown').upper()}")
+    
+    # Reader/Writer Configuration Details
+    st.markdown("---")
+    st.markdown("**🔄 Reader/Writer Configuration:**")
+    
+    reader_writer = aws_sizing.get('reader_writer_config', {})
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.info("**Instance Distribution**")
+        st.write(f"**Total Instances:** {reader_writer.get('total_instances', 1)}")
+        st.write(f"**Writer Instances:** {reader_writer.get('writers', 1)}")
+        st.write(f"**Reader Instances:** {reader_writer.get('readers', 0)}")
+        st.write(f"**Write Capacity:** {reader_writer.get('write_capacity_percent', 100):.1f}%")
+        st.write(f"**Read Capacity:** {reader_writer.get('read_capacity_percent', 0):.1f}%")
+    
+    with col2:
+        st.success("**Workload Distribution**")
+        st.write(f"**Recommended Read Split:** {reader_writer.get('recommended_read_split', 0):.1f}%")
+        st.write(f"**Database Size:** {config.get('database_size_gb', 0):,} GB")
+        st.write(f"**Performance Requirement:** {config.get('performance_requirements', 'standard').title()}")
+        st.write(f"**Environment:** {config.get('environment', 'non-production').title()}")
+        st.write(f"**Reasoning:** {reader_writer.get('reasoning', 'Standard configuration')}")
+    
+    with col3:
+        st.warning("**Instance Specifications**")
+        if recommendation == 'RDS':
+            primary_instance = aws_sizing.get('rds_recommendations', {}).get('primary_instance', 'Unknown')
+            instance_specs = aws_sizing.get('rds_recommendations', {}).get('instance_specs', {})
+        else:
+            primary_instance = aws_sizing.get('ec2_recommendations', {}).get('primary_instance', 'Unknown')
+            instance_specs = aws_sizing.get('ec2_recommendations', {}).get('instance_specs', {})
+        
+        st.write(f"**All instances use:** {primary_instance}")
+        st.write(f"**vCPUs per instance:** {instance_specs.get('vcpu', 'Unknown')}")
+        st.write(f"**Memory per instance:** {instance_specs.get('memory', 'Unknown')} GB")
+        st.write(f"**Total vCPUs:** {instance_specs.get('vcpu', 2) * reader_writer.get('total_instances', 1)}")
+        st.write(f"**Total Memory:** {instance_specs.get('memory', 4) * reader_writer.get('total_instances', 1)} GB")
+    
+    # Deployment Reasoning
+    st.markdown("---")
+    st.markdown("**🎯 Deployment Decision Reasoning:**")
+    
+    reasons = deployment_rec.get('primary_reasons', [])
+    analytical_rec = deployment_rec.get('analytical_recommendation', 'unknown')
+    user_choice = deployment_rec.get('user_choice', 'unknown')
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📋 Decision Factors:**")
+        
+        if reasons:
+            for i, reason in enumerate(reasons, 1):
+                st.write(f"{i}. {reason}")
+        else:
+            st.write("• Standard configuration based on database size")
+            st.write("• Suitable for specified environment")
+            st.write("• Meets performance requirements")
+    
+    with col2:
+        st.markdown("**🤖 AI Analysis:**")
+        
+        st.write(f"**User Selection:** {user_choice.upper()}")
+        st.write(f"**AI Recommendation:** {analytical_rec.upper()}")
+        st.write(f"**Confidence Level:** {confidence*100:.1f}%")
+        
+        if user_choice != analytical_rec:
+            st.warning(f"⚠️ Note: AI analysis suggests {analytical_rec.upper()} might be more optimal")
+        else:
+            st.success("✅ User selection aligns with AI recommendation")
+        
+        st.write(f"**RDS Suitability Score:** {rds_score:.0f}/100")
+        st.write(f"**EC2 Suitability Score:** {ec2_score:.0f}/100")
+        
 def render_migration_dashboard_tab(analysis: Dict, config: Dict):
     """Render comprehensive migration dashboard with key metrics and visualizations"""
     st.subheader("📊 Enhanced Migration Performance Dashboard")
