@@ -2913,6 +2913,425 @@ class EnhancedMigrationAnalyzer:
             }
         }
     
+    async def _calculate_ai_enhanced_costs_with_agents(self, config: Dict, aws_sizing: Dict, 
+                                                     agent_analysis: Dict, network_perf: Dict) -> Dict:
+        """AI-enhanced cost calculation"""
+        
+        deployment_rec = aws_sizing['deployment_recommendation']['recommendation']
+        
+        if deployment_rec == 'rds':
+            aws_compute_cost = aws_sizing['rds_recommendations']['monthly_instance_cost']
+            aws_storage_cost = aws_sizing['rds_recommendations']['monthly_storage_cost']
+        else:
+            aws_compute_cost = aws_sizing['ec2_recommendations']['monthly_instance_cost']
+            aws_storage_cost = aws_sizing['ec2_recommendations']['monthly_storage_cost']
+        
+        # Agent costs
+        agent_monthly_cost = agent_analysis.get('monthly_cost', 0)
+        
+        # Destination storage costs
+        destination_storage = config.get('destination_storage_type', 'S3')
+        destination_storage_cost = self._calculate_destination_storage_cost(config, destination_storage)
+        
+        # Network and other costs
+        network_cost = 500
+        os_licensing_cost = 300
+        management_cost = 200
+        
+        # Backup storage costs (if applicable)
+        migration_method = config.get('migration_method', 'direct_replication')
+        backup_storage_cost = 0
+        if migration_method == 'backup_restore':
+            backup_size_gb = config['database_size_gb'] * config.get('backup_size_multiplier', 0.7)
+            backup_storage_cost = backup_size_gb * 0.01  # Estimated backup storage cost
+        
+        total_monthly_cost = (aws_compute_cost + aws_storage_cost + agent_monthly_cost + 
+                            destination_storage_cost + network_cost + os_licensing_cost + 
+                            management_cost + backup_storage_cost)
+        
+        # One-time costs
+        one_time_migration_cost = config['database_size_gb'] * 0.1 + config.get('number_of_agents', 1) * 500
+        if migration_method == 'backup_restore':
+            one_time_migration_cost += 1000  # Additional setup cost for backup/restore
+        
+        return {
+            'aws_compute_cost': aws_compute_cost,
+            'aws_storage_cost': aws_storage_cost,
+            'agent_cost': agent_monthly_cost,
+            'destination_storage_cost': destination_storage_cost,
+            'destination_storage_type': destination_storage,
+            'backup_storage_cost': backup_storage_cost,
+            'network_cost': network_cost,
+            'os_licensing_cost': os_licensing_cost,
+            'management_cost': management_cost,
+            'total_monthly_cost': total_monthly_cost,
+            'one_time_migration_cost': one_time_migration_cost,
+            'estimated_monthly_savings': 500,
+            'roi_months': 12
+        }
+    
+    def _calculate_destination_storage_cost(self, config: Dict, destination_storage: str) -> float:
+        """Calculate destination storage cost"""
+        database_size_gb = config['database_size_gb']
+        storage_costs = {'S3': 0.023, 'FSx_Windows': 0.13, 'FSx_Lustre': 0.14}
+        base_cost_per_gb = storage_costs.get(destination_storage, 0.023)
+        return database_size_gb * 1.5 * base_cost_per_gb
+    
+    async def _generate_fsx_destination_comparisons(self, config: Dict) -> Dict:
+        """Generate FSx destination comparisons"""
+        comparisons = {}
+        destination_types = ['S3', 'FSx_Windows', 'FSx_Lustre']
+        
+        for dest_type in destination_types:
+            temp_config = config.copy()
+            temp_config['destination_storage_type'] = dest_type
+            
+            # Network path
+            network_path_key = self._get_network_path_key(temp_config)
+            network_perf = self.network_manager.calculate_ai_enhanced_path_performance(network_path_key)
+            
+            # Agent configuration
+            migration_method = config.get('migration_method', 'direct_replication')
+            if migration_method == 'backup_restore':
+                primary_tool = 'datasync'
+                agent_size = config.get('datasync_agent_size', 'medium')
+            else:
+                is_homogeneous = config['source_database_engine'] == config['database_engine']
+                primary_tool = 'datasync' if is_homogeneous else 'dms'
+                agent_size = config.get('datasync_agent_size' if is_homogeneous else 'dms_agent_size', 'medium')
+                
+            num_agents = config.get('number_of_agents', 1)
+            
+            agent_config = self.agent_manager.calculate_agent_configuration(
+                primary_tool, agent_size, num_agents, dest_type
+            )
+            
+            # Migration time
+            migration_throughput = min(agent_config['total_max_throughput_mbps'], 
+                                     network_perf['effective_bandwidth_mbps'])
+            
+            if migration_throughput > 0:
+                if migration_method == 'backup_restore':
+                    backup_size_gb = config['database_size_gb'] * config.get('backup_size_multiplier', 0.7)
+                    migration_time = (backup_size_gb * 8 * 1000) / (migration_throughput * 3600)
+                else:
+                    migration_time = (config['database_size_gb'] * 8 * 1000) / (migration_throughput * 3600)
+            else:
+                migration_time = float('inf')
+            
+            # Storage cost
+            storage_cost = self._calculate_destination_storage_cost(config, dest_type)
+            
+            comparisons[dest_type] = {
+                'destination_type': dest_type,
+                'estimated_migration_time_hours': migration_time,
+                'migration_throughput_mbps': migration_throughput,
+                'estimated_monthly_storage_cost': storage_cost,
+                'performance_rating': self._get_performance_rating(dest_type),
+                'cost_rating': self._get_cost_rating(dest_type),
+                'complexity_rating': self._get_complexity_rating(dest_type),
+                'recommendations': [
+                    f'{dest_type} is suitable for this workload',
+                    f'Consider performance vs cost trade-offs'
+                ],
+                'network_performance': network_perf,
+                'agent_configuration': {
+                    'number_of_agents': num_agents,
+                    'total_monthly_cost': agent_config['total_monthly_cost'],
+                    'storage_performance_multiplier': agent_config['storage_performance_multiplier']
+                }
+            }
+        
+        return comparisons
+    
+    def _get_performance_rating(self, dest_type: str) -> str:
+        """Get performance rating for destination"""
+        ratings = {'S3': 'Good', 'FSx_Windows': 'Very Good', 'FSx_Lustre': 'Excellent'}
+        return ratings.get(dest_type, 'Good')
+    
+    def _get_cost_rating(self, dest_type: str) -> str:
+        """Get cost rating for destination"""
+        ratings = {'S3': 'Excellent', 'FSx_Windows': 'Good', 'FSx_Lustre': 'Fair'}
+        return ratings.get(dest_type, 'Good')
+    
+    def _get_complexity_rating(self, dest_type: str) -> str:
+        """Get complexity rating for destination"""
+        ratings = {'S3': 'Low', 'FSx_Windows': 'Medium', 'FSx_Lustre': 'High'}
+        return ratings.get(dest_type, 'Low')
+    
+    async def _generate_ai_overall_assessment_with_agents(self, config: Dict, onprem_performance: Dict, 
+                                                        aws_sizing: Dict, migration_time: float, 
+                                                        agent_analysis: Dict) -> Dict:
+        """Generate AI overall assessment"""
+        
+        readiness_score = 80
+        success_probability = 85
+        risk_level = 'Medium'
+        
+        # Adjust based on configuration
+        migration_method = config.get('migration_method', 'direct_replication')
+        
+        if config['database_size_gb'] > 10000:
+            readiness_score -= 10
+        
+        if config['source_database_engine'] != config['database_engine'] and migration_method != 'backup_restore':
+            readiness_score -= 15
+        
+        if migration_time > 24:
+            readiness_score -= 10
+        
+        # Backup storage adjustments
+        if migration_method == 'backup_restore':
+            backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+            if backup_storage_type == 'windows_share':
+                readiness_score -= 5  # SMB overhead
+            else:
+                readiness_score += 5  # NFS efficiency
+        
+        return {
+            'migration_readiness_score': readiness_score,
+            'success_probability': success_probability,
+            'risk_level': risk_level,
+            'readiness_factors': [
+                'System appears ready for migration',
+                f"{migration_method.replace('_', ' ').title()} migration method selected"
+            ],
+            'recommended_next_steps': [
+                'Conduct detailed performance baseline',
+                'Set up AWS environment and testing',
+                'Plan comprehensive testing strategy'
+            ],
+            'timeline_recommendation': {
+                'planning_phase_weeks': 2,
+                'testing_phase_weeks': 3,
+                'migration_window_hours': migration_time,
+                'total_project_weeks': 6,
+                'recommended_approach': 'staged'
+            },
+            'agent_scaling_impact': {
+                'scaling_efficiency': agent_analysis.get('scaling_efficiency', 1.0) * 100,
+                'current_agents': config.get('number_of_agents', 1)
+            },
+            'destination_storage_impact': {
+                'storage_type': config.get('destination_storage_type', 'S3'),
+                'storage_performance_multiplier': agent_analysis.get('storage_performance_multiplier', 1.0)
+            },
+            'backup_storage_impact': {
+                'migration_method': migration_method,
+                'backup_storage_type': config.get('backup_storage_type', 'nas_drive'),
+                'backup_efficiency': agent_analysis.get('backup_efficiency', 1.0)
+            }
+        }
+    
+    async def _ai_enhanced_aws_sizing(self, config: Dict) -> Dict:
+        """AI-enhanced AWS sizing"""
+        
+        # Get real-time pricing
+        pricing_data = await self.aws_api.get_real_time_pricing()
+        
+        # RDS sizing
+        rds_sizing = self._calculate_rds_sizing(config, pricing_data)
+        
+        # EC2 sizing  
+        ec2_sizing = self._calculate_ec2_sizing(config, pricing_data)
+        
+        # Reader/writer configuration
+        reader_writer_config = self._calculate_reader_writer_config(config)
+        
+        # Deployment recommendation
+        deployment_recommendation = self._recommend_deployment_type(config, rds_sizing, ec2_sizing)
+        
+        # AI analysis
+        ai_analysis = await self.ai_manager.analyze_migration_workload(config, {})
+        
+        return {
+            'rds_recommendations': rds_sizing,
+            'ec2_recommendations': ec2_sizing,
+            'reader_writer_config': reader_writer_config,
+            'deployment_recommendation': deployment_recommendation,
+            'ai_analysis': ai_analysis,
+            'pricing_data': pricing_data
+        }
+    
+    async def _calculate_ai_migration_time_with_agents(self, config: Dict, migration_throughput: float, 
+                                                     onprem_performance: Dict, agent_analysis: Dict) -> float:
+        """AI-enhanced migration time calculation with backup storage considerations"""
+        
+        database_size_gb = config['database_size_gb']
+        num_agents = config.get('number_of_agents', 1)
+        destination_storage = config.get('destination_storage_type', 'S3')
+        migration_method = config.get('migration_method', 'direct_replication')
+        
+        # Calculate data size to transfer
+        if migration_method == 'backup_restore':
+            # For backup/restore, calculate backup file size
+            backup_size_multiplier = config.get('backup_size_multiplier', 0.7)
+            data_size_gb = database_size_gb * backup_size_multiplier
+            backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+            
+            # Base calculation for file transfer
+            base_time_hours = (data_size_gb * 8 * 1000) / (migration_throughput * 3600)
+            
+            # Backup storage specific factors
+            if backup_storage_type == 'windows_share':
+                complexity_factor = 1.2  # SMB protocol overhead
+            else:  # nas_drive
+                complexity_factor = 1.1  # NFS is more efficient
+            
+            # Add backup preparation time
+            backup_prep_time = 0.5 + (database_size_gb / 10000)  # 0.5-2 hours for backup prep
+            
+        else:
+            # For direct replication, use database size
+            data_size_gb = database_size_gb
+            base_time_hours = (data_size_gb * 8 * 1000) / (migration_throughput * 3600)
+            complexity_factor = 1.0
+            backup_prep_time = 0
+        
+        # Database engine complexity
+        if config['source_database_engine'] != config['database_engine']:
+            complexity_factor *= 1.3
+        
+        # OS and platform factors
+        if 'windows' in config['operating_system']:
+            complexity_factor *= 1.1
+        
+        if config['server_type'] == 'vmware':
+            complexity_factor *= 1.05
+        
+        # Destination storage adjustments
+        if destination_storage == 'FSx_Windows':
+            complexity_factor *= 0.9
+        elif destination_storage == 'FSx_Lustre':
+            complexity_factor *= 0.7
+        
+        # Agent scaling adjustments
+        scaling_efficiency = agent_analysis.get('scaling_efficiency', 1.0)
+        storage_multiplier = agent_analysis.get('storage_performance_multiplier', 1.0)
+        
+        if num_agents > 1:
+            agent_time_factor = (1 / min(num_agents * scaling_efficiency * storage_multiplier, 6.0))
+            complexity_factor *= agent_time_factor
+            
+            if num_agents > 5:
+                complexity_factor *= 1.1
+        
+        total_time = base_time_hours * complexity_factor + backup_prep_time
+        
+        return total_time
+    
+    async def _analyze_ai_migration_agents_with_scaling(self, config: Dict, primary_tool: str, network_perf: Dict) -> Dict:
+        """Enhanced migration agent analysis with scaling support and backup storage considerations"""
+        
+        num_agents = config.get('number_of_agents', 1)
+        destination_storage = config.get('destination_storage_type', 'S3')
+        migration_method = config.get('migration_method', 'direct_replication')
+        
+        # For backup/restore, always use DataSync
+        if migration_method == 'backup_restore':
+            primary_tool = 'datasync'
+            agent_size = config.get('datasync_agent_size', 'medium')
+            agent_config = self.agent_manager.calculate_agent_configuration('datasync', agent_size, num_agents, destination_storage)
+        elif primary_tool == 'datasync':
+            agent_size = config['datasync_agent_size']
+            agent_config = self.agent_manager.calculate_agent_configuration('datasync', agent_size, num_agents, destination_storage)
+        else:
+            agent_size = config['dms_agent_size']
+            agent_config = self.agent_manager.calculate_agent_configuration('dms', agent_size, num_agents, destination_storage)
+        
+        total_max_throughput = agent_config['total_max_throughput_mbps']
+        network_bandwidth = network_perf['effective_bandwidth_mbps']
+        
+        # Apply backup storage efficiency factors
+        if migration_method == 'backup_restore':
+            backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+            if backup_storage_type == 'windows_share':
+                # SMB has some overhead
+                backup_efficiency = 0.85
+            else:  # nas_drive with NFS
+                backup_efficiency = 0.92
+            
+            effective_throughput = min(total_max_throughput * backup_efficiency, network_bandwidth)
+        else:
+            effective_throughput = min(total_max_throughput, network_bandwidth)
+            backup_efficiency = 1.0
+        
+        # Determine bottleneck
+        if total_max_throughput < network_bandwidth:
+            bottleneck = f'agents ({num_agents} agents)'
+            bottleneck_severity = 'high' if effective_throughput / total_max_throughput < 0.7 else 'medium'
+        else:
+            bottleneck = 'network'
+            bottleneck_severity = 'medium' if effective_throughput / network_bandwidth > 0.8 else 'high'
+        
+        # Add backup storage specific bottleneck detection
+        if migration_method == 'backup_restore':
+            backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+            if backup_storage_type == 'windows_share' and effective_throughput < total_max_throughput * 0.9:
+                bottleneck = f'{bottleneck} + SMB protocol overhead'
+        
+        return {
+            'primary_tool': primary_tool,
+            'agent_size': agent_size,
+            'number_of_agents': num_agents,
+            'destination_storage': destination_storage,
+            'migration_method': migration_method,
+            'backup_storage_type': config.get('backup_storage_type', 'nas_drive'),
+            'agent_configuration': agent_config,
+            'total_max_throughput_mbps': total_max_throughput,
+            'total_effective_throughput': effective_throughput,
+            'backup_efficiency': backup_efficiency,
+            'bottleneck': bottleneck,
+            'bottleneck_severity': bottleneck_severity,
+            'scaling_efficiency': agent_config['scaling_efficiency'],
+            'management_overhead': agent_config['management_overhead_factor'],
+            'storage_performance_multiplier': agent_config.get('storage_performance_multiplier', 1.0),
+            'cost_per_hour': agent_config['effective_cost_per_hour'],
+            'monthly_cost': agent_config['total_monthly_cost']
+        }
+        
+    def _get_network_path_key(self, config: Dict) -> str:
+        """Get network path key based on migration method and backup storage"""
+        os_lower = config.get('operating_system', '').lower()
+        if any(os_name in os_lower for os_name in ['linux', 'ubuntu', 'rhel']):
+            os_type = 'linux'
+        else:
+            os_type = 'windows'
+        
+        environment = config.get('environment', 'non-production').replace('-', '_').lower()
+        destination_storage = config.get('destination_storage_type', 'S3').lower()
+        migration_method = config.get('migration_method', 'direct_replication')
+        backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+        
+        # For backup/restore method, use backup storage paths
+        if migration_method == 'backup_restore':
+            if environment in ['non_production', 'nonprod']:
+                if backup_storage_type == 'windows_share':
+                    return "nonprod_sj_windows_share_s3"
+                else:  # nas_drive
+                    return "nonprod_sj_nas_drive_s3"
+            elif environment == 'production':
+                if backup_storage_type == 'windows_share':
+                    return "prod_sa_windows_share_s3"
+                else:  # nas_drive
+                    return "prod_sa_nas_drive_s3"
+        
+        # For direct replication, use original paths
+        else:
+            if environment in ['non_production', 'nonprod']:
+                if destination_storage == 's3':
+                    return f"nonprod_sj_{os_type}_nas_s3"
+                elif destination_storage == 'fsx_windows':
+                    return f"nonprod_sj_{os_type}_nas_fsx_windows"
+                elif destination_storage == 'fsx_lustre':
+                    return f"nonprod_sj_{os_type}_nas_fsx_lustre"
+            elif environment == 'production':
+                if destination_storage == 's3':
+                    return f"prod_sa_{os_type}_nas_s3"
+        
+        # Default fallback for direct replication
+        return f"nonprod_sj_{os_type}_nas_s3"
+    
     def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
         """Calculate EC2 sizing based on database size and performance metrics"""
         database_size_gb = config['database_size_gb']
