@@ -2850,71 +2850,203 @@ class EnhancedMigrationAnalyzer:
         return False
     
     
-    def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
-        """Calculate EC2 sizing based on database size and performance metrics"""
-        database_size_gb = config['database_size_gb']
-        
-        # Get current database performance metrics for better sizing
-        current_memory_gb = config.get('current_db_max_memory_gb', 0)
-        current_cpu_cores = config.get('current_db_max_cpu_cores', 0)
-        current_iops = config.get('current_db_max_iops', 0)
-        current_throughput_mbps = config.get('current_db_max_throughput_mbps', 0)
-        
-        # Get the actual database engine for EC2
-        database_engine = config.get('ec2_database_engine') or config.get('database_engine', 'mysql')
-        
-        # SQL Server deployment configuration
-        sql_server_deployment_type = config.get('sql_server_deployment_type', 'standalone')
-        is_sql_server_always_on = (database_engine == 'sqlserver' and sql_server_deployment_type == 'always_on')
-        
-        # For SQL Server Always On, upgrade instance size for cluster requirements
-        if is_sql_server_always_on:
-            if database_size_gb < 1000:
-                base_instance_type = 'r6i.large'  # Upgrade from t3.large
-                base_cost_per_hour = 0.252
-            elif database_size_gb < 5000:
-                base_instance_type = 'r6i.xlarge'  # Upgrade from r6i.large
-                base_cost_per_hour = 0.504
-            else:
-                base_instance_type = 'r6i.2xlarge'  # Upgrade from r6i.xlarge
-                base_cost_per_hour = 1.008
-
-# And then near the end of the _calculate_ec2_sizing method, add this before the return statement:
-
-        # Calculate number of instances
-        if is_sql_server_always_on:
-            instance_count = 3  # Always On requires 3 nodes
-            deployment_description = "3-Node Always On Cluster"
+def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
+    """Calculate EC2 sizing based on database size and performance metrics"""
+    database_size_gb = config['database_size_gb']
+    
+    # Get current database performance metrics for better sizing
+    current_memory_gb = config.get('current_db_max_memory_gb', 0)
+    current_cpu_cores = config.get('current_db_max_cpu_cores', 0)
+    current_iops = config.get('current_db_max_iops', 0)
+    current_throughput_mbps = config.get('current_db_max_throughput_mbps', 0)
+    
+    # Get the actual database engine for EC2
+    database_engine = config.get('ec2_database_engine') or config.get('database_engine', 'mysql')
+    
+    # SQL Server deployment configuration
+    sql_server_deployment_type = config.get('sql_server_deployment_type', 'standalone')
+    is_sql_server_always_on = (database_engine == 'sqlserver' and sql_server_deployment_type == 'always_on')
+    
+    # Base sizing on database size (existing logic)
+    if database_size_gb < 1000:
+        base_instance_type = 't3.large'
+        base_cost_per_hour = 0.0832
+    elif database_size_gb < 5000:
+        base_instance_type = 'r6i.large'
+        base_cost_per_hour = 0.252
+    else:
+        base_instance_type = 'r6i.xlarge'
+        base_cost_per_hour = 0.504
+    
+    # For SQL Server Always On, upgrade instance size for cluster requirements
+    if is_sql_server_always_on:
+        if database_size_gb < 1000:
+            base_instance_type = 'r6i.large'  # Upgrade from t3.large
+            base_cost_per_hour = 0.252
+        elif database_size_gb < 5000:
+            base_instance_type = 'r6i.xlarge'  # Upgrade from r6i.large
+            base_cost_per_hour = 0.504
         else:
-            instance_count = 1  # Standalone deployment
-            deployment_description = "Single Instance"
-
-        # Update the return dictionary to include these new fields:
-        return {
-            # ... existing fields ...
-            'sql_server_deployment_type': sql_server_deployment_type,
-            'instance_count': instance_count,
-            'deployment_description': deployment_description,
-            'is_always_on_cluster': is_sql_server_always_on,
-            'monthly_instance_cost': cost_per_hour * 24 * 30 * instance_count,
-            'monthly_storage_cost': storage_cost * instance_count,
-            'total_monthly_cost': (cost_per_hour * 24 * 30 * instance_count) + (storage_cost * instance_count) + os_licensing,
-            'cost_per_hour_per_instance': cost_per_hour,
-            'total_cost_per_hour': cost_per_hour * instance_count,
-            'always_on_benefits': [
-                "Automatic failover capability",
-                "Read-scale with secondary replicas", 
-                "Zero data loss with synchronous replicas",
-                "Enhanced backup strategies"
-            ] if is_sql_server_always_on else [],
-            'cluster_requirements': [
-                "Windows Server Failover Clustering (WSFC)",
-                "Shared storage or storage replication",
-                "Dedicated cluster network",
-                "Quorum configuration"
-            ] if is_sql_server_always_on else []
-        }
+            base_instance_type = 'r6i.2xlarge'  # Upgrade from r6i.xlarge
+            base_cost_per_hour = 1.008
+    
+    # Performance-based sizing recommendations
+    recommended_instance_type = base_instance_type
+    performance_based_cost = base_cost_per_hour
+    sizing_reasoning = ["Based on database size"]
+    
+    # Adjust based on current memory usage
+    if current_memory_gb > 0:
+        # Add 25% buffer for OS overhead and growth (EC2 needs more overhead than RDS)
+        required_memory = current_memory_gb * 1.25
         
+        if required_memory > 128:
+            recommended_instance_type = 'r6i.4xlarge'
+            performance_based_cost = 2.016
+            sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+        elif required_memory > 64:
+            recommended_instance_type = 'r6i.2xlarge'
+            performance_based_cost = 1.008
+            sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+        elif required_memory > 32:
+            recommended_instance_type = 'r6i.xlarge'
+            performance_based_cost = 0.504
+            sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+        elif required_memory > 16:
+            recommended_instance_type = 'r6i.large'
+            performance_based_cost = 0.252
+            sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+        elif required_memory > 8:
+            recommended_instance_type = 't3.xlarge'
+            performance_based_cost = 0.1664
+            sizing_reasoning.append(f"Memory requirement: {required_memory:.0f} GB")
+    
+    # Adjust based on current CPU usage
+    if current_cpu_cores > 0:
+        # Add 30% buffer for peak load handling (more than RDS due to OS overhead)
+        required_vcpu = current_cpu_cores * 1.3
+        
+        if required_vcpu > 16:
+            if recommended_instance_type not in ['r6i.4xlarge', 'c5.4xlarge']:
+                recommended_instance_type = 'r6i.4xlarge'
+                performance_based_cost = 2.016
+                sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+        elif required_vcpu > 8:
+            if recommended_instance_type in ['t3.large', 't3.xlarge', 'r6i.large']:
+                recommended_instance_type = 'r6i.2xlarge'
+                performance_based_cost = 1.008
+                sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+        elif required_vcpu > 4:
+            if recommended_instance_type in ['t3.large', 't3.xlarge']:
+                recommended_instance_type = 'r6i.xlarge'
+                performance_based_cost = 0.504
+                sizing_reasoning.append(f"CPU requirement: {required_vcpu:.0f} vCPUs")
+    
+    # Adjust based on IOPS requirements
+    if current_iops > 0:
+        # Add 35% buffer for peak operations (more than RDS)
+        required_iops = current_iops * 1.35
+        
+        if required_iops > 50000:
+            sizing_reasoning.append(f"Very high IOPS requirement: {required_iops:.0f} IOPS - consider io1/io2 EBS")
+        elif required_iops > 25000:
+            sizing_reasoning.append(f"High IOPS requirement: {required_iops:.0f} IOPS - consider gp3 with provisioned IOPS")
+        elif required_iops > 10000:
+            sizing_reasoning.append(f"Medium IOPS requirement: {required_iops:.0f} IOPS")
+    
+    # SQL Server specific adjustments
+    if database_engine == 'sqlserver':
+        sizing_reasoning.append("SQL Server on EC2 requires additional resources")
+        
+        # SQL Server needs more memory and CPU
+        if current_memory_gb > 0 and current_memory_gb < 16:
+            if recommended_instance_type in ['t3.large', 't3.xlarge']:
+                recommended_instance_type = 'r6i.large'
+                performance_based_cost = 0.252
+                sizing_reasoning.append("SQL Server minimum memory recommendation")
+        
+        # SQL Server licensing considerations
+        # Note: This would be BYOL (Bring Your Own License) or License Included pricing
+        licensing_factor = 1.0  # Assume BYOL for now
+        sizing_reasoning.append("Consider SQL Server licensing costs (BYOL assumed)")
+    
+    # Use the performance-based recommendation if it's more suitable
+    final_instance_type = recommended_instance_type
+    cost_per_hour = performance_based_cost
+    
+    # Get real pricing if available
+    ec2_instances = pricing_data.get('ec2_instances', {})
+    if final_instance_type in ec2_instances:
+        cost_per_hour = ec2_instances[final_instance_type].get('cost_per_hour', cost_per_hour)
+    
+    # Storage sizing - EC2 needs more storage overhead
+    storage_size = max(database_size_gb * 2.5, 100)  # Increased multiplier for EC2
+    storage_cost = storage_size * 0.08
+    
+    # EBS optimization for high IOPS workloads
+    if current_iops > 20000:
+        storage_cost *= 1.5  # io1/io2 premium
+        sizing_reasoning.append("High IOPS workload - io1/io2 EBS recommended")
+    
+    # Operating system licensing
+    os_licensing = 0
+    if 'windows' in config.get('operating_system', ''):
+        if database_engine == 'sqlserver':
+            os_licensing = 200  # Windows + SQL Server management overhead
+            sizing_reasoning.append("Windows OS licensing included")
+        else:
+            os_licensing = 150  # Windows licensing per instance
+            sizing_reasoning.append("Windows OS licensing included")
+    
+    # Calculate number of instances
+    if is_sql_server_always_on:
+        instance_count = 3  # Always On requires 3 nodes
+        deployment_description = "3-Node Always On Cluster"
+    else:
+        instance_count = 1  # Standalone deployment
+        deployment_description = "Single Instance"
+    
+    return {
+        'primary_instance': final_instance_type,
+        'base_recommendation': base_instance_type,
+        'performance_based_recommendation': recommended_instance_type,
+        'database_engine': database_engine,
+        'instance_specs': pricing_data.get('ec2_instances', {}).get(final_instance_type, {'vcpu': 2, 'memory': 8}),
+        'storage_type': 'gp3' if current_iops <= 20000 else 'io1',
+        'storage_size_gb': storage_size,
+        'monthly_instance_cost': cost_per_hour * 24 * 30 * instance_count,
+        'monthly_storage_cost': storage_cost * instance_count,
+        'os_licensing_cost': os_licensing,
+        'total_monthly_cost': (cost_per_hour * 24 * 30 * instance_count) + (storage_cost * instance_count) + os_licensing,
+        'ebs_optimized': True,
+        'enhanced_networking': True,
+        'sizing_reasoning': sizing_reasoning,
+        'performance_metrics_used': {
+            'current_memory_gb': current_memory_gb,
+            'current_cpu_cores': current_cpu_cores,
+            'current_iops': current_iops,
+            'current_throughput_mbps': current_throughput_mbps
+        },
+        'sql_server_considerations': database_engine == 'sqlserver',
+        'sql_server_deployment_type': sql_server_deployment_type,
+        'instance_count': instance_count,
+        'deployment_description': deployment_description,
+        'is_always_on_cluster': is_sql_server_always_on,
+        'cost_per_hour_per_instance': cost_per_hour,
+        'total_cost_per_hour': cost_per_hour * instance_count,
+        'always_on_benefits': [
+            "Automatic failover capability",
+            "Read-scale with secondary replicas", 
+            "Zero data loss with synchronous replicas",
+            "Enhanced backup strategies"
+        ] if is_sql_server_always_on else [],
+        'cluster_requirements': [
+            "Windows Server Failover Clustering (WSFC)",
+            "Shared storage or storage replication",
+            "Dedicated cluster network",
+            "Quorum configuration"
+        ] if is_sql_server_always_on else []
+    }
         
         
         # Base sizing on database size (existing logic)
