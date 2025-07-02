@@ -3277,7 +3277,7 @@ def _get_complexity_rating(self, dest_type: str) -> str:
         ratings = {'S3': 'Low', 'FSx_Windows': 'Medium', 'FSx_Lustre': 'High'}
         return ratings.get(dest_type, 'Low')
     
-    async def _generate_ai_overall_assessment_with_agents(self, config: Dict, onprem_performance: Dict, 
+async def _generate_ai_overall_assessment_with_agents(self, config: Dict, onprem_performance: Dict, 
                                                         aws_sizing: Dict, migration_time: float, 
                                                         agent_analysis: Dict) -> Dict:
         """Generate AI overall assessment"""
