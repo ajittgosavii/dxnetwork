@@ -4038,157 +4038,6 @@ def render_network_intelligence_tab(analysis: Dict, config: Dict):
     else:
         st.info("Network appears optimally configured for current requirements")
 
-def render_cost_pricing_tab(analysis: Dict, config: Dict):
-    """Render comprehensive cost and pricing analysis tab using native components"""
-    st.subheader("💰 Live AWS Pricing & Cost Analysis")
-    
-    cost_analysis = analysis.get('cost_analysis', {})
-    
-    # Cost Overview Dashboard
-    st.markdown("**💸 Cost Overview Dashboard:**")
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        total_monthly = cost_analysis.get('total_monthly_cost', 0)
-        st.metric(
-            "💰 Total Monthly Cost",
-            f"${total_monthly:,.0f}",
-            delta=f"Annual: ${total_monthly * 12:,.0f}"
-        )
-    
-    with col2:
-        one_time_cost = cost_analysis.get('one_time_migration_cost', 0)
-        st.metric(
-            "🔄 Migration Cost",
-            f"${one_time_cost:,.0f}",
-            delta="One-time"
-        )
-    
-    with col3:
-        savings = cost_analysis.get('estimated_monthly_savings', 0)
-        st.metric(
-            "📈 Monthly Savings",
-            f"${savings:,.0f}",
-            delta=f"Annual: ${savings * 12:,.0f}"
-        )
-    
-    with col4:
-        roi_months = cost_analysis.get('roi_months', 0)
-        st.metric(
-            "⏰ ROI Timeline",
-            f"{roi_months} months" if roi_months else "TBD",
-            delta=f"Break-even: Year {roi_months / 12:.1f}" if roi_months else "Calculate needed"
-        )
-    
-    with col5:
-        agent_cost = cost_analysis.get('agent_cost', 0)
-        num_agents = config.get('number_of_agents', 1)
-        st.metric(
-            "🤖 Agent Costs",
-            f"${agent_cost:,.0f}/mo",
-            delta=f"${agent_cost / num_agents:.0f} per agent" if num_agents > 0 else ""
-        )
-    
-    # Cost Breakdown Analysis
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**📊 Monthly Cost Breakdown:**")
-        
-        # Create cost breakdown pie chart
-        cost_breakdown = {
-            'Compute': cost_analysis.get('aws_compute_cost', 0),
-            'Storage': cost_analysis.get('aws_storage_cost', 0),
-            'Network': cost_analysis.get('network_cost', 0),
-            'Agents': cost_analysis.get('agent_cost', 0),
-            'Destination Storage': cost_analysis.get('destination_storage_cost', 0),
-            'OS Licensing': cost_analysis.get('os_licensing_cost', 0),
-            'Management': cost_analysis.get('management_cost', 0)
-        }
-        
-        # Add backup storage cost if applicable
-        backup_storage_cost = cost_analysis.get('backup_storage_cost', 0)
-        if backup_storage_cost > 0:
-            cost_breakdown['Backup Storage'] = backup_storage_cost
-        
-        # Filter out zero values
-        cost_breakdown = {k: v for k, v in cost_breakdown.items() if v > 0}
-        
-        if cost_breakdown:
-            fig_pie = px.pie(
-                values=list(cost_breakdown.values()),
-                names=list(cost_breakdown.keys()),
-                title="Monthly Cost Distribution"
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
-        else:
-            st.info("Cost breakdown data not available")
-    
-    with col2:
-        st.markdown("**📈 Cost Projections:**")
-        
-        # Create cost projections chart
-        monthly_cost = cost_analysis.get('total_monthly_cost', 0)
-        one_time_cost = cost_analysis.get('one_time_migration_cost', 0)
-        
-        projections = {
-            '6 Months': monthly_cost * 6 + one_time_cost,
-            '1 Year': monthly_cost * 12 + one_time_cost,
-            '2 Years': monthly_cost * 24 + one_time_cost,
-            '3 Years': monthly_cost * 36 + one_time_cost,
-            '5 Years': monthly_cost * 60 + one_time_cost
-        }
-        
-        fig_bar = px.bar(
-            x=list(projections.keys()),
-            y=list(projections.values()),
-            title="Total Cost Projections",
-            labels={'x': 'Timeline', 'y': 'Total Cost ($)'}
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
-    
-    # Detailed Cost Analysis using native components
-    st.markdown("**🔍 Detailed Cost Analysis:**")
-    
-    detail_col1, detail_col2, detail_col3 = st.columns(3)
-    
-    with detail_col1:
-        st.success("💻 **Compute Costs**")
-        st.write(f"**AWS Compute:** ${cost_analysis.get('aws_compute_cost', 0):,.0f}/month")
-        st.write(f"**AWS Storage:** ${cost_analysis.get('aws_storage_cost', 0):,.0f}/month")
-        st.write(f"**OS Licensing:** ${cost_analysis.get('os_licensing_cost', 0):,.0f}/month")
-        st.write(f"**Management:** ${cost_analysis.get('management_cost', 0):,.0f}/month")
-        subtotal_compute = (cost_analysis.get('aws_compute_cost', 0) + 
-                           cost_analysis.get('aws_storage_cost', 0) + 
-                           cost_analysis.get('os_licensing_cost', 0) + 
-                           cost_analysis.get('management_cost', 0))
-        st.write(f"**Subtotal:** ${subtotal_compute:,.0f}/month")
-    
-    with detail_col2:
-        st.info("🔄 **Migration & Agent Costs**")
-        st.write(f"**Agent Base Cost:** ${cost_analysis.get('agent_cost', 0):,.0f}/month")
-        st.write(f"**One-time Migration:** ${cost_analysis.get('one_time_migration_cost', 0):,.0f}")
-        
-        # Show backup storage costs if applicable
-        backup_storage_cost = cost_analysis.get('backup_storage_cost', 0)
-        if backup_storage_cost > 0:
-            st.write(f"**Backup Storage:** ${backup_storage_cost:,.0f}/month")
-            migration_method = config.get('migration_method', 'direct_replication')
-            st.write(f"**Migration Method:** {migration_method.replace('_', ' ').title()}")
-        
-        subtotal_migration = cost_analysis.get('agent_cost', 0) + backup_storage_cost
-        st.write(f"**Monthly Subtotal:** ${subtotal_migration:,.0f}/month")
-    
-    with detail_col3:
-        st.warning("🗄️ **Storage & Network Costs**")
-        st.write(f"**Destination Storage:** ${cost_analysis.get('destination_storage_cost', 0):,.0f}/month")
-        st.write(f"**Storage Type:** {cost_analysis.get('destination_storage_type', 'S3')}")
-        st.write(f"**Network Costs:** ${cost_analysis.get('network_cost', 0):,.0f}/month")
-        st.write(f"**Data Transfer:** Included in network")
-        subtotal_storage = cost_analysis.get('destination_storage_cost', 0) + cost_analysis.get('network_cost', 0)
-        st.write(f"**Subtotal:** ${subtotal_storage:,.0f}/month")
-
 def render_comprehensive_cost_analysis_tab(analysis: Dict, config: Dict):
     """Render comprehensive AWS cost analysis tab with all services"""
     st.subheader("💰 Comprehensive AWS Cost Analysis")
@@ -4869,11 +4718,10 @@ async def main():
         config = st.session_state['config']
         
         # Create tabs for different analysis views
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
             "📊 Migration Dashboard", 
             "🧠 AI Insights", 
             "🌐 Network Intelligence", 
-            "💰 Cost & Pricing", 
             "💰 Complete Cost Analysis",
             "💻 OS Performance", 
             "🎯 AWS Sizing",
@@ -4889,19 +4737,17 @@ async def main():
         with tab3:
             render_network_intelligence_tab(analysis, config)
         
+            
         with tab4:
-            render_cost_pricing_tab(analysis, config)
-        
-        with tab5:
             render_comprehensive_cost_analysis_tab(analysis, config)
         
-        with tab6:
+        with tab5:
             render_os_performance_tab(analysis, config)
         
-        with tab7:
+        with tab6:
             render_aws_sizing_tab(analysis, config)
         
-        with tab8:
+        with tab7:
             render_fsx_comparisons_tab(analysis, config)
     
     # Professional footer with backup storage capabilities
