@@ -3409,13 +3409,13 @@ def render_enhanced_sidebar_controls():
     
     current_db_max_memory_gb = st.sidebar.number_input(
         "Current DB Max Memory (GB)", 
-        min_value=1, max_value=1024, value=min(ram_gb * 0.8, 64), step=1,
+        min_value=1, max_value=1024, value=int(min(ram_gb * 0.8, 64)), step=1,
         help="Maximum memory currently allocated to your database"
     )
     
     current_db_max_cpu_cores = st.sidebar.number_input(
         "Current DB Max CPU Cores", 
-        min_value=1, max_value=128, value=min(cpu_cores, 16), step=1,
+        min_value=1, max_value=128, value=int(min(cpu_cores, 16)), step=1,
         help="Number of CPU cores currently allocated to your database"
     )
     
