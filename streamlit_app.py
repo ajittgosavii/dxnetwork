@@ -3048,7 +3048,7 @@ def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
             ] if is_sql_server_always_on else []
         }
     
-    def _calculate_reader_writer_config(self, config: Dict) -> Dict:
+def _calculate_reader_writer_config(self, config: Dict) -> Dict:
         """Calculate reader/writer configuration"""
         database_size_gb = config['database_size_gb']
         performance_req = config.get('performance_requirements', 'standard')
