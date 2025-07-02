@@ -2829,28 +2829,7 @@ class EnhancedMigrationAnalyzer:
             }
         }
     
-    def config_has_changed(current_config, stored_config):
-        """Check if configuration has changed significantly"""
-        if stored_config is None:
-            return True
-        
-        # Key fields that trigger re-analysis
-        key_fields = [
-            'database_size_gb', 'source_database_engine', 'database_engine', 
-            'migration_method', 'backup_storage_type', 'destination_storage_type',
-            'number_of_agents', 'datasync_agent_size', 'dms_agent_size',
-            'operating_system', 'ram_gb', 'cpu_cores', 'environment',
-            'target_platform', 'sql_server_deployment_type'  # ADD THIS LINE
-        ]
-        
-        for field in key_fields:
-            if current_config.get(field) != stored_config.get(field):
-                return True
-        
-        return False
-    
-    
-def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
+    def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
         """Calculate EC2 sizing based on database size and performance metrics"""
         database_size_gb = config['database_size_gb']
         
@@ -2966,11 +2945,10 @@ def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
                     sizing_reasoning.append("SQL Server minimum memory recommendation")
             
             # SQL Server licensing considerations
-            # Note: This would be BYOL (Bring Your Own License) or License Included pricing
             licensing_factor = 1.0  # Assume BYOL for now
             sizing_reasoning.append("Consider SQL Server licensing costs (BYOL assumed)")
         
-        # Use the performance-based recommendation if it's more suitable
+        # Use the performance-based recommendation
         final_instance_type = recommended_instance_type
         cost_per_hour = performance_based_cost
         
@@ -2980,7 +2958,7 @@ def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
             cost_per_hour = ec2_instances[final_instance_type].get('cost_per_hour', cost_per_hour)
         
         # Storage sizing - EC2 needs more storage overhead
-        storage_size = max(database_size_gb * 2.5, 100)  # Increased multiplier for EC2
+        storage_size = max(database_size_gb * 2.5, 100)
         storage_cost = storage_size * 0.08
         
         # EBS optimization for high IOPS workloads
@@ -2992,10 +2970,10 @@ def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
         os_licensing = 0
         if 'windows' in config.get('operating_system', ''):
             if database_engine == 'sqlserver':
-                os_licensing = 200  # Windows + SQL Server management overhead
+                os_licensing = 200
                 sizing_reasoning.append("Windows OS licensing included")
             else:
-                os_licensing = 150  # Windows licensing per instance
+                os_licensing = 150
                 sizing_reasoning.append("Windows OS licensing included")
         
         # Calculate number of instances
@@ -3048,8 +3026,31 @@ def _calculate_ec2_sizing(self, config: Dict, pricing_data: Dict) -> Dict:
             ] if is_sql_server_always_on else []
         }
     
-def _calculate_reader_writer_config(self, config: Dict) -> Dict:
-        """Calculate reader/writer configuration"""
+    
+    
+    
+    def config_has_changed(current_config, stored_config):
+        """Check if configuration has changed significantly"""
+        if stored_config is None:
+            return True
+        
+        # Key fields that trigger re-analysis
+        key_fields = [
+            'database_size_gb', 'source_database_engine', 'database_engine', 
+            'migration_method', 'backup_storage_type', 'destination_storage_type',
+            'number_of_agents', 'datasync_agent_size', 'dms_agent_size',
+            'operating_system', 'ram_gb', 'cpu_cores', 'environment',
+            'target_platform', 'sql_server_deployment_type'  # ADD THIS LINE
+        ]
+        
+        for field in key_fields:
+            if current_config.get(field) != stored_config.get(field):
+                return True
+        
+        return False
+    
+    
+
         database_size_gb = config['database_size_gb']
         performance_req = config.get('performance_requirements', 'standard')
         environment = config.get('environment', 'non-production')
