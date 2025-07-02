@@ -4001,6 +4001,267 @@ def render_aws_sizing_tab(analysis: Dict, config: Dict):
         </p>
     </div>
     """, unsafe_allow_html=True)
+def create_network_path_diagram(network_perf: Dict):
+    """Create network path diagram using Plotly"""
+    segments = network_perf.get('segments', [])
+    if not segments:
+        return None
+    
+    # Create a simple network path visualization
+    x_positions = list(range(len(segments)))
+    y_positions = [0] * len(segments)
+    
+    fig = go.Figure()
+    
+    # Add segments as nodes
+    for i, segment in enumerate(segments):
+        fig.add_trace(go.Scatter(
+            x=[i],
+            y=[0],
+            mode='markers+text',
+            marker=dict(size=20, color='lightblue'),
+            text=segment['name'][:20],
+            textposition='top center',
+            name=segment['name']
+        ))
+    
+    # Add connections
+    for i in range(len(segments) - 1):
+        fig.add_trace(go.Scatter(
+            x=[i, i+1],
+            y=[0, 0],
+            mode='lines',
+            line=dict(width=3, color='gray'),
+            showlegend=False
+        ))
+    
+    fig.update_layout(
+        title="Network Path Visualization",
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        showlegend=False,
+        height=300
+    )
+    
+    return fig
+
+def render_performance_impact_table(analysis: Dict, config: Dict):
+    """Render performance impact analysis table"""
+    st.markdown("**⚡ Performance Impact Analysis:**")
+    
+    # Get various performance metrics
+    os_impact = analysis.get('onprem_performance', {}).get('os_impact', {})
+    network_perf = analysis.get('network_performance', {})
+    agent_analysis = analysis.get('agent_analysis', {})
+    
+    # Create performance impact data
+    impact_data = []
+    
+    # Hardware baseline
+    user_nic = config.get('nic_speed', 1000)
+    impact_data.append({
+        'Component': 'Hardware NIC',
+        'Baseline (Mbps)': f"{user_nic:,}",
+        'Efficiency': '100%',
+        'Impact': 'Baseline',
+        'Notes': f"{config.get('nic_type', 'Unknown').replace('_', ' ').title()}"
+    })
+    
+    # OS network efficiency
+    os_efficiency = os_impact.get('network_efficiency', 0.90)
+    after_os = user_nic * os_efficiency
+    impact_data.append({
+        'Component': 'OS Network Stack',
+        'Baseline (Mbps)': f"{after_os:,.0f}",
+        'Efficiency': f"{os_efficiency*100:.1f}%",
+        'Impact': f"-{(1-os_efficiency)*100:.1f}%",
+        'Notes': os_impact.get('name', 'OS').split()[-1]
+    })
+    
+    # Network path
+    network_limit = network_perf.get('effective_bandwidth_mbps', user_nic)
+    network_efficiency = (network_limit / user_nic) if user_nic > 0 else 1.0
+    impact_data.append({
+        'Component': 'Network Path',
+        'Baseline (Mbps)': f"{network_limit:,.0f}",
+        'Efficiency': f"{network_efficiency*100:.1f}%",
+        'Impact': f"{(network_efficiency-1)*100:+.1f}%",
+        'Notes': f"{network_perf.get('environment', 'Unknown').title()} environment"
+    })
+    
+    # Migration agents
+    final_throughput = agent_analysis.get('total_effective_throughput', network_limit * 0.75)
+    agent_efficiency = (final_throughput / network_limit) if network_limit > 0 else 0.75
+    impact_data.append({
+        'Component': 'Migration Agents',
+        'Baseline (Mbps)': f"{final_throughput:,.0f}",
+        'Efficiency': f"{agent_efficiency*100:.1f}%",
+        'Impact': f"{(agent_efficiency-1)*100:+.1f}%",
+        'Notes': f"{config.get('number_of_agents', 1)} {agent_analysis.get('primary_tool', 'DMS')} agents"
+    })
+    
+    # Final performance
+    total_efficiency = (final_throughput / user_nic) if user_nic > 0 else 0.5
+    impact_data.append({
+        'Component': 'FINAL RESULT',
+        'Baseline (Mbps)': f"{final_throughput:,.0f}",
+        'Efficiency': f"{total_efficiency*100:.1f}%",
+        'Impact': f"{(total_efficiency-1)*100:+.1f}%",
+        'Notes': f"Migration throughput for {config.get('database_size_gb', 0):,} GB"
+    })
+    
+    df_impact = pd.DataFrame(impact_data)
+    st.dataframe(df_impact, use_container_width=True)
+    
+    # Show estimated migration time
+    if final_throughput > 0:
+        migration_time = (config.get('database_size_gb', 0) * 8 * 1000) / (final_throughput * 3600)
+        st.info(f"**Estimated Migration Time:** {migration_time:.1f} hours at {final_throughput:.0f} Mbps effective throughput")
+
+async def main():
+    """Main Streamlit application"""
+    
+    # Render enhanced header
+    render_enhanced_header()
+    
+    # Enhanced sidebar controls
+    config = render_enhanced_sidebar_controls()
+    
+    # Run analysis when configuration is set
+    if st.button("🚀 Run Enhanced AI Migration Analysis", type="primary", use_container_width=True):
+        
+        with st.spinner("🤖 Running comprehensive AI migration analysis..."):
+            try:
+                # Initialize analyzer
+                analyzer = EnhancedMigrationAnalyzer()
+                
+                # Run comprehensive analysis
+                analysis = await analyzer.comprehensive_ai_migration_analysis(config)
+                
+                # Store analysis in session state
+                st.session_state['analysis'] = analysis
+                st.session_state['config'] = config
+                
+                st.success("✅ AI Analysis Complete!")
+                
+            except Exception as e:
+                st.error(f"❌ Analysis failed: {str(e)}")
+                logger.error(f"Analysis error: {e}")
+                return
+    
+    # Display results if analysis is available
+    if 'analysis' in st.session_state and 'config' in st.session_state:
+        analysis = st.session_state['analysis']
+        config = st.session_state['config']
+        
+        # Create tabs for different analysis views
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+            "📊 Migration Dashboard", 
+            "🧠 AI Insights", 
+            "🌐 Network Intelligence", 
+            "💰 Cost & Pricing", 
+            "💻 OS Performance", 
+            "🎯 AWS Sizing",
+            "🗄️ FSx Comparisons"
+        ])
+        
+        with tab1:
+            render_migration_dashboard_tab(analysis, config)
+        
+        with tab2:
+            render_ai_insights_tab_enhanced(analysis, config)
+        
+        with tab3:
+            render_network_intelligence_tab(analysis, config)
+        
+        with tab4:
+            render_cost_pricing_tab(analysis, config)
+        
+        with tab5:
+            render_os_performance_tab(analysis, config)
+        
+        with tab6:
+            render_aws_sizing_tab(analysis, config)
+        
+        with tab7:
+            render_fsx_comparisons_tab(analysis, config)
+
+def render_fsx_comparisons_tab(analysis: Dict, config: Dict):
+    """Render FSx destination comparisons tab"""
+    st.subheader("🗄️ FSx Destination Storage Comparisons")
+    
+    fsx_comparisons = analysis.get('fsx_comparisons', {})
+    
+    if not fsx_comparisons:
+        st.warning("FSx comparison data not available")
+        return
+    
+    # Overview metrics
+    st.markdown("**📊 Storage Destination Overview:**")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    destinations = ['S3', 'FSx_Windows', 'FSx_Lustre']
+    
+    for i, dest in enumerate(destinations):
+        with [col1, col2, col3][i]:
+            comparison = fsx_comparisons.get(dest, {})
+            
+            st.metric(
+                f"🗄️ {dest.replace('_', ' ')}",
+                comparison.get('performance_rating', 'Unknown'),
+                delta=f"${comparison.get('estimated_monthly_storage_cost', 0):,.0f}/mo"
+            )
+    
+    # Detailed comparison table
+    st.markdown("**📋 Detailed Comparison Analysis:**")
+    
+    comparison_data = []
+    for dest_type, comparison in fsx_comparisons.items():
+        comparison_data.append({
+            'Storage Type': dest_type.replace('_', ' '),
+            'Migration Time (hrs)': f"{comparison.get('estimated_migration_time_hours', 0):.1f}",
+            'Throughput (Mbps)': f"{comparison.get('migration_throughput_mbps', 0):,.0f}",
+            'Monthly Cost': f"${comparison.get('estimated_monthly_storage_cost', 0):,.0f}",
+            'Performance': comparison.get('performance_rating', 'Unknown'),
+            'Cost Rating': comparison.get('cost_rating', 'Unknown'),
+            'Complexity': comparison.get('complexity_rating', 'Unknown')
+        })
+    
+    df_comparison = pd.DataFrame(comparison_data)
+    st.dataframe(df_comparison, use_container_width=True)
+    
+    # Detailed analysis for each destination
+    for dest_type, comparison in fsx_comparisons.items():
+        with st.expander(f"📂 {dest_type.replace('_', ' ')} Detailed Analysis", expanded=(dest_type == 'S3')):
+            
+            detail_col1, detail_col2 = st.columns(2)
+            
+            with detail_col1:
+                st.markdown(f"**{dest_type.replace('_', ' ')} Configuration:**")
+                st.write(f"**Storage Type:** {comparison.get('destination_type', 'Unknown')}")
+                st.write(f"**Migration Time:** {comparison.get('estimated_migration_time_hours', 0):.1f} hours")
+                st.write(f"**Throughput:** {comparison.get('migration_throughput_mbps', 0):,.0f} Mbps")
+                st.write(f"**Monthly Cost:** ${comparison.get('estimated_monthly_storage_cost', 0):,.0f}")
+                
+                # Agent configuration
+                agent_config = comparison.get('agent_configuration', {})
+                st.write(f"**Agents:** {agent_config.get('number_of_agents', 1)}")
+                st.write(f"**Agent Cost:** ${agent_config.get('total_monthly_cost', 0):,.0f}/month")
+                st.write(f"**Performance Multiplier:** {agent_config.get('storage_performance_multiplier', 1.0):.1f}x")
+            
+            with detail_col2:
+                st.markdown(f"**Recommendations for {dest_type.replace('_', ' ')}:**")
+                recommendations = comparison.get('recommendations', [])
+                for rec in recommendations[:4]:
+                    st.write(f"• {rec}")
+                
+                # Network performance details
+                network_perf = comparison.get('network_performance', {})
+                if network_perf:
+                    st.write(f"**Network Quality:** {network_perf.get('ai_enhanced_quality_score', 0):.1f}/100")
+                    st.write(f"**Latency:** {network_perf.get('total_latency_ms', 0):.1f} ms")
+                    st.write(f"**Reliability:** {network_perf.get('total_reliability', 0)*100:.3f}%")
 
 if __name__ == "__main__":
     import asyncio
