@@ -162,6 +162,55 @@ st.markdown("""
         border: 1px solid #e5e7eb;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+
+    .network-node {
+        background: #3b82f6;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin: 4px;
+        display: inline-block;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .network-connection {
+        border-top: 2px solid #6b7280;
+        margin: 8px 0;
+        position: relative;
+    }
+
+    .connection-label {
+        background: white;
+        padding: 2px 8px;
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.75rem;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+        border-radius: 3px;
+    }
+
+    .datacenter-zone {
+        border: 2px dashed #9ca3af;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem;
+        background: rgba(156, 163, 175, 0.05);
+    }
+
+    .agent-placement {
+        background: #10b981;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 4px;
+        margin: 4px;
+        display: inline-block;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -4224,10 +4273,440 @@ def run_agent_optimization_sync(optimizer, config: Dict, analysis: Dict) -> Dict
             'scaling_scenarios': {},
             'optimization_summary': {'optimization_available': False, 'error': str(e)}
         }
-# Add this to the end of your existing code to complete the Streamlit application
+
+# Enhanced visualization functions
+
+def create_network_flow_diagram(network_perf: Dict) -> go.Figure:
+    """Create enhanced network flow diagram with visual improvements"""
+    
+    # Extract network segments
+    segments = network_perf.get('segments', [])
+    path_name = network_perf.get('path_name', 'Unknown Path')
+    
+    # Create nodes and edges
+    nodes = []
+    edges = []
+    node_positions = []
+    
+    # Starting position
+    x_pos = 0
+    y_pos = 0
+    
+    for i, segment in enumerate(segments):
+        # Source node
+        if i == 0:
+            nodes.append({
+                'name': segment['name'].split(' to ')[0],
+                'type': 'source',
+                'x': x_pos,
+                'y': y_pos
+            })
+        
+        # Target node
+        x_pos += 200
+        target_name = segment['name'].split(' to ')[1] if ' to ' in segment['name'] else f"Node {i+1}"
+        nodes.append({
+            'name': target_name,
+            'type': 'intermediate' if i < len(segments) - 1 else 'destination',
+            'x': x_pos,
+            'y': y_pos
+        })
+        
+        # Edge
+        edges.append({
+            'source': i,
+            'target': i + 1,
+            'bandwidth': segment['effective_bandwidth_mbps'],
+            'latency': segment['effective_latency_ms'],
+            'reliability': segment['reliability'],
+            'connection_type': segment['connection_type']
+        })
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add edges first (so they appear behind nodes)
+    for i, edge in enumerate(edges):
+        source_node = nodes[edge['source']]
+        target_node = nodes[edge['target']]
+        
+        # Line thickness based on bandwidth
+        line_width = max(2, min(10, edge['bandwidth'] / 1000))
+        
+        # Color based on connection type
+        color_map = {
+            'internal_lan': '#10b981',
+            'private_line': '#3b82f6',
+            'direct_connect': '#f59e0b',
+            'smb_share': '#ef4444',
+            'nfs_share': '#8b5cf6'
+        }
+        color = color_map.get(edge['connection_type'], '#6b7280')
+        
+        fig.add_trace(go.Scatter(
+            x=[source_node['x'], target_node['x']],
+            y=[source_node['y'], target_node['y']],
+            mode='lines',
+            line=dict(width=line_width, color=color),
+            showlegend=False,
+            hovertemplate=f"<b>{edge['connection_type'].replace('_', ' ').title()}</b><br>" +
+                         f"Bandwidth: {edge['bandwidth']:,.0f} Mbps<br>" +
+                         f"Latency: {edge['latency']:.1f} ms<br>" +
+                         f"Reliability: {edge['reliability']*100:.2f}%<extra></extra>"
+        ))
+        
+        # Add edge labels
+        mid_x = (source_node['x'] + target_node['x']) / 2
+        mid_y = (source_node['y'] + target_node['y']) / 2 + 20
+        
+        fig.add_trace(go.Scatter(
+            x=[mid_x],
+            y=[mid_y],
+            mode='text',
+            text=[f"{edge['bandwidth']:,.0f} Mbps<br>{edge['latency']:.1f} ms"],
+            textposition='middle center',
+            textfont=dict(size=10, color='black'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Add nodes
+    for i, node in enumerate(nodes):
+        # Node color based on type
+        if node['type'] == 'source':
+            color = '#3b82f6'
+            symbol = 'square'
+        elif node['type'] == 'destination':
+            color = '#10b981'
+            symbol = 'diamond'
+        else:
+            color = '#f59e0b'
+            symbol = 'circle'
+        
+        fig.add_trace(go.Scatter(
+            x=[node['x']],
+            y=[node['y']],
+            mode='markers+text',
+            marker=dict(size=30, color=color, symbol=symbol, line=dict(width=2, color='white')),
+            text=[node['name']],
+            textposition='bottom center',
+            textfont=dict(size=12, color='black'),
+            showlegend=False,
+            hovertemplate=f"<b>{node['name']}</b><br>Type: {node['type'].title()}<extra></extra>"
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title=f"Network Flow Diagram: {path_name}",
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=300,
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
+    
+    return fig
+
+def create_agent_datacenter_diagram(agent_analysis: Dict, config: Dict) -> go.Figure:
+    """Create enhanced datacenter diagram showing agent placement"""
+    
+    num_agents = agent_analysis.get('number_of_agents', 1)
+    agent_size = agent_analysis.get('agent_size', 'medium')
+    migration_method = config.get('migration_method', 'direct_replication')
+    destination_storage = config.get('destination_storage_type', 'S3')
+    environment = config.get('environment', 'non-production')
+    
+    fig = go.Figure()
+    
+    # Datacenter zones based on environment
+    if environment == 'production':
+        # Production: San Antonio → San Jose → AWS
+        zones = [
+            {'name': 'San Antonio DC', 'x': 0, 'width': 300, 'y': 0, 'height': 200, 'color': '#fef3c7'},
+            {'name': 'San Jose DC', 'x': 350, 'width': 300, 'y': 0, 'height': 200, 'color': '#dbeafe'},
+            {'name': 'AWS US-West-2', 'x': 700, 'width': 300, 'y': 0, 'height': 200, 'color': '#dcfce7'}
+        ]
+    else:
+        # Non-production: San Jose → AWS
+        zones = [
+            {'name': 'San Jose DC', 'x': 0, 'width': 400, 'y': 0, 'height': 200, 'color': '#dbeafe'},
+            {'name': 'AWS US-West-2', 'x': 450, 'width': 400, 'y': 0, 'height': 200, 'color': '#dcfce7'}
+        ]
+    
+    # Draw datacenter zones
+    for zone in zones:
+        fig.add_shape(
+            type="rect",
+            x0=zone['x'], y0=zone['y'],
+            x1=zone['x'] + zone['width'], y1=zone['y'] + zone['height'],
+            fillcolor=zone['color'],
+            line=dict(color='black', width=2),
+            opacity=0.3
+        )
+        
+        # Zone labels
+        fig.add_trace(go.Scatter(
+            x=[zone['x'] + zone['width']/2],
+            y=[zone['y'] + zone['height'] - 20],
+            mode='text',
+            text=[zone['name']],
+            textfont=dict(size=14, color='black'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Source systems
+    if environment == 'production':
+        # Database server in San Antonio
+        fig.add_trace(go.Scatter(
+            x=[150], y=[100],
+            mode='markers+text',
+            marker=dict(size=40, color='#ef4444', symbol='square'),
+            text=['Database<br>Server'],
+            textposition='bottom center',
+            name='Source Database',
+            hovertemplate='Source Database Server<br>San Antonio DC<extra></extra>'
+        ))
+        
+        # Storage in San Antonio
+        storage_x = 50 if migration_method == 'backup_restore' else 150
+        storage_y = 50 if migration_method == 'backup_restore' else 150
+        if migration_method == 'backup_restore':
+            backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+            storage_name = 'Windows Share' if backup_storage_type == 'windows_share' else 'NAS Drive'
+            
+            fig.add_trace(go.Scatter(
+                x=[storage_x], y=[storage_y],
+                mode='markers+text',
+                marker=dict(size=30, color='#8b5cf6', symbol='circle'),
+                text=[storage_name],
+                textposition='bottom center',
+                name='Backup Storage',
+                hovertemplate=f'{storage_name}<br>San Antonio DC<extra></extra>'
+            ))
+    
+    else:
+        # Non-production: everything in San Jose
+        fig.add_trace(go.Scatter(
+            x=[200], y=[100],
+            mode='markers+text',
+            marker=dict(size=40, color='#ef4444', symbol='square'),
+            text=['Database<br>Server'],
+            textposition='bottom center',
+            name='Source Database',
+            hovertemplate='Source Database Server<br>San Jose DC<extra></extra>'
+        ))
+        
+        if migration_method == 'backup_restore':
+            backup_storage_type = config.get('backup_storage_type', 'nas_drive')
+            storage_name = 'Windows Share' if backup_storage_type == 'windows_share' else 'NAS Drive'
+            
+            fig.add_trace(go.Scatter(
+                x=[100], y=[50],
+                mode='markers+text',
+                marker=dict(size=30, color='#8b5cf6', symbol='circle'),
+                text=[storage_name],
+                textposition='bottom center',
+                name='Backup Storage',
+                hovertemplate=f'{storage_name}<br>San Jose DC<extra></extra>'
+            ))
+    
+    # Migration agents placement
+    if environment == 'production':
+        agent_zone_x = 350  # San Jose zone
+        aws_zone_x = 700
+    else:
+        agent_zone_x = 0   # San Jose zone
+        aws_zone_x = 450
+    
+    # Calculate agent positions
+    agents_per_row = min(4, num_agents)
+    rows = (num_agents + agents_per_row - 1) // agents_per_row
+    
+    agent_positions = []
+    for i in range(num_agents):
+        row = i // agents_per_row
+        col = i % agents_per_row
+        
+        x = agent_zone_x + 50 + (col * 60)
+        y = 50 + (row * 40)
+        agent_positions.append((x, y))
+    
+    # Draw migration agents
+    agent_colors = {'small': '#10b981', 'medium': '#3b82f6', 'large': '#f59e0b', 'xlarge': '#ef4444', 'xxlarge': '#8b5cf6'}
+    agent_color = agent_colors.get(agent_size, '#6b7280')
+    
+    for i, (x, y) in enumerate(agent_positions):
+        fig.add_trace(go.Scatter(
+            x=[x], y=[y],
+            mode='markers+text',
+            marker=dict(size=25, color=agent_color, symbol='diamond'),
+            text=[f'Agent<br>{i+1}'],
+            textposition='bottom center',
+            name=f'Migration Agent {i+1}' if i == 0 else None,  # Only show legend for first agent
+            showlegend=i == 0,
+            hovertemplate=f'Migration Agent {i+1}<br>Size: {agent_size}<br>Type: {agent_analysis.get("primary_tool", "Unknown").upper()}<extra></extra>'
+        ))
+    
+    # Destination storage in AWS
+    storage_icons = {
+        'S3': {'symbol': 'circle', 'color': '#f59e0b'},
+        'FSx_Windows': {'symbol': 'square', 'color': '#3b82f6'},
+        'FSx_Lustre': {'symbol': 'diamond', 'color': '#10b981'}
+    }
+    
+    storage_config = storage_icons.get(destination_storage, storage_icons['S3'])
+    
+    fig.add_trace(go.Scatter(
+        x=[aws_zone_x + 200], y=[100],
+        mode='markers+text',
+        marker=dict(size=40, color=storage_config['color'], symbol=storage_config['symbol']),
+        text=[f'{destination_storage}<br>Storage'],
+        textposition='bottom center',
+        name='Destination Storage',
+        hovertemplate=f'{destination_storage} Storage<br>AWS US-West-2<extra></extra>'
+    ))
+    
+    # Add connection lines
+    # From source to agents
+    for x, y in agent_positions:
+        if environment == 'production':
+            source_x, source_y = 150, 100  # San Antonio DB
+        else:
+            source_x, source_y = 200, 100  # San Jose DB
+        
+        fig.add_trace(go.Scatter(
+            x=[source_x, x],
+            y=[source_y, y],
+            mode='lines',
+            line=dict(width=2, color='#6b7280', dash='dot'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # From agents to destination
+    for x, y in agent_positions:
+        dest_x = aws_zone_x + 200
+        dest_y = 100
+        
+        fig.add_trace(go.Scatter(
+            x=[x, dest_x],
+            y=[y, dest_y],
+            mode='lines',
+            line=dict(width=3, color=agent_color),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title=f"Migration Agent Datacenter Placement<br><sub>{num_agents}x {agent_size} {agent_analysis.get('primary_tool', 'Migration').upper()} agents → {destination_storage}</sub>",
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-50, 1100]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-20, 250]),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        margin=dict(l=20, r=20, t=80, b=20),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig
+
+def create_aws_services_table(services_breakdown: List[Dict]) -> pd.DataFrame:
+    """Create comprehensive AWS services table with enhanced details"""
+    
+    if not services_breakdown:
+        return pd.DataFrame()
+    
+    # Convert to DataFrame with better formatting
+    df_data = []
+    
+    for service in services_breakdown:
+        df_data.append({
+            'Service Category': service.get('service_category', 'Unknown'),
+            'AWS Service': service.get('service_name', 'Unknown'),
+            'Instance/Resource Type': service.get('instance_type', 'N/A'),
+            'Monthly Cost ($)': f"${service.get('monthly_cost', 0):,.2f}",
+            'Hourly Cost ($)': f"${service.get('cost_per_hour', 0):.4f}" if service.get('cost_per_hour', 0) > 0 else 'N/A',
+            'Unit': service.get('unit', 'N/A'),
+            'Description': service.get('description', 'No description'),
+            'Cost per Month (Raw)': service.get('monthly_cost', 0)  # For sorting
+        })
+    
+    df = pd.DataFrame(df_data)
+    
+    if not df.empty:
+        # Sort by cost (descending) and then by category
+        df = df.sort_values(['Cost per Month (Raw)', 'Service Category'], ascending=[False, True])
+        # Remove the raw cost column used for sorting
+        df = df.drop('Cost per Month (Raw)', axis=1)
+    
+    return df
+
+def create_cost_breakdown_chart(comprehensive_costs: Dict) -> go.Figure:
+    """Create enhanced cost breakdown visualization"""
+    
+    monthly_breakdown = comprehensive_costs.get('monthly_breakdown', {})
+    
+    if not monthly_breakdown:
+        return go.Figure()
+    
+    # Prepare data
+    categories = []
+    costs = []
+    colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+    
+    for i, (category, cost) in enumerate(monthly_breakdown.items()):
+        if cost > 0:
+            categories.append(category.replace('_', ' ').title())
+            costs.append(cost)
+    
+    # Create pie chart
+    fig = go.Figure(data=[
+        go.Pie(
+            labels=categories,
+            values=costs,
+            hole=0.4,
+            marker_colors=colors[:len(categories)],
+            textinfo='label+percent+value',
+            texttemplate='%{label}<br>%{percent}<br>$%{value:,.0f}',
+            hovertemplate='<b>%{label}</b><br>Cost: $%{value:,.2f}<br>Percentage: %{percent}<extra></extra>'
+        )
+    ])
+    
+    # Add total in center
+    total_cost = sum(costs)
+    fig.add_annotation(
+        text=f"Total Monthly<br><b>${total_cost:,.0f}</b>",
+        x=0.5, y=0.5,
+        font_size=16,
+        showarrow=False
+    )
+    
+    fig.update_layout(
+        title="Monthly Cost Breakdown by Service Category",
+        height=400,
+        margin=dict(l=20, r=20, t=50, b=20),
+        legend=dict(
+            orientation="v",
+            yanchor="middle",
+            y=0.5,
+            xanchor="left",
+            x=1.01
+        )
+    )
+    
+    return fig
 
 # ================================================================================================
-# STREAMLIT APPLICATION UI
+# STREAMLIT APPLICATION UI WITH ENHANCED VISUALIZATIONS
 # ================================================================================================
 
 def main():
@@ -4571,10 +5050,10 @@ def main():
         # Main results tabs
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "📊 Performance Analysis", 
+            "🌐 Network Intelligence", 
             "🤖 Agent Configuration", 
             "💰 Cost Analysis", 
             "🎯 AWS Sizing", 
-            "🚀 Migration Strategy",
             "⚙️ Agent Optimization"
         ])
         
@@ -4582,16 +5061,16 @@ def main():
             display_performance_analysis(results)
         
         with tab2:
-            display_agent_configuration(results)
+            display_enhanced_network_intelligence(results)
         
         with tab3:
-            display_cost_analysis(results)
+            display_agent_configuration(results)
         
         with tab4:
-            display_aws_sizing(results)
+            display_enhanced_cost_analysis(results)
         
         with tab5:
-            display_migration_strategy(results)
+            display_aws_sizing(results)
         
         with tab6:
             display_agent_optimization(results, st.session_state.last_config)
@@ -4702,6 +5181,168 @@ def display_performance_analysis(results):
                     for opt in optimizations:
                         st.write(f"• {opt}")
 
+def display_enhanced_network_intelligence(results):
+    """Display enhanced network intelligence with visual flow diagram"""
+    st.header("🌐 Enhanced Network Intelligence")
+    
+    network_perf = results.get('network_performance', {})
+    
+    # Network overview metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        network_quality = network_perf.get('ai_enhanced_quality_score', 0)
+        st.metric("Network Quality Score", f"{network_quality:.1f}/100")
+    
+    with col2:
+        total_latency = network_perf.get('total_latency_ms', 0)
+        st.metric("End-to-End Latency", f"{total_latency:.1f} ms")
+    
+    with col3:
+        effective_bandwidth = network_perf.get('effective_bandwidth_mbps', 0)
+        st.metric("Effective Bandwidth", f"{effective_bandwidth:,.0f} Mbps")
+    
+    with col4:
+        total_reliability = network_perf.get('total_reliability', 0)
+        st.metric("Path Reliability", f"{total_reliability*100:.2f}%")
+    
+    # Enhanced Network Flow Visualization
+    st.subheader("🔄 Network Flow Visualization")
+    
+    try:
+        # Create network flow diagram
+        network_flow_fig = create_network_flow_diagram(network_perf)
+        st.plotly_chart(network_flow_fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"Could not create network flow diagram: {str(e)}")
+        
+        # Fallback text-based visualization
+        st.markdown("### Network Path Flow")
+        segments = network_perf.get('segments', [])
+        if segments:
+            for i, segment in enumerate(segments, 1):
+                st.markdown(f"""
+                <div class="network-flow-container">
+                    <div class="network-node">Segment {i}</div>
+                    <div class="network-connection">
+                        <div class="connection-label">{segment.get('effective_bandwidth_mbps', 0):,.0f} Mbps | {segment.get('effective_latency_ms', 0):.1f} ms</div>
+                    </div>
+                    <p><strong>{segment.get('name', 'Unknown')}</strong></p>
+                    <p>Type: {segment.get('connection_type', 'Unknown').replace('_', ' ').title()}</p>
+                    <p>Reliability: {segment.get('reliability', 0)*100:.2f}%</p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Network Path Details
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📋 Path Configuration")
+        
+        st.markdown(f"""
+        <div class="professional-card">
+            <h4>Migration Path Details</h4>
+            <p><strong>Path Name:</strong> {network_perf.get('path_name', 'Unknown')}</p>
+            <p><strong>Migration Type:</strong> {network_perf.get('migration_type', 'Unknown').replace('_', ' ').title()}</p>
+            <p><strong>Environment:</strong> {network_perf.get('environment', 'Unknown').title()}</p>
+            <p><strong>OS Type:</strong> {network_perf.get('os_type', 'Unknown').title()}</p>
+            <p><strong>Storage Type:</strong> {network_perf.get('storage_type', 'Unknown').replace('_', ' ').title()}</p>
+            <p><strong>Destination:</strong> {network_perf.get('destination_storage', 'Unknown')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Performance metrics
+        st.markdown(f"""
+        <div class="professional-card">
+            <h4>Performance Metrics</h4>
+            <p><strong>Base Quality Score:</strong> {network_perf.get('network_quality_score', 0):.1f}/100</p>
+            <p><strong>AI Enhanced Score:</strong> {network_perf.get('ai_enhanced_quality_score', 0):.1f}/100</p>
+            <p><strong>Optimization Potential:</strong> {network_perf.get('ai_optimization_potential', 0):.1f}%</p>
+            <p><strong>Storage Bonus:</strong> +{network_perf.get('storage_performance_bonus', 0):.0f} points</p>
+            <p><strong>Cost Factor:</strong> {network_perf.get('total_cost_factor', 0):.1f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.subheader("🎯 AI Insights & Recommendations")
+        
+        ai_insights = network_perf.get('ai_insights', {})
+        if ai_insights:
+            
+            # Performance bottlenecks
+            bottlenecks = ai_insights.get('performance_bottlenecks', [])
+            if bottlenecks:
+                st.markdown("**🚨 Performance Bottlenecks:**")
+                for bottleneck in bottlenecks:
+                    st.markdown(f"• {bottleneck}")
+            
+            # Optimization opportunities
+            optimizations = ai_insights.get('optimization_opportunities', [])
+            if optimizations:
+                st.markdown("**⚡ Optimization Opportunities:**")
+                for opt in optimizations:
+                    st.markdown(f"• {opt}")
+            
+            # Risk factors
+            risks = ai_insights.get('risk_factors', [])
+            if risks:
+                st.markdown("**⚠️ Risk Factors:**")
+                for risk in risks:
+                    st.markdown(f"• {risk}")
+            
+            # Recommended improvements
+            improvements = ai_insights.get('recommended_improvements', [])
+            if improvements:
+                st.markdown("**🔧 Recommended Improvements:**")
+                for improvement in improvements:
+                    st.markdown(f"• {improvement}")
+        else:
+            st.info("No AI insights available for this network path.")
+    
+    # Detailed Segment Analysis
+    st.subheader("🔍 Detailed Segment Analysis")
+    
+    segments = network_perf.get('segments', [])
+    if segments:
+        # Create a table for segment details
+        segment_data = []
+        for i, segment in enumerate(segments, 1):
+            segment_data.append({
+                'Segment': f"Segment {i}",
+                'Name': segment.get('name', 'Unknown'),
+                'Type': segment.get('connection_type', 'Unknown').replace('_', ' ').title(),
+                'Base Bandwidth (Mbps)': f"{segment.get('bandwidth_mbps', 0):,.0f}",
+                'Effective Bandwidth (Mbps)': f"{segment.get('effective_bandwidth_mbps', 0):,.0f}",
+                'Base Latency (ms)': f"{segment.get('latency_ms', 0):.1f}",
+                'Effective Latency (ms)': f"{segment.get('effective_latency_ms', 0):.1f}",
+                'Reliability (%)': f"{segment.get('reliability', 0)*100:.2f}%",
+                'Congestion Factor': f"{segment.get('congestion_factor', 1.0):.2f}",
+                'AI Optimization Potential (%)': f"{segment.get('ai_optimization_potential', 0)*100:.1f}%"
+            })
+        
+        import pandas as pd
+        segment_df = pd.DataFrame(segment_data)
+        st.dataframe(segment_df, use_container_width=True)
+    
+    # Network optimization recommendations
+    st.subheader("💡 Network Optimization Strategy")
+    
+    optimization_potential = network_perf.get('ai_optimization_potential', 0)
+    if optimization_potential > 10:
+        st.warning(f"🔧 High optimization potential detected: {optimization_potential:.1f}%")
+        st.markdown("**Priority Actions:**")
+        st.markdown("• Review network configuration for performance improvements")
+        st.markdown("• Consider upgrading connection types with high latency")
+        st.markdown("• Implement AI-recommended optimizations")
+    elif optimization_potential > 5:
+        st.info(f"🛠️ Moderate optimization potential: {optimization_potential:.1f}%")
+        st.markdown("**Suggested Actions:**")
+        st.markdown("• Monitor network performance during migration")
+        st.markdown("• Consider minor configuration adjustments")
+    else:
+        st.success(f"✅ Network path is well-optimized: {optimization_potential:.1f}% optimization potential")
+        st.markdown("• Current configuration appears optimal for migration")
+
 def display_agent_configuration(results):
     """Display agent configuration analysis"""
     st.header("🤖 Agent Configuration Analysis")
@@ -4785,8 +5426,8 @@ def display_agent_configuration(results):
             </div>
             """, unsafe_allow_html=True)
 
-def display_cost_analysis(results):
-    """Display comprehensive cost analysis"""
+def display_enhanced_cost_analysis(results):
+    """Display enhanced comprehensive cost analysis with tabular AWS services view"""
     st.header("💰 Comprehensive Cost Analysis")
     
     cost_analysis = results.get('cost_analysis', {})
@@ -4811,79 +5452,129 @@ def display_cost_analysis(results):
         three_year = comprehensive_costs.get('three_year_total', total_monthly * 36 + total_one_time)
         st.metric("3-Year Total", f"${three_year:,.0f}")
     
-    # Detailed cost breakdown
+    # Enhanced Cost Visualization
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📊 Monthly Cost Breakdown")
+        st.subheader("📊 Cost Distribution")
         
-        monthly_breakdown = comprehensive_costs.get('monthly_breakdown', {})
-        
-        # Create cost breakdown chart
-        cost_data = []
-        cost_labels = []
-        
-        for category, amount in monthly_breakdown.items():
-            if amount > 0:
-                cost_data.append(amount)
-                cost_labels.append(category.replace('_', ' ').title())
-        
-        if cost_data:
-            import plotly.express as px
-            import pandas as pd
+        try:
+            # Create enhanced cost breakdown chart
+            cost_chart = create_cost_breakdown_chart(comprehensive_costs)
+            st.plotly_chart(cost_chart, use_container_width=True)
+        except Exception as e:
+            st.error(f"Could not create cost chart: {str(e)}")
             
-            df = pd.DataFrame({
-                'Category': cost_labels,
-                'Cost': cost_data
-            })
-            
-            fig = px.pie(df, values='Cost', names='Category', 
-                        title="Monthly Cost Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Cost details
-        for category, amount in monthly_breakdown.items():
-            if amount > 0:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <strong>{category.replace('_', ' ').title()}:</strong> ${amount:,.2f}/month
-                </div>
-                """, unsafe_allow_html=True)
+            # Fallback: simple metrics display
+            monthly_breakdown = comprehensive_costs.get('monthly_breakdown', {})
+            for category, amount in monthly_breakdown.items():
+                if amount > 0:
+                    st.metric(category.replace('_', ' ').title(), f"${amount:,.2f}/month")
     
     with col2:
-        st.subheader("🔄 One-time Cost Breakdown")
+        st.subheader("🔄 One-time vs Recurring Costs")
         
         one_time_breakdown = comprehensive_costs.get('one_time_breakdown', {})
+        monthly_breakdown = comprehensive_costs.get('monthly_breakdown', {})
         
+        # One-time costs
+        st.markdown("**One-time Costs:**")
         for category, amount in one_time_breakdown.items():
             if amount > 0:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <strong>{category.replace('_', ' ').title()}:</strong> ${amount:,.2f}
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"• {category.replace('_', ' ').title()}: ${amount:,.2f}")
         
-        # Cost optimization recommendations
-        st.subheader("💡 Cost Optimization Recommendations")
+        # Monthly recurring costs
+        st.markdown("**Monthly Recurring Costs:**")
+        for category, amount in monthly_breakdown.items():
+            if amount > 0:
+                st.markdown(f"• {category.replace('_', ' ').title()}: ${amount:,.2f}")
+    
+    # Comprehensive AWS Services Table
+    st.subheader("🏗️ Detailed AWS Services Breakdown")
+    
+    services_breakdown = comprehensive_costs.get('detailed_service_breakdown', [])
+    if services_breakdown:
+        try:
+            # Create comprehensive services table
+            services_df = create_aws_services_table(services_breakdown)
+            
+            if not services_df.empty:
+                st.markdown("**All AWS Services and Resources:**")
+                st.dataframe(services_df, use_container_width=True, height=400)
+                
+                # Service category summary
+                st.subheader("📋 Service Category Summary")
+                
+                # Group by category for summary
+                category_costs = {}
+                for service in services_breakdown:
+                    category = service.get('service_category', 'Unknown')
+                    cost = service.get('monthly_cost', 0)
+                    if category not in category_costs:
+                        category_costs[category] = 0
+                    category_costs[category] += cost
+                
+                # Display category summary
+                col1, col2, col3 = st.columns(3)
+                for i, (category, cost) in enumerate(sorted(category_costs.items(), key=lambda x: x[1], reverse=True)):
+                    with [col1, col2, col3][i % 3]:
+                        st.metric(category, f"${cost:,.2f}/month")
+                
+                # Export option
+                st.download_button(
+                    label="📥 Download Services Breakdown (CSV)",
+                    data=services_df.to_csv(index=False),
+                    file_name="aws_services_breakdown.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("No detailed service breakdown available.")
+        except Exception as e:
+            st.error(f"Could not create services table: {str(e)}")
+            
+            # Fallback: show raw breakdown
+            st.write("**Service Breakdown (Raw Data):**")
+            for service in services_breakdown[:10]:  # Show first 10
+                st.write(f"• {service.get('service_name', 'Unknown')}: ${service.get('monthly_cost', 0):,.2f}/month")
+    else:
+        st.info("Detailed service breakdown not available.")
+    
+    # Cost Optimization Recommendations
+    st.subheader("💡 Cost Optimization Recommendations")
+    
+    optimizations = comprehensive_costs.get('cost_optimization_recommendations', [])
+    if optimizations:
+        for i, opt in enumerate(optimizations, 1):
+            st.markdown(f"{i}. {opt}")
+    else:
+        st.info("No specific cost optimization recommendations available.")
+    
+    # Cost Comparison and ROI Analysis
+    st.subheader("📈 Cost Analysis & ROI")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Investment Timeline:**")
+        st.markdown(f"• **Monthly Operating Cost:** ${total_monthly:,.0f}")
+        st.markdown(f"• **Year 1 Total:** ${total_monthly * 12 + total_one_time:,.0f}")
+        st.markdown(f"• **Year 2 Total:** ${total_monthly * 24 + total_one_time:,.0f}")
+        st.markdown(f"• **Year 3 Total:** ${total_monthly * 36 + total_one_time:,.0f}")
+    
+    with col2:
+        # Calculate potential savings and ROI
+        estimated_savings = cost_analysis.get('estimated_monthly_savings', 500)
+        roi_months = cost_analysis.get('roi_months', 12)
         
-        optimizations = comprehensive_costs.get('cost_optimization_recommendations', [])
-        if optimizations:
-            for opt in optimizations:
-                st.write(f"• {opt}")
+        st.markdown("**ROI Analysis:**")
+        st.markdown(f"• **Estimated Monthly Savings:** ${estimated_savings:,.0f}")
+        st.markdown(f"• **Break-even Period:** {roi_months} months")
+        st.markdown(f"• **3-Year Net Savings:** ${estimated_savings * 36 - total_one_time:,.0f}")
         
-        # Service breakdown
-        st.subheader("🏗️ Detailed Service Breakdown")
-        
-        service_breakdown = comprehensive_costs.get('detailed_service_breakdown', [])
-        if service_breakdown:
-            for service in service_breakdown[:5]:  # Show top 5 services
-                st.markdown(f"""
-                <div class="aws-service-table">
-                    <strong>{service.get('service_name', 'Unknown')}</strong><br>
-                    <small>{service.get('description', '')}</small><br>
-                    <strong>${service.get('monthly_cost', 0):,.2f}/month</strong>
-                </div>
-                """, unsafe_allow_html=True)
+        if estimated_savings * 36 > total_one_time:
+            st.success("✅ Positive ROI projected over 3 years")
+        else:
+            st.warning("⚠️ Extended payback period - review cost optimization opportunities")
 
 def display_aws_sizing(results):
     """Display AWS sizing recommendations"""
@@ -5008,142 +5699,8 @@ def display_aws_sizing(results):
         with col4:
             st.metric("Read Split %", f"{reader_writer.get('recommended_read_split', 0):.0f}%")
 
-def display_migration_strategy(results):
-    """Display migration strategy and timeline"""
-    st.header("🚀 Migration Strategy & Timeline")
-    
-    migration_time = results.get('estimated_migration_time_hours', 0)
-    migration_type = results.get('migration_type', 'Unknown')
-    primary_tool = results.get('primary_tool', 'Unknown')
-    ai_assessment = results.get('ai_overall_assessment', {})
-    
-    # Strategy overview
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Migration Type", migration_type.replace('_', ' ').title())
-    
-    with col2:
-        st.metric("Primary Tool", primary_tool.upper())
-    
-    with col3:
-        st.metric("Estimated Time", f"{migration_time:.1f} hours")
-    
-    with col4:
-        readiness_score = ai_assessment.get('migration_readiness_score', 0)
-        st.metric("Readiness Score", f"{readiness_score}/100")
-    
-    # Migration details
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📋 Migration Assessment")
-        
-        success_prob = ai_assessment.get('success_probability', 0)
-        risk_level = ai_assessment.get('risk_level', 'Unknown')
-        
-        st.markdown(f"""
-        <div class="professional-card">
-            <h4>Success Metrics</h4>
-            <p><strong>Success Probability:</strong> {success_prob}%</p>
-            <p><strong>Risk Level:</strong> {risk_level}</p>
-            <p><strong>Migration Readiness:</strong> {readiness_score}/100</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Readiness factors
-        readiness_factors = ai_assessment.get('readiness_factors', [])
-        if readiness_factors:
-            st.markdown("**Readiness Factors:**")
-            for factor in readiness_factors:
-                st.write(f"✅ {factor}")
-        
-        # Next steps
-        next_steps = ai_assessment.get('recommended_next_steps', [])
-        if next_steps:
-            st.markdown("**Recommended Next Steps:**")
-            for step in next_steps:
-                st.write(f"📋 {step}")
-    
-    with col2:
-        st.subheader("⏱️ Timeline Recommendation")
-        
-        timeline = ai_assessment.get('timeline_recommendation', {})
-        
-        st.markdown(f"""
-        <div class="professional-card">
-            <h4>Project Timeline</h4>
-            <p><strong>Planning Phase:</strong> {timeline.get('planning_phase_weeks', 2)} weeks</p>
-            <p><strong>Testing Phase:</strong> {timeline.get('testing_phase_weeks', 3)} weeks</p>
-            <p><strong>Migration Window:</strong> {timeline.get('migration_window_hours', migration_time):.1f} hours</p>
-            <p><strong>Total Project:</strong> {timeline.get('total_project_weeks', 6)} weeks</p>
-            <p><strong>Approach:</strong> {timeline.get('recommended_approach', 'staged').title()}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Agent scaling impact
-        agent_impact = ai_assessment.get('agent_scaling_impact', {})
-        if agent_impact:
-            st.markdown(f"""
-            <div class="professional-card">
-                <h4>Agent Scaling Impact</h4>
-                <p><strong>Scaling Efficiency:</strong> {agent_impact.get('scaling_efficiency', 0):.1f}%</p>
-                <p><strong>Current Agents:</strong> {agent_impact.get('current_agents', 1)}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Storage impact
-        storage_impact = ai_assessment.get('destination_storage_impact', {})
-        backup_impact = ai_assessment.get('backup_storage_impact', {})
-        
-        if storage_impact:
-            storage_type = storage_impact.get('storage_type', 'Unknown')
-            storage_multiplier = storage_impact.get('storage_performance_multiplier', 1.0)
-            
-            st.markdown(f"""
-            <div class="professional-card">
-                <h4>Storage Impact</h4>
-                <p><strong>Destination:</strong> {storage_type}</p>
-                <p><strong>Performance Multiplier:</strong> {storage_multiplier:.2f}x</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        if backup_impact.get('migration_method') == 'backup_restore':
-            backup_storage = backup_impact.get('backup_storage_type', 'Unknown')
-            backup_efficiency = backup_impact.get('backup_efficiency', 1.0)
-            
-            st.markdown(f"""
-            <div class="professional-card">
-                <h4>Backup Storage Impact</h4>
-                <p><strong>Storage Type:</strong> {backup_storage.replace('_', ' ').title()}</p>
-                <p><strong>Efficiency:</strong> {backup_efficiency*100:.1f}%</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # FSx destination comparisons
-    fsx_comparisons = results.get('fsx_comparisons', {})
-    if fsx_comparisons:
-        st.subheader("📊 Storage Destination Comparison")
-        
-        comparison_data = []
-        for dest_type, comparison in fsx_comparisons.items():
-            comparison_data.append({
-                'Storage Type': dest_type,
-                'Migration Time (hrs)': f"{comparison.get('estimated_migration_time_hours', 0):.1f}",
-                'Throughput (Mbps)': f"{comparison.get('migration_throughput_mbps', 0):,.0f}",
-                'Monthly Cost': f"${comparison.get('estimated_monthly_storage_cost', 0):,.0f}",
-                'Performance': comparison.get('performance_rating', 'Good'),
-                'Cost Rating': comparison.get('cost_rating', 'Good'),
-                'Complexity': comparison.get('complexity_rating', 'Low')
-            })
-        
-        if comparison_data:
-            import pandas as pd
-            df = pd.DataFrame(comparison_data)
-            st.dataframe(df, use_container_width=True)
-
 def display_agent_optimization(results, config):
-    """Display agent optimization analysis"""
+    """Display enhanced agent optimization analysis with datacenter diagram"""
     st.header("⚙️ Agent Optimization Analysis")
     
     # Check if optimization has been run
@@ -5170,6 +5727,59 @@ def display_agent_optimization(results, config):
             return
     
     opt_results = st.session_state.agent_optimization_results
+    
+    # Enhanced Datacenter Visualization
+    st.subheader("🏢 Agent Datacenter Placement Diagram")
+    
+    try:
+        # Create datacenter diagram
+        agent_analysis = results.get('agent_analysis', {})
+        datacenter_fig = create_agent_datacenter_diagram(agent_analysis, config)
+        st.plotly_chart(datacenter_fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"Could not create datacenter diagram: {str(e)}")
+        
+        # Fallback: text-based diagram
+        st.markdown("### Agent Placement Overview")
+        agent_analysis = results.get('agent_analysis', {})
+        num_agents = agent_analysis.get('number_of_agents', 1)
+        agent_size = agent_analysis.get('agent_size', 'medium')
+        destination_storage = config.get('destination_storage_type', 'S3')
+        environment = config.get('environment', 'non-production')
+        
+        if environment == 'production':
+            st.markdown("""
+            <div class="datacenter-diagram">
+                <div class="datacenter-zone">
+                    <h4>📍 San Antonio DC</h4>
+                    <div class="network-node">Database Server</div>
+                    <div class="network-node">Backup Storage</div>
+                </div>
+                <div class="datacenter-zone">
+                    <h4>📍 San Jose DC</h4>
+                    """ + "".join([f'<div class="agent-placement">Agent {i+1} ({agent_size})</div>' for i in range(num_agents)]) + f"""
+                </div>
+                <div class="datacenter-zone">
+                    <h4>☁️ AWS US-West-2</h4>
+                    <div class="network-node">{destination_storage} Storage</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="datacenter-diagram">
+                <div class="datacenter-zone">
+                    <h4>📍 San Jose DC</h4>
+                    <div class="network-node">Database Server</div>
+                    <div class="network-node">Backup Storage</div>
+                    """ + "".join([f'<div class="agent-placement">Agent {i+1} ({agent_size})</div>' for i in range(num_agents)]) + f"""
+                </div>
+                <div class="datacenter-zone">
+                    <h4>☁️ AWS US-West-2</h4>
+                    <div class="network-node">{destination_storage} Storage</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
     # Optimization summary
     opt_summary = opt_results.get('optimization_summary', {})
